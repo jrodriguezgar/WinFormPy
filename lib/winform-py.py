@@ -1,10 +1,17 @@
-
 # =============================================================
 # Module: winform-py.py
 # Author: Vibe coding by DatamanEdge 
-# Date: 2025-12-01
-# Version: 1.0.2
-# Description: Complete library mapping Windows Forms/(VB) syntax and objects to Tkinter.
+# Date: 2025-12-05
+# Version: 1.0.3
+# Description: 
+# WinFormPy is a complete Python library designed to
+# bridge the gap between the graphical user interface (GUI) 
+# development paradigm of Visual Basic (VB.NET / WinForms) 
+# and Python's standard toolkit, Tkinter.
+# This tool allows developers with 
+# VB experience to leverage their existing knowledge to create 
+# cross-platform desktop applications in Python, minimizing the 
+# learning curve of Tkinter's specific conventions.
 # =============================================================
 
 
@@ -35,12 +42,203 @@ except:
 # MÓDULO PRINCIPAL: winformpy.py
 # =======================================================================
 
+class SystemColors:
+    """Colores del sistema Windows Forms."""
+    Control = "#F0F0F0"  # Color de fondo de controles
+    ControlText = "#000000"  # Color de texto de controles
+    Window = "#FFFFFF"  # Color de fondo de ventanas
+    WindowText = "#000000"  # Color de texto de ventanas
+    Highlight = "#0078D7"  # Color de resaltado/selección
+    HighlightText = "#FFFFFF"  # Color de texto resaltado
+    GrayText = "#6D6D6D"  # Color de texto deshabilitado
+    ButtonFace = "#F0F0F0"  # Color de fondo de botones
+    ButtonText = "#000000"  # Color de texto de botones
+    ActiveCaption = "#0078D7"  # Color de barra de título activa
+    InactiveCaption = "#BFBFBF"  # Color de barra de título inactiva
+    ActiveBorder = "#B4B4B4"  # Color de borde activo
+    InactiveBorder = "#F4F4F4"  # Color de borde inactivo
+    AppWorkspace = "#ABABAB"  # Color de fondo de área de trabajo MDI
+    Desktop = "#000000"  # Color de fondo del escritorio
+    MenuBar = "#F0F0F0"  # Color de fondo de barra de menú
+    Menu = "#F0F0F0"  # Color de fondo de menú
+    MenuText = "#000000"  # Color de texto de menú
+    Info = "#FFFFE1"  # Color de fondo de tooltip
+    InfoText = "#000000"  # Color de texto de tooltip
+
+
+class SystemFonts:
+    """Fuentes del sistema Windows Forms."""
+    DefaultFont = ("Segoe UI", 9)  # Fuente predeterminada del sistema
+    MessageBoxFont = ("Segoe UI", 9)  # Fuente de MessageBox
+    CaptionFont = ("Segoe UI", 9)  # Fuente de barra de título
+    SmallCaptionFont = ("Segoe UI", 8)  # Fuente de barra de título pequeña
+    MenuFont = ("Segoe UI", 9)  # Fuente de menús
+    StatusFont = ("Segoe UI", 9)  # Fuente de barra de estado
+    IconTitleFont = ("Segoe UI", 9)  # Fuente de títulos de iconos
+    DialogFont = ("Segoe UI", 9)  # Fuente de diálogos
+
+
+class SystemStyles:
+    """Clase para gestionar estilos del sistema y permitir personalización global.
+    
+    Uso:
+        # Usar estilos del sistema (por defecto)
+        button = Button(form, {'UseSystemStyles': True})
+        
+        # O establecer estilos globales personalizados
+        SystemStyles.SetGlobalFont(("Arial", 10))
+        SystemStyles.SetGlobalColors(BackColor="#FFFFFF", ForeColor="#000000")
+    """
+    
+    # Configuración global (None = usar valores del sistema)
+    _global_font = None
+    _global_back_color = None
+    _global_fore_color = None
+    _use_system_styles_by_default = True
+    
+    @staticmethod
+    def SetGlobalFont(font):
+        """Establece una fuente global para todos los controles nuevos.
+        
+        Args:
+            font: Tupla (nombre_fuente, tamaño) o None para usar fuente del sistema
+        """
+        SystemStyles._global_font = font
+    
+    @staticmethod
+    def SetGlobalColors(BackColor=None, ForeColor=None):
+        """Establece colores globales para todos los controles nuevos.
+        
+        Args:
+            BackColor: Color de fondo o None para usar color del sistema
+            ForeColor: Color de texto o None para usar color del sistema
+        """
+        if BackColor is not None:
+            SystemStyles._global_back_color = BackColor
+        if ForeColor is not None:
+            SystemStyles._global_fore_color = ForeColor
+    
+    @staticmethod
+    def SetUseSystemStylesByDefault(value):
+        """Establece si usar estilos del sistema por defecto.
+        
+        Args:
+            value: True para usar estilos del sistema, False para usar None
+        """
+        SystemStyles._use_system_styles_by_default = value
+    
+    @staticmethod
+    def GetDefaultFont(control_type="Control"):
+        """Obtiene la fuente predeterminada según configuración.
+        
+        Args:
+            control_type: Tipo de control ("Control", "Menu", "Status", etc.)
+        
+        Returns:
+            Fuente a usar o None si no se debe aplicar
+        """
+        # Prioridad: global > sistema > None
+        if SystemStyles._global_font is not None:
+            return SystemStyles._global_font
+        
+        if SystemStyles._use_system_styles_by_default:
+            if control_type == "Menu":
+                return SystemFonts.MenuFont
+            elif control_type == "Status":
+                return SystemFonts.StatusFont
+            elif control_type == "Dialog":
+                return SystemFonts.DialogFont
+            else:
+                return SystemFonts.DefaultFont
+        
+        return None
+    
+    @staticmethod
+    def GetDefaultBackColor(control_type="Control"):
+        """Obtiene el color de fondo predeterminado según configuración.
+        
+        Args:
+            control_type: Tipo de control ("Control", "Window", "Button", etc.)
+        
+        Returns:
+            Color a usar o None si no se debe aplicar
+        """
+        # Prioridad: global > sistema > None
+        if SystemStyles._global_back_color is not None:
+            return SystemStyles._global_back_color
+        
+        if SystemStyles._use_system_styles_by_default:
+            if control_type == "Window":
+                return SystemColors.Window
+            elif control_type == "Button":
+                return SystemColors.ButtonFace
+            else:
+                return SystemColors.Control
+        
+        return None
+    
+    @staticmethod
+    def GetDefaultForeColor(control_type="Control"):
+        """Obtiene el color de texto predeterminado según configuración.
+        
+        Args:
+            control_type: Tipo de control ("Control", "Window", "Button", etc.)
+        
+        Returns:
+            Color a usar o None si no se debe aplicar
+        """
+        # Prioridad: global > sistema > None
+        if SystemStyles._global_fore_color is not None:
+            return SystemStyles._global_fore_color
+        
+        if SystemStyles._use_system_styles_by_default:
+            if control_type == "Window":
+                return SystemColors.WindowText
+            elif control_type == "Button":
+                return SystemColors.ButtonText
+            else:
+                return SystemColors.ControlText
+        
+        return None
+    
+    @staticmethod
+    def ApplyToDefaults(defaults, control_type="Control", use_system_styles=None):
+        """Aplica estilos del sistema a un diccionario de defaults si está habilitado.
+        
+        Args:
+            defaults: Diccionario de valores por defecto
+            control_type: Tipo de control para determinar estilos apropiados
+            use_system_styles: True/False para forzar, None para usar configuración global
+        
+        Returns:
+            Diccionario defaults modificado
+        """
+        # Determinar si aplicar estilos del sistema
+        apply = use_system_styles if use_system_styles is not None else SystemStyles._use_system_styles_by_default
+        
+        if not apply:
+            return defaults
+        
+        # Aplicar solo si el valor es None en defaults
+        if 'Font' in defaults and defaults['Font'] is None:
+            defaults['Font'] = SystemStyles.GetDefaultFont(control_type)
+        
+        if 'BackColor' in defaults and defaults['BackColor'] is None:
+            defaults['BackColor'] = SystemStyles.GetDefaultBackColor(control_type)
+        
+        if 'ForeColor' in defaults and defaults['ForeColor'] is None:
+            defaults['ForeColor'] = SystemStyles.GetDefaultForeColor(control_type)
+        
+        return defaults
+
+
 class ToolTip:
     """
     Clase para crear tooltips (información contextual al pasar el ratón).
     
     Uso - Opción 1: tooltip = ToolTip(widget); tooltip.Text = "Help text"
     Uso - Opción 2: tooltip = ToolTip(widget, {'Text': 'Help text', 'Delay': 1000, 'BgColor': 'yellow'})
+    Uso - Opción 3: tooltip = ToolTip(widget, {'UseSystemStyles': True})  # Usa colores del sistema
     """
     
     def __init__(self, widget, props=None):
@@ -49,19 +247,30 @@ class ToolTip:
         Args:
             widget: Widget de tkinter al que se asocia el tooltip
             props: Diccionario opcional con propiedades (Text, Delay, BgColor, FgColor, BorderColor, BorderWidth, Font)
+                   Use {'UseSystemStyles': True} para aplicar estilos del sistema automáticamente
         """
         defaults = {
             'Text': "",
             'Delay': 500,
-            'BgColor': "lightyellow",
-            'FgColor': "black",
+            'BgColor': None,
+            'FgColor': None,
             'BorderColor': "black",
             'BorderWidth': 1,
-            'Font': ("Segoe UI", 9)
+            'Font': None
         }
         
         if props:
+            # Extraer UseSystemStyles antes de actualizar defaults
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            # Aplicar estilos del sistema si está habilitado (usar colores de Info)
+            if use_system_styles:
+                if defaults['BgColor'] is None:
+                    defaults['BgColor'] = SystemColors.Info
+                if defaults['FgColor'] is None:
+                    defaults['FgColor'] = SystemColors.InfoText
+                if defaults['Font'] is None:
+                    defaults['Font'] = SystemFonts.DefaultFont
             # Aliases para compatibilidad
             if 'text' in props:
                 defaults['Text'] = props['text']
@@ -77,6 +286,14 @@ class ToolTip:
                 defaults['BorderWidth'] = props['borderwidth']
             if 'font' in props:
                 defaults['Font'] = props['font']
+        
+        # Aplicar valores por defecto si aún son None
+        if defaults['BgColor'] is None:
+            defaults['BgColor'] = "lightyellow"
+        if defaults['FgColor'] is None:
+            defaults['FgColor'] = "black"
+        if defaults['Font'] is None:
+            defaults['Font'] = ("Segoe UI", 9)
         
         self.widget = widget
         self.text = defaults['Text']
@@ -181,9 +398,11 @@ class ControlBase:
         # Referencia al widget contenedor (la Form o UserControl)
         self.master = master_tk_widget 
         
-        # Propiedades de posición tipo VB
-        self.Left = Left
-        self.Top = Top
+        # Propiedades de posición tipo VB (Backing fields)
+        self._left = Left
+        self._top = Top
+        self._width = None
+        self._height = None
         
         # Propiedad MousePointer (cursor del mouse)
         self.MousePointer = "arrow"
@@ -195,12 +414,19 @@ class ControlBase:
         self.BackgroundImage = None
         self.Font = None
         self.FontColor = None
+        self.ForeColor = None
         
         # AutoSize properties
-        self.AutoSize = False
+        self._autosize = False
         self.MinimumSize = None  # (width, height) or None
         self.MaximumSize = None  # (width, height) or None
         self._original_size = None  # Para AutoSizeMode.GrowOnly
+        
+        # Anchor and Dock properties
+        self._anchor = ['Top', 'Left']  # Default: Top, Left
+        self._dock = 'None'  # None, Top, Bottom, Left, Right, Fill
+        self._initial_distance = {}  # Almacena distancias iniciales a los bordes
+        self._container_size = None  # Tamaño inicial del contenedor
         
         # ToolTip
         self._tooltip_text = ""
@@ -220,14 +446,160 @@ class ControlBase:
         self.Resize = lambda: None
         self.KeyPress = lambda char: None
         self.KeyUp = lambda key: None
+
+    @property
+    def Left(self):
+        return self._left
+
+    @Left.setter
+    def Left(self, value):
+        self._left = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._place_control(self.Width, self.Height)
+
+    @property
+    def Top(self):
+        return self._top
+
+    @Top.setter
+    def Top(self, value):
+        self._top = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._place_control(self.Width, self.Height)
+
+    @property
+    def Width(self):
+        return self._width
+
+    @Width.setter
+    def Width(self, value):
+        self._width = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._place_control(self.Width, self.Height)
+
+    @property
+    def Height(self):
+        return self._height
+
+    @Height.setter
+    def Height(self, value):
+        self._height = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._place_control(self.Width, self.Height)
+
+    @property
+    def Location(self):
+        return (self._left, self._top)
+
+    @Location.setter
+    def Location(self, value):
+        if isinstance(value, (tuple, list)) and len(value) >= 2:
+            self._left = value[0]
+            self._top = value[1]
+            if hasattr(self, '_tk_widget') and self._tk_widget:
+                self._place_control(self.Width, self.Height)
+
+    @property
+    def Size(self):
+        return (self._width, self._height)
+
+    @Size.setter
+    def Size(self, value):
+        if isinstance(value, (tuple, list)) and len(value) >= 2:
+            self._width = value[0]
+            self._height = value[1]
+            if hasattr(self, '_tk_widget') and self._tk_widget:
+                self._place_control(self.Width, self.Height)
         
+    @property
+    def AutoSize(self):
+        """Obtiene o establece si el control se redimensiona automáticamente."""
+        return self._autosize
+
+    @AutoSize.setter
+    def AutoSize(self, value):
+        self._autosize = value
+        if value and hasattr(self, '_apply_autosize'):
+            self._apply_autosize()
+            # Si el control es visible, reposicionar
+            if hasattr(self, 'Visible') and self.Visible and hasattr(self, '_place_control'):
+                if hasattr(self, 'Width') and hasattr(self, 'Height'):
+                    self._place_control(self.Width, self.Height)
+
+    @property
+    def Font(self):
+        """Obtiene o establece la fuente del control."""
+        return getattr(self, '_font', None)
+
+    @Font.setter
+    def Font(self, value):
+        """Obtiene o establece la fuente del control."""
+        self._font = value
+        if self._tk_widget:
+            self._apply_visual_config()
+            if self.AutoSize:
+                self._apply_autosize()
+                # Si el control es visible, reposicionar
+                if hasattr(self, 'Visible') and self.Visible and hasattr(self, '_place_control'):
+                    if hasattr(self, 'Width') and hasattr(self, 'Height'):
+                        self._place_control(self.Width, self.Height)
+
+    @property
+    def BackColor(self):
+        """Obtiene o establece el color de fondo del control."""
+        return self._backcolor
+
+    @BackColor.setter
+    def BackColor(self, value):
+        """Establece el color de fondo del control."""
+        self._backcolor = value
+        if self._tk_widget:
+            self._apply_visual_config()
+
+    @property
+    def ForeColor(self):
+        """Obtiene o establece el color de texto del control."""
+        return self._forecolor
+
+    @ForeColor.setter
+    def ForeColor(self, value):
+        """Establece el color de texto del control."""
+        self._forecolor = value
+        if self._tk_widget:
+            self._apply_visual_config()
+
+    @property
+    def Enabled(self):
+        """Obtiene o establece si el control está habilitado."""
+        return self._enabled
+
+    @Enabled.setter
+    def Enabled(self, value):
+        """Establece si el control está habilitado."""
+        self._enabled = value
+        if self._tk_widget:
+            self._apply_visual_config()
+
+    @property
+    def BorderStyle(self):
+        """Obtiene o establece el estilo del borde del control."""
+        return self._borderstyle
+
+    @BorderStyle.setter
+    def BorderStyle(self, value):
+        """Establece el estilo del borde del control."""
+        self._borderstyle = value
+        if self._tk_widget:
+            self._apply_visual_config()
+
     def _place_control(self, width=None, height=None):
         """Usa el gestor de geometría 'place' para posicionar el control."""
         if self._tk_widget:
+            # Posicionar inicialmente
             place_args = {
                 'x': self.Left,
                 'y': self.Top,
-                'in_': self.master  # Asegurar que se posiciona relativo al contenedor actual
+                'in_': self.master
             }
             if width is not None:
                 place_args['width'] = width
@@ -236,8 +608,13 @@ class ControlBase:
                 
             self._tk_widget.place(**place_args)
             
-            # Notificar al padre si es un contenedor WinFormPy (como Panel)
-            # Esto permite que el Panel ajuste su tamaño si AutoSize=True
+            # Vincular eventos de redimensionamiento una sola vez
+            if not hasattr(self, '_anchor_dock_initialized'):
+                self._anchor_dock_initialized = True
+                # Esperar a que la ventana esté completamente renderizada
+                self.master.after(100, self._initialize_anchor_dock)
+            
+            # Notificar al padre si es un contenedor WinFormPy
             if hasattr(self.master, '_control_wrapper'):
                 parent = self.master._control_wrapper
                 if hasattr(parent, '_apply_autosize_panel') and getattr(parent, 'AutoSize', False):
@@ -245,37 +622,9 @@ class ControlBase:
             
             # Establecer el cursor
             self._tk_widget.config(cursor=self.MousePointer)
-            # Aplicar propiedades VB
-            config = {}
-            if self.BackColor is not None:
-                config['bg'] = self.BackColor
-            if self.BorderStyle is not None:
-                # Mapear BorderStyle de VB.NET a tkinter
-                relief_map = {
-                    'None': 'flat', 'Fixed3D': 'ridge', 'FixedSingle': 'solid',
-                    'flat': 'flat', 'groove': 'groove', 'raised': 'raised',
-                    'ridge': 'ridge', 'solid': 'solid', 'sunken': 'sunken'
-                }
-                config['relief'] = relief_map.get(self.BorderStyle, 'flat')
-            if self.BackgroundImage is not None:
-                config['image'] = self.BackgroundImage
-            if self.Font is not None:
-                config['font'] = self.Font
-            if self.FontColor is not None:
-                config['fg'] = self.FontColor
-            if not self.Enabled:
-                config['state'] = 'disabled'
-            if config:
-                try:
-                    self._tk_widget.config(**config)
-                except tk.TclError:
-                    # Algunos widgets no soportan todas las opciones (ej: Frame no tiene font)
-                    # Intentar aplicar opciones una por una
-                    for key, value in config.items():
-                        try:
-                            self._tk_widget.config(**{key: value})
-                        except tk.TclError:
-                            pass  # Ignorar opciones no soportadas
+            
+            # Aplicar configuración visual
+            self._apply_visual_config()
 
     def _bind_common_events(self):
         """Binds common events to the widget."""
@@ -495,6 +844,276 @@ class ControlBase:
                     self._tooltip_instance._hide_tooltip()
                     self._tooltip_instance = None
     
+    def _initialize_anchor_dock(self):
+        """Inicializa Anchor o Dock después de que el contenedor está listo."""
+        if self._dock != 'None':
+            # Aplicar Dock
+            self._apply_dock()
+            # Vincular redimensionamiento para Dock
+            self.master.bind('<Configure>', self._on_dock_resize, add='+')
+        elif self._anchor:
+            # Calcular distancias iniciales para Anchor
+            self._calculate_initial_distances()
+            # Vincular redimensionamiento para Anchor
+            self.master.bind('<Configure>', self._on_container_resize, add='+')
+            # También vincular al evento de mapeo para cuando la ventana se muestra
+            self.master.bind('<Map>', lambda e: self._calculate_initial_distances(), add='+')
+    
+    def _calculate_initial_distances(self):
+        """Calcula las distancias iniciales del control a los bordes del contenedor."""
+        self.master.update_idletasks()
+        container_width = self.master.winfo_width()
+        container_height = self.master.winfo_height()
+        
+        # Si el contenedor aún no tiene tamaño válido, reintentar
+        if container_width <= 1 or container_height <= 1:
+            self.master.after(50, self._calculate_initial_distances)
+            return
+        
+        # Obtener la posición actual real del widget
+        self._tk_widget.update_idletasks()
+        
+        # Calcular coordenadas relativas a self.master (el contenedor lógico)
+        # Esto es necesario porque el widget Tkinter puede tener un padre diferente (ej. _root)
+        # pero estar posicionado visualmente dentro de self.master usando place(in_=...)
+        if self._tk_widget.master != self.master:
+            try:
+                actual_x = self._tk_widget.winfo_rootx() - self.master.winfo_rootx()
+                actual_y = self._tk_widget.winfo_rooty() - self.master.winfo_rooty()
+            except:
+                # Fallback si hay error (ej. widget no mapeado)
+                actual_x = self._tk_widget.winfo_x()
+                actual_y = self._tk_widget.winfo_y()
+        else:
+            actual_x = self._tk_widget.winfo_x()
+            actual_y = self._tk_widget.winfo_y()
+            
+        actual_width = self._tk_widget.winfo_width()
+        actual_height = self._tk_widget.winfo_height()
+        
+        # Si el widget no ha sido posicionado aún, usar los valores de propiedades
+        if actual_x == 0 and actual_y == 0 and actual_width <= 1:
+            actual_x = self.Left
+            actual_y = self.Top
+            actual_width = self.Width
+            actual_height = self.Height
+        else:
+            # Actualizar las propiedades con los valores reales
+            self.Left = actual_x
+            self.Top = actual_y
+            self.Width = actual_width
+            self.Height = actual_height
+        
+        self._container_size = (container_width, container_height)
+        self._initial_distance = {
+            'left': actual_x,
+            'top': actual_y,
+            'right': container_width - (actual_x + actual_width),
+            'bottom': container_height - (actual_y + actual_height)
+        }
+    
+    def _on_container_resize(self, event=None):
+        """Maneja el redimensionamiento del contenedor para aplicar Anchor."""
+        if not self._tk_widget or self._dock != 'None':
+            return
+        
+        # Filtrar eventos: solo procesar si el evento es del master o no hay evento
+        # (llamadas directas sin evento también se procesan)
+        if event and hasattr(event, 'widget'):
+            # Solo procesar si el widget del evento es el master o un ancestro
+            if event.widget != self.master and not self._is_ancestor(event.widget, self.master):
+                return
+        
+        # Obtener nuevo tamaño del contenedor
+        new_width = self.master.winfo_width()
+        new_height = self.master.winfo_height()
+        
+        # Ignorar eventos de contenedores sin tamaño válido
+        if new_width <= 1 or new_height <= 1:
+            return
+        
+        # Si no hay distancias iniciales, calcularlas
+        if not self._initial_distance or not self._container_size:
+            self._calculate_initial_distances()
+            return
+        
+        # Aplicar Anchor
+        new_left = self.Left
+        new_top = self.Top
+        new_width_ctrl = self.Width
+        new_height_ctrl = self.Height
+        
+        # Anchor Left: mantener distancia izquierda
+        if 'Left' in self._anchor:
+            new_left = self._initial_distance['left']
+        
+        # Anchor Right: mantener distancia derecha
+        if 'Right' in self._anchor:
+            if 'Left' in self._anchor:
+                # Anclado a ambos lados: estirar horizontalmente
+                new_width_ctrl = new_width - self._initial_distance['left'] - self._initial_distance['right']
+            else:
+                # Solo Right: mover el control
+                new_left = new_width - self._initial_distance['right'] - self.Width
+        
+        # Anchor Top: mantener distancia superior
+        if 'Top' in self._anchor:
+            new_top = self._initial_distance['top']
+        
+        # Anchor Bottom: mantener distancia inferior
+        if 'Bottom' in self._anchor:
+            if 'Top' in self._anchor:
+                # Anclado arriba y abajo: estirar verticalmente
+                new_height_ctrl = new_height - self._initial_distance['top'] - self._initial_distance['bottom']
+            else:
+                # Solo Bottom: mover el control
+                new_top = new_height - self._initial_distance['bottom'] - self.Height
+        
+        # Actualizar posición y tamaño
+        self.Left = int(new_left)
+        self.Top = int(new_top)
+        self.Width = int(new_width_ctrl)
+        self.Height = int(new_height_ctrl)
+        
+        # Reposicionar con el nuevo tamaño
+        self._tk_widget.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
+        
+        # Actualizar tamaño del contenedor
+        self._container_size = (new_width, new_height)
+    
+    def _apply_dock(self):
+        """Aplica la propiedad Dock al control."""
+        if not self._tk_widget or self._dock == 'None':
+            return
+        
+        self.master.update_idletasks()
+        container_width = self.master.winfo_width()
+        container_height = self.master.winfo_height()
+        
+        # Si el contenedor aún no tiene tamaño válido, reintentar
+        if container_width <= 1 or container_height <= 1:
+            self.master.after(50, self._apply_dock)
+            return
+        
+        if self._dock == 'Top':
+            self.Left = 0
+            self.Top = 0
+            self.Width = container_width
+            self._tk_widget.place(x=0, y=0, width=container_width, height=self.Height)
+        elif self._dock == 'Bottom':
+            self.Left = 0
+            self.Top = container_height - self.Height
+            self.Width = container_width
+            self._tk_widget.place(x=0, y=self.Top, width=container_width, height=self.Height)
+        elif self._dock == 'Left':
+            self.Left = 0
+            self.Top = 0
+            self.Height = container_height
+            self._tk_widget.place(x=0, y=0, width=self.Width, height=container_height)
+        elif self._dock == 'Right':
+            self.Left = container_width - self.Width
+            self.Top = 0
+            self.Height = container_height
+            self._tk_widget.place(x=self.Left, y=0, width=self.Width, height=container_height)
+        elif self._dock == 'Fill':
+            self.Left = 0
+            self.Top = 0
+            self.Width = container_width
+            self.Height = container_height
+            self._tk_widget.place(x=0, y=0, width=container_width, height=container_height)
+    
+    def _on_dock_resize(self, event=None):
+        """Maneja el redimensionamiento del contenedor para aplicar Dock."""
+        if not self._tk_widget or self._dock == 'None':
+            return
+        
+        # Filtrar eventos: solo procesar si es del master o no hay evento
+        if event and hasattr(event, 'widget'):
+            if event.widget != self.master and not self._is_ancestor(event.widget, self.master):
+                return
+        
+        self._apply_dock()
+    
+    def _is_ancestor(self, widget, potential_ancestor):
+        """Verifica si widget es un ancestro de potential_ancestor."""
+        try:
+            current = potential_ancestor
+            while current:
+                if current == widget:
+                    return True
+                current = current.master if hasattr(current, 'master') else None
+            return False
+        except:
+            return False
+    
+    @property
+    def Anchor(self):
+        """Obtiene la configuración de anclaje del control.
+        
+        Returns:
+            Lista de strings con los bordes anclados: ['Top', 'Left', 'Bottom', 'Right']
+        """
+        return self._anchor.copy()
+    
+    @Anchor.setter
+    def Anchor(self, value):
+        """Establece la configuración de anclaje del control.
+        
+        Args:
+            value: Lista de strings o string separado por comas con los bordes a anclar.
+                   Valores válidos: 'Top', 'Bottom', 'Left', 'Right'
+                   Ejemplos: ['Top', 'Left'], 'Top,Left', ['Top', 'Bottom', 'Left', 'Right']
+        """
+        # Limpiar Dock si se establece Anchor
+        if self._dock != 'None':
+            self._dock = 'None'
+            if hasattr(self, '_dock_resize_bound'):
+                delattr(self, '_dock_resize_bound')
+        
+        # Convertir string a lista si es necesario
+        if isinstance(value, str):
+            value = [v.strip() for v in value.split(',')]
+        
+        # Validar valores
+        valid_anchors = ['Top', 'Bottom', 'Left', 'Right']
+        self._anchor = [v for v in value if v in valid_anchors]
+        
+        # Recalcular distancias iniciales
+        if hasattr(self, 'Width') and hasattr(self, 'Height'):
+            self._calculate_initial_distances()
+    
+    @property
+    def Dock(self):
+        """Obtiene la configuración de acoplamiento del control.
+        
+        Returns:
+            String con el lado acoplado: 'None', 'Top', 'Bottom', 'Left', 'Right', 'Fill'
+        """
+        return self._dock
+    
+    @Dock.setter
+    def Dock(self, value):
+        """Establece la configuración de acoplamiento del control.
+        
+        Args:
+            value: String con el lado al que acoplar el control.
+                   Valores válidos: 'None', 'Top', 'Bottom', 'Left', 'Right', 'Fill'
+        """
+        # Limpiar Anchor si se establece Dock
+        if value != 'None':
+            self._anchor = []
+            self._initial_distance = {}
+            if hasattr(self, '_resize_bound'):
+                delattr(self, '_resize_bound')
+        
+        # Validar valor
+        valid_docks = ['None', 'Top', 'Bottom', 'Left', 'Right', 'Fill']
+        if value in valid_docks:
+            self._dock = value
+            # Aplicar dock inmediatamente si el widget ya existe
+            if self._tk_widget and value != 'None':
+                self._apply_dock()
+    
     def _apply_autosize(self):
         """Aplica el redimensionamiento automático basado en el contenido.
         
@@ -532,6 +1151,60 @@ class ControlBase:
         self.Width = required_width
         self.Height = required_height
 
+    def _apply_visual_config(self):
+        """Aplica la configuración visual común a todos los controles.
+        
+        Este método configura las propiedades visuales básicas como colores,
+        fuente, estado habilitado, etc. Puede ser sobrescrito por controles
+        específicos que necesiten configuraciones adicionales.
+        """
+        if not self._tk_widget:
+            return
+        
+        config = {}
+        
+        # Aplicar colores
+        if self.BackColor is not None:
+            config['bg'] = self.BackColor
+        if self.ForeColor is not None:
+            config['fg'] = self.ForeColor
+        
+        # Aplicar fuente
+        if self.Font is not None:
+            config['font'] = self.Font
+        
+        # Aplicar estado habilitado/deshabilitado
+        if not self.Enabled:
+            config['state'] = 'disabled'
+        else:
+            config['state'] = 'normal'
+        
+        # Aplicar borde/relieve
+        if self.BorderStyle is not None:
+            relief_map = {
+                'None': 'flat', 'Fixed3D': 'ridge', 'FixedSingle': 'solid',
+                'flat': 'flat', 'groove': 'groove', 'raised': 'raised',
+                'ridge': 'ridge', 'solid': 'solid', 'sunken': 'sunken'
+            }
+            config['relief'] = relief_map.get(self.BorderStyle, 'flat')
+        
+        # Aplicar imagen de fondo
+        if self.BackgroundImage is not None:
+            config['image'] = self.BackgroundImage
+        
+        # Aplicar configuración al widget
+        if config:
+            try:
+                self._tk_widget.config(**config)
+            except tk.TclError:
+                # Algunos widgets no soportan todas las opciones
+                # Intentar aplicar opciones una por una
+                for key, value in config.items():
+                    try:
+                        self._tk_widget.config(**{key: value})
+                    except tk.TclError:
+                        pass  # Ignorar opciones no soportadas
+
 class Button(ControlBase):
     """Representa un botón (CommandButton en VB6, Button en VB.NET)."""
     
@@ -542,6 +1215,7 @@ class Button(ControlBase):
             master_form: El formulario o contenedor padre
             props: Diccionario opcional con propiedades iniciales
                    Ejemplo: {'Text': 'Click', 'Left': 10, 'Top': 20, 'BackColor': 'blue'}
+                   Use {'UseSystemStyles': True} para aplicar estilos del sistema automáticamente
         """
         # Valores por defecto
         defaults = {
@@ -570,7 +1244,15 @@ class Button(ControlBase):
         
         # Combinar valores por defecto con props proporcionadas
         if props:
+            # Extraer UseSystemStyles antes de actualizar defaults
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            # Aplicar estilos del sistema si está habilitado
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Button", use_system_styles=True)
+        else:
+            # Aplicar estilos del sistema según configuración global
+            SystemStyles.ApplyToDefaults(defaults, control_type="Button")
         
         # Inicializar ControlBase con posición
         super().__init__(master_form._root, defaults['Left'], defaults['Top'])
@@ -615,6 +1297,11 @@ class Button(ControlBase):
         # Bind common events
         self._bind_common_events()
         
+        # Unbind Button-1 because tk.Button uses command for clicks
+        # This prevents double firing of the Click event
+        if self._tk_widget:
+            self._tk_widget.unbind('<Button-1>')
+        
         # Posicionar si visible
         if self.Visible:
             if self.AutoSize:
@@ -625,13 +1312,11 @@ class Button(ControlBase):
     
     def _apply_visual_config(self):
         """Aplica la configuración visual al widget."""
+        # Call base method first
+        super()._apply_visual_config()
+        
+        # Apply Button-specific configurations
         config = {}
-        if self.Font:
-            config['font'] = self.Font
-        if self.ForeColor:
-            config['fg'] = self.ForeColor
-        if self.BackColor:
-            config['bg'] = self.BackColor
         if self.Image:
             config['image'] = self.Image
         if self.TextImageRelation:
@@ -639,10 +1324,12 @@ class Button(ControlBase):
         # Map FlatStyle to relief
         relief_map = {'Standard': 'raised', 'Flat': 'flat', 'Popup': 'ridge', 'System': 'raised'}
         config['relief'] = relief_map.get(self._flatstyle, 'raised')
-        config['state'] = 'normal' if self.Enabled else 'disabled'
         
         if config:
-            self._tk_widget.config(**config)
+            try:
+                self._tk_widget.config(**config)
+            except tk.TclError:
+                pass  # Ignore unsupported options
 
     def _handle_click_event(self):
         """Función intermediaria para ejecutar el método Click asignado."""
@@ -693,6 +1380,7 @@ class Label(ControlBase):
         Args:
             master_form: El formulario o contenedor padre
             props: Diccionario opcional con propiedades iniciales
+                   Use {'UseSystemStyles': True} para aplicar estilos del sistema automáticamente
         """
         # Valores por defecto
         defaults = {
@@ -719,7 +1407,15 @@ class Label(ControlBase):
         }
         
         if props:
+            # Extraer UseSystemStyles antes de actualizar defaults
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            # Aplicar estilos del sistema si está habilitado
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Control", use_system_styles=True)
+        else:
+            # Aplicar estilos del sistema según configuración global
+            SystemStyles.ApplyToDefaults(defaults, control_type="Control")
         
         # Resolve master widget
         master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
@@ -861,6 +1557,7 @@ class TextBox(ControlBase):
         Args:
             master_form: El formulario o contenedor padre
             props: Diccionario opcional con propiedades iniciales
+                   Use {'UseSystemStyles': True} para aplicar estilos del sistema automáticamente
         """
         # Valores por defecto
         defaults = {
@@ -890,7 +1587,15 @@ class TextBox(ControlBase):
         }
         
         if props:
+            # Extraer UseSystemStyles antes de actualizar defaults
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            # Aplicar estilos del sistema si está habilitado
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Window", use_system_styles=True)
+        else:
+            # Aplicar estilos del sistema según configuración global
+            SystemStyles.ApplyToDefaults(defaults, control_type="Window")
         
         super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
@@ -1090,6 +1795,7 @@ class ComboBox(ControlBase):
         Args:
             master_form: El formulario o contenedor padre
             props: Diccionario opcional con propiedades iniciales
+                   Use {'UseSystemStyles': True} para aplicar estilos del sistema automáticamente
         """
         # Valores por defecto
         defaults = {
@@ -1117,7 +1823,12 @@ class ComboBox(ControlBase):
         }
         
         if props:
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Control", use_system_styles=True)
+        else:
+            SystemStyles.ApplyToDefaults(defaults, control_type="Control")
         
         super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
@@ -1287,6 +1998,43 @@ class ComboBox(ControlBase):
         if hasattr(self, '_tk_widget') and self._tk_widget:
             self._tk_widget.set(value)
 
+class ListBoxObjectCollection:
+    """Colección de elementos para ListBox."""
+    def __init__(self, owner):
+        self.owner = owner
+        self._items = []
+
+    def Add(self, item):
+        self._items.append(item)
+        if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
+            self.owner._tk_widget.insert(tk.END, item)
+        return len(self._items) - 1
+
+    def Clear(self):
+        self._items.clear()
+        if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
+            self.owner._tk_widget.delete(0, tk.END)
+
+    def Remove(self, item):
+        if item in self._items:
+            index = self._items.index(item)
+            self._items.remove(item)
+            if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
+                self.owner._tk_widget.delete(index)
+
+    def __getitem__(self, index):
+        return self._items[index]
+
+    def __len__(self):
+        return len(self._items)
+    
+    def __iter__(self):
+        return iter(self._items)
+    
+    def append(self, item):
+        """Compatibility with list."""
+        self.Add(item)
+
 class ListBox(ControlBase):
     """Representa un ListBox."""
     
@@ -1321,14 +2069,23 @@ class ListBox(ControlBase):
         }
         
         if props:
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Window", use_system_styles=True)
+        else:
+            SystemStyles.ApplyToDefaults(defaults, control_type="Window")
         
         super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
         self.Name = defaults['Name']
         self.Width = defaults['Width']
         self.Height = defaults['Height']
-        self.Items = defaults['Items'] or []
+        self.Items = ListBoxObjectCollection(self)
+        if defaults['Items']:
+            for item in defaults['Items']:
+                self.Items.Add(item)
+                
         self.DataSource = defaults['DataSource']
         self.DisplayMember = defaults['DisplayMember']
         self.ValueMember = defaults['ValueMember']
@@ -1351,7 +2108,9 @@ class ListBox(ControlBase):
         
         # If DataSource, populate Items
         if self.DataSource and self.DisplayMember:
-            self.Items = [getattr(item, self.DisplayMember) for item in self.DataSource]
+            self.Items.Clear()
+            for item in self.DataSource:
+                self.Items.Add(getattr(item, self.DisplayMember))
         
         # Crear el widget Tkinter
         self._tk_widget = tk.Listbox(self.master)
@@ -1449,6 +2208,35 @@ class ListBox(ControlBase):
         self.SelectedIndexChanged()
         self.SelectedValueChanged()
 
+    @property
+    def SelectedItem(self):
+        """Obtiene el elemento seleccionado."""
+        return self.get_SelectedItem()
+
+    @property
+    def SelectedIndex(self):
+        """Obtiene o establece el índice seleccionado."""
+        return self.get_SelectedIndex()
+
+    @SelectedIndex.setter
+    def SelectedIndex(self, value):
+        self.set_SelectedIndex(value)
+
+    @property
+    def SelectedItems(self):
+        """Obtiene los elementos seleccionados."""
+        return self.get_SelectedItems()
+
+    @property
+    def SelectedIndices(self):
+        """Obtiene los índices seleccionados."""
+        return self.get_SelectedIndices()
+
+    @property
+    def SelectedValue(self):
+        """Obtiene el valor seleccionado."""
+        return self.get_SelectedValue()
+
 class CheckBox(ControlBase):
     """Representa un CheckBox."""
     
@@ -1481,7 +2269,12 @@ class CheckBox(ControlBase):
         }
         
         if props:
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Control", use_system_styles=True)
+        else:
+            SystemStyles.ApplyToDefaults(defaults, control_type="Control")
         
         super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
@@ -1510,8 +2303,12 @@ class CheckBox(ControlBase):
         else:
             self._state_var = tk.BooleanVar(value=self._checked_value)
         
+        # Eventos VB
+        self.CheckedChanged = lambda: None
+        self.CheckStateChanged = lambda: None
+
         # Crear el widget Tkinter
-        self._tk_widget = tk.Checkbutton(self.master, text=self._text_value, variable=self._state_var)
+        self._tk_widget = tk.Checkbutton(self.master, text=self._text_value, variable=self._state_var, command=self._on_check_click)
         
         # Aplicar configuraciones
         config = {}
@@ -1537,6 +2334,11 @@ class CheckBox(ControlBase):
             self._place_control(self.Width, self.Height)
         else:
             self._tk_widget.place_forget()
+
+    def _on_check_click(self):
+        """Maneja el clic en el checkbox."""
+        self.CheckedChanged()
+        self.CheckStateChanged()
 
     def get_Checked(self):
         """Obtiene si está marcado (booleano)."""
@@ -1618,7 +2420,12 @@ class CheckedListBox(ControlBase):
         }
         
         if props:
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Window", use_system_styles=True)
+        else:
+            SystemStyles.ApplyToDefaults(defaults, control_type="Window")
         
         super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
@@ -1655,6 +2462,10 @@ class CheckedListBox(ControlBase):
         self._frame = tk.Frame(self.master, width=self.Width, height=self.Height)
         self._tk_widget = self._frame
         
+        # Configurar frame
+        if self.BackColor:
+            self._frame.config(bg=self.BackColor)
+        
         self._checks = []
         self._vars = []
         relief = 'raised' if self.ThreeDCheckBoxes else 'flat'
@@ -1686,6 +2497,8 @@ class CheckedListBox(ControlBase):
         # Posicionar si visible
         if self.Visible:
             self._place_control(self.Width, self.Height)
+            # Asegurar que el frame no se encoja
+            self._frame.pack_propagate(False)
         else:
             self._frame.place_forget()
 
@@ -1741,12 +2554,12 @@ class Panel(ControlBase):
             'Enabled': True,
             'Visible': True,
             'BackColor': 'lightgray',
+            'ForeColor': None,
             'BackgroundImage': None,
             'BorderStyle': 'flat',
             'AutoScroll': False,
             'AutoScrollOffset': (0, 0),
             'Dock': None,
-            'Anchor': None,
             'Padding': (0, 0),
             'AutoSize': False,
             'AutoSizeMode': 'GrowOnly',
@@ -1755,7 +2568,12 @@ class Panel(ControlBase):
         }
         
         if props:
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Control", use_system_styles=True)
+        else:
+            SystemStyles.ApplyToDefaults(defaults, control_type="Control")
         
         # Resolve master widget
         master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
@@ -1768,13 +2586,13 @@ class Panel(ControlBase):
         self.Enabled = defaults['Enabled']
         self._visible = defaults['Visible']
         self.BackColor = defaults['BackColor']
+        self.ForeColor = defaults['ForeColor']
         self.BackgroundImage = defaults['BackgroundImage']
         self.BorderStyle = defaults['BorderStyle']
         self.AutoScroll = defaults['AutoScroll']
         self.AutoScrollOffset = defaults['AutoScrollOffset']
         self.Dock = defaults['Dock']
-        self.Anchor = defaults['Anchor']
-        self.Padding = defaults['Padding']
+        self._padding = defaults['Padding']
         self.AutoSize = defaults['AutoSize']
         self.AutoSizeMode = defaults['AutoSizeMode']
         self.MinimumSize = defaults['MinimumSize']
@@ -1808,6 +2626,14 @@ class Panel(ControlBase):
             'pady': pady
         }
         
+        # Si BorderStyle es 'FixedSingle' o 'solid', añadir borde
+        if self.BorderStyle in ['FixedSingle', 'solid']:
+            config['borderwidth'] = 1
+        elif self.BorderStyle != 'None' and self.BorderStyle != 'flat':
+            config['borderwidth'] = 2
+        else:
+            config['borderwidth'] = 0
+        
         # Crear widget principal (Frame o LabelFrame)
         if self._text:
             config['text'] = self._text
@@ -1818,6 +2644,10 @@ class Panel(ControlBase):
             if self.BackgroundImage:
                 config['image'] = self.BackgroundImage
             self._tk_widget = tk.Frame(self.master, **config)
+        
+        # Asegurar que el frame no se encoja
+        self._tk_widget.pack_propagate(False)
+        self._tk_widget.grid_propagate(False)
         
         # Si AutoScroll está activado, crear estructura con Canvas y Scrollbars
         if self.AutoScroll:
@@ -2038,6 +2868,21 @@ class Panel(ControlBase):
             self._place_control(self.Width, self.Height)
 
     @property
+    def Padding(self):
+        """Obtiene el padding interno del Panel."""
+        return self._padding
+
+    @Padding.setter
+    def Padding(self, value):
+        """Establece el padding interno del Panel."""
+        self._padding = value
+        if self._tk_widget:
+            padx, pady = value
+            self._tk_widget.config(padx=padx, pady=pady)
+            if self.AutoSize:
+                self._apply_autosize_panel()
+
+    @property
     def Text(self):
         """Obtiene el título del Panel."""
         return self._text
@@ -2054,16 +2899,6 @@ class Panel(ControlBase):
             # Si ya es LabelFrame, simplemente actualizar el texto
             elif isinstance(self._tk_widget, tk.LabelFrame):
                 self._tk_widget.config(text=value)
-    
-    @property
-    def Visible(self):
-        """Property getter para Visible en Panel."""
-        return self._visible
-    
-    @Visible.setter
-    def Visible(self, value):
-        """Property setter para Visible en Panel."""
-        self.set_Visible(value)
     
     def _recreate_widget_as_labelframe(self):
         """Recrea el widget como LabelFrame cuando se agrega texto a un Frame existente."""
@@ -2246,6 +3081,16 @@ class Line:
         if self.Visible:
             self._bind_events()
     
+    @property
+    def Visible(self):
+        """Obtiene la visibilidad de la línea."""
+        return self._visible
+    
+    @Visible.setter
+    def Visible(self, value):
+        """Establece la visibilidad de la línea."""
+        self.set_Visible(value)
+    
     def _draw(self):
         """Dibuja o actualiza la línea en el canvas."""
         if self._line_id:
@@ -2371,12 +3216,8 @@ class Line:
     
     def set_Visible(self, value):
         """Establece la visibilidad de la línea."""
-        super().set_Visible(value)
-        if self._line_id:
-            if value:
-                self._canvas.itemconfig(self._line_id, state='normal')
-            else:
-                self._canvas.itemconfig(self._line_id, state='hidden')
+        self._visible = value
+        self._draw()
     
     def Delete(self):
         """Elimina la línea del canvas."""
@@ -2588,6 +3429,8 @@ class PictureBox(ControlBase):
         if props:
             defaults.update(props)
         
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        
         # Asignar todas las propiedades
         self.Name = defaults['Name']
         self.Width = defaults['Width']
@@ -2602,8 +3445,6 @@ class PictureBox(ControlBase):
         self.ErrorImage = defaults['ErrorImage']
         self.InitialImage = defaults['InitialImage']
         self.WaitOnLoad = defaults['WaitOnLoad']
-        
-        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
         # Eventos VB
         self.LoadCompleted = lambda sender, e: None
@@ -2821,7 +3662,15 @@ class MessageBox:
     """Representa un MessageBox para mensajes con parámetros VB.NET."""
     
     @staticmethod
-    def Show(text, caption="Message", buttons="OK", icon=None, defaultButton=None, options=None):
+    def Show(
+        text,
+        caption="Message",
+        buttons="OK",
+        icon=None,
+        defaultButton=None,
+        options=None,
+        modal=True
+    ):
         """Muestra un mensaje y devuelve el resultado.
         
         Parámetros:
@@ -2832,6 +3681,9 @@ class MessageBox:
         - defaultButton: 'Button1', 'Button2', 'Button3' (no implementado en Tkinter)
         - options: 'RightAlign', 'RtlReading', etc. (parcialmente soportado)
         """
+        # Determine parent widget for modal dialogs
+        parent_widget = tk._default_root if modal else None
+
         # Map icon to messagebox function
         icon_map = {
             'Information': 'info',
@@ -2851,21 +3703,21 @@ class MessageBox:
         # Map buttons to Tkinter functions
         if buttons == "OK":
             if msg_type == 'warning':
-                messagebox.showwarning(caption, display_text)
+                messagebox.showwarning(caption, display_text, parent=parent_widget)
             elif msg_type == 'error':
-                messagebox.showerror(caption, display_text)
+                messagebox.showerror(caption, display_text, parent=parent_widget)
             else:
-                messagebox.showinfo(caption, display_text)
+                messagebox.showinfo(caption, display_text, parent=parent_widget)
             return DialogResult.OK
         elif buttons == "OKCancel":
-            return DialogResult.OK if messagebox.askokcancel(caption, display_text) else DialogResult.Cancel
+            return DialogResult.OK if messagebox.askokcancel(caption, display_text, parent=parent_widget) else DialogResult.Cancel
         elif buttons == "YesNo":
             if msg_type == 'question':
-                return DialogResult.Yes if messagebox.askyesno(caption, display_text) else DialogResult.No
+                return DialogResult.Yes if messagebox.askyesno(caption, display_text, parent=parent_widget) else DialogResult.No
             else:
-                return DialogResult.Yes if messagebox.askyesno(caption, display_text) else DialogResult.No
+                return DialogResult.Yes if messagebox.askyesno(caption, display_text, parent=parent_widget) else DialogResult.No
         elif buttons == "YesNoCancel":
-            result = messagebox.askyesnocancel(caption, display_text)
+            result = messagebox.askyesnocancel(caption, display_text, parent=parent_widget)
             if result is True:
                 return DialogResult.Yes
             elif result is False:
@@ -2873,10 +3725,14 @@ class MessageBox:
             else:
                 return DialogResult.Cancel
         elif buttons == "RetryCancel":
-            return DialogResult.Retry if messagebox.askretrycancel(caption, display_text) else DialogResult.Cancel
+            return DialogResult.Retry if messagebox.askretrycancel(caption, display_text, parent=parent_widget) else DialogResult.Cancel
         elif buttons == "AbortRetryIgnore":
             # Tkinter no tiene AbortRetryIgnore, simular con YesNoCancel o custom
-            result = messagebox.askyesnocancel(caption, f"{display_text}\n\nAbort = Yes, Retry = No, Ignore = Cancel")
+            result = messagebox.askyesnocancel(
+                caption,
+                f"{display_text}\n\nAbort = Yes, Retry = No, Ignore = Cancel",
+                parent=parent_widget
+            )
             if result is True:
                 return DialogResult.Abort
             elif result is False:
@@ -2884,7 +3740,7 @@ class MessageBox:
             else:
                 return DialogResult.Ignore
         # Default
-        messagebox.showinfo(caption, display_text)
+        messagebox.showinfo(caption, display_text, parent=parent_widget)
         return DialogResult.OK
     
 
@@ -2892,7 +3748,7 @@ class InputBox:
     """Representa un InputBox para entrada de texto con parámetros VB.NET."""
     
     @staticmethod
-    def Show(prompt, title="Input", defaultResponse="", xpos=None, ypos=None):
+    def Show(prompt, title="Input", defaultResponse="", xpos=None, ypos=None, modal=True):
         """Muestra un diálogo de entrada y devuelve el texto.
         
         Parámetros:
@@ -2903,7 +3759,8 @@ class InputBox:
         - ypos: Posición Y (no implementado en Tkinter simpledialog).
         """
         from tkinter import simpledialog
-        result = simpledialog.askstring(title, prompt, initialvalue=defaultResponse)
+        parent_widget = tk._default_root if modal else None
+        result = simpledialog.askstring(title, prompt, initialvalue=defaultResponse, parent=parent_widget)
         return result if result is not None else ""
 
 
@@ -3096,6 +3953,7 @@ class TabPage:
     
     Uso - Opción 1: page = TabPage(); page.Text = "Mi Pestaña"; page.Name = "tabPage1"
     Uso - Opción 2: page = TabPage({'Text': 'Mi Pestaña', 'Name': 'tabPage1'})
+    Uso - Opción 3: page = TabPage({'Text': 'Mi Pestaña', 'UseSystemStyles': True})
     """
     
     def __init__(self, props=None):
@@ -3108,11 +3966,19 @@ class TabPage:
             'ImageKey': "",
             'ToolTipText': "",
             'UseVisualStyleBackColor': True,
-            'Padding': (3, 3)
+            'Padding': (3, 3),
+            'BackColor': None,
+            'ForeColor': None,
+            'Font': None
         }
         
         if props:
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Control", use_system_styles=True)
+        else:
+            SystemStyles.ApplyToDefaults(defaults, control_type="Control")
         
         self.Name = defaults['Name'] or defaults['Text']  # Usar Text si Name vacío
         self._text_value = defaults['Text']  # Atributo interno para almacenar el texto
@@ -3124,10 +3990,18 @@ class TabPage:
         self.ToolTipText = defaults['ToolTipText']  # Placeholder, Tkinter no tiene tooltips nativos
         self.UseVisualStyleBackColor = defaults['UseVisualStyleBackColor']  # Placeholder
         self.Padding = defaults['Padding']  # (padx, pady)
+        self.BackColor = defaults['BackColor']
+        self.ForeColor = defaults['ForeColor']
+        self.Font = defaults['Font']
         
         # Crear el frame con padding
         padx, pady = self.Padding
         self._frame = tk.Frame(padx=padx, pady=pady)
+        
+        # Aplicar colores al frame
+        if self.BackColor:
+            self._frame.config(bg=self.BackColor)
+        
         self.Controls = []
 
         # Eventos VB
@@ -3223,6 +4097,22 @@ class TabPage:
         """Property setter para Text en TabPage."""
         self._text_value = value
         # TabPage text se actualiza vía TabControl.AddTab()
+    
+    def set_BackColor(self, color):
+        """Establece el color de fondo del TabPage."""
+        self.BackColor = color
+        if hasattr(self, '_frame'):
+            self._frame.config(bg=color)
+    
+    def set_ForeColor(self, color):
+        """Establece el color de texto del TabPage."""
+        self.ForeColor = color
+        # No aplica directamente al frame, pero se hereda a controles hijos
+    
+    def set_Font(self, font):
+        """Establece la fuente del TabPage."""
+        self.Font = font
+        # No aplica directamente al frame, pero se hereda a controles hijos
 
 
 class TabControl(ControlBase):
@@ -3429,6 +4319,8 @@ class TabControl(ControlBase):
 class RadioButton(ControlBase):
     """Representa un RadioButton."""
     
+    _group_vars = {}  # Class variable to store shared StringVars by group name
+    
     def __init__(self, master_form, props=None):
         """Inicializa un RadioButton.
         
@@ -3457,7 +4349,12 @@ class RadioButton(ControlBase):
         }
         
         if props:
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Control", use_system_styles=True)
+        else:
+            SystemStyles.ApplyToDefaults(defaults, control_type="Control")
         
         # Resolve master widget
         master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
@@ -3468,7 +4365,18 @@ class RadioButton(ControlBase):
         self.Enabled = defaults['Enabled']
         self._visible = defaults['Visible']
         self._text_value = defaults['Text']
-        self.Group = defaults['Group'] or tk.StringVar()
+        
+        # Handle Group: if string, use shared StringVar; if StringVar, use it; else create new
+        if isinstance(defaults['Group'], str):
+            group_name = defaults['Group']
+            if group_name not in RadioButton._group_vars:
+                RadioButton._group_vars[group_name] = tk.StringVar()
+            self.Group = RadioButton._group_vars[group_name]
+        elif isinstance(defaults['Group'], tk.StringVar):
+            self.Group = defaults['Group']
+        else:
+            self.Group = tk.StringVar()
+        
         self._checked_value = defaults['Checked']
         self.Font = defaults['Font']
         self.ForeColor = defaults['ForeColor']
@@ -4153,7 +5061,12 @@ class TreeView(ControlBase):
         }
         
         if props:
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Window", use_system_styles=True)
+        else:
+            SystemStyles.ApplyToDefaults(defaults, control_type="Window")
         
         super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
@@ -4859,6 +5772,10 @@ class Form:
         self.Load()
         
         self._root.mainloop()
+
+    def ShowDialog(self):
+        """Muestra el formulario como un diálogo modal."""
+        self.Show()
         
     def _close(self):
         """Maneja el cierre del formulario."""
@@ -4871,6 +5788,15 @@ class Form:
     def Close(self):
         """Cierra el formulario."""
         self._close()
+
+    def ForceUpdate(self):
+        """Procesa eventos pendientes de la GUI y refresca la ventana."""
+        if hasattr(self, '_root') and self._root:
+            try:
+                self._root.update_idletasks()
+                self._root.update()
+            except tk.TclError:
+                pass
 
     def get_Parent(self):
         """Obtiene el control padre del Form.
@@ -5097,7 +6023,7 @@ class StatusBarPanel:
         self._frame = tk.Frame(
             parent_frame,
             relief=relief_map.get(self.Bevel, 'sunken'),
-            borderwidth=1,
+            borderwidth=2,
             width=self.Width
         )
         
@@ -5130,6 +6056,10 @@ class StatusBarPanel:
         if self.ToolTipText:
             self._create_tooltip(self._frame, self.ToolTipText)
             self._create_tooltip(self._label, self.ToolTipText)
+        
+        # Si AutoSize es 'None', desactivar propagación para respetar el ancho fijo
+        if self.AutoSize == 'None':
+            self._frame.pack_propagate(False)
         
         return self._frame
     
@@ -5181,7 +6111,12 @@ class StatusBar(ControlBase):
         }
         
         if props:
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Status", use_system_styles=True)
+        else:
+            SystemStyles.ApplyToDefaults(defaults, control_type="Status")
         
         super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
@@ -5257,6 +6192,17 @@ class StatusBar(ControlBase):
             self._place_control(self.Width, self.Height)
     
     @property
+    def ShowPanels(self):
+        """Indica si se muestran los paneles o el texto simple."""
+        return getattr(self, '_show_panels', False)
+
+    @ShowPanels.setter
+    def ShowPanels(self, value):
+        self._show_panels = value
+        if hasattr(self, '_content_frame'):
+            self._update_display()
+
+    @property
     def Text(self):
         """Obtiene el texto de la barra de estado."""
         return self._text
@@ -5327,21 +6273,26 @@ class StatusBar(ControlBase):
         available_width = total_width - fixed_width
         spring_width = available_width // len(spring_panels) if spring_panels else 0
         
-        for panel in self.Panels:
+        for index, panel in enumerate(self.Panels):
             panel_widget = panel._create_widget(self._content_frame)
             
             # Configurar ancho según AutoSize
             if panel.AutoSize == 'Spring':
                 panel_widget.config(width=spring_width)
-                panel_widget.pack(side='left', fill='both', expand=True)
+                panel_widget.pack(side='left', fill='both', expand=True, padx=2, pady=2)
             elif panel.AutoSize == 'Contents':
-                panel_widget.pack(side='left', fill='y')
+                panel_widget.pack(side='left', fill='y', padx=2, pady=2)
             else:  # 'None'
                 panel_widget.config(width=panel.Width)
-                panel_widget.pack(side='left', fill='y')
+                panel_widget.pack(side='left', fill='y', padx=2, pady=2)
             
             # Bind evento PanelClick
             panel_widget.bind('<Button-1>', lambda e, p=panel: self._on_panel_click(p))
+
+            # Añadir una línea delimitadora para resaltar la división entre paneles
+            if index < len(self.Panels) - 1:
+                separator = tk.Frame(self._content_frame, width=1, bg=SystemColors.ActiveBorder)
+                separator.pack(side='left', fill='y', pady=4)
     
     def _on_panel_click(self, panel):
         """Maneja el clic en un panel."""
