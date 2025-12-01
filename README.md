@@ -3,6 +3,7 @@
 **A comprehensive Python library that maps Windows Forms/VB syntax and objects to Tkinter**
 
 [![Python Version](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -14,12 +15,13 @@ WinFormPy is a complete library designed to help developers familiar with Window
 - **Complete Windows Forms API mapping** - Controls, properties, and events that match VB.NET/VB6 syntax
 - **Comprehensive control library** including:
   - Basic controls: Button, Label, TextBox, CheckBox, ComboBox, ListBox
-  - Advanced controls: DataGridView, TreeView, TabControl, Panel, PictureBox
+  - Advanced controls: DataGridView, TreeView, TabControl, Panel, PictureBox, Line
   - Dialogs: OpenFileDialog, SaveFileDialog, PrintDialog, MessageBox, InputBox
   - Specialized controls: MaskedTextBox, CheckedListBox, ProgressBar, TrackBar
 - **Event-driven programming** with familiar VB-style event handlers
 - **Form management** with UserControl and Form base classes
-- **Built-in utilities**: ImageList, Timer, ToolTip, ContextMenuStrip, MenuStrip
+- **Built-in utilities**: ImageList, Timer, ToolTip, ContextMenuStrip, MenuStrip, StatusBar
+- **AutoSize support** for automatic control resizing
 - **CSS styling support** for enhanced customization
 - **VB-style properties**: Location, Size, Enabled, Visible, BackColor, Font, etc.
 
