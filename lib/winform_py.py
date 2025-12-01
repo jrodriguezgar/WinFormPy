@@ -3,7 +3,7 @@
 # Module: winform-py.py
 # Author: Vibe coding by DatamanEdge 
 # Date: 2025-12-01
-# Version: 1.0.1
+# Version: 1.0.2
 # Description: Complete library mapping Windows Forms/(VB) syntax and objects to Tkinter.
 # =============================================================
 
@@ -36,30 +36,56 @@ except:
 # =======================================================================
 
 class ToolTip:
-    """Clase para crear tooltips (información contextual al pasar el ratón)."""
+    """
+    Clase para crear tooltips (información contextual al pasar el ratón).
     
-    def __init__(self, widget, text="", delay=500, bg="lightyellow", fg="black", 
-                 bordercolor="black", borderwidth=1, font=("Segoe UI", 9)):
+    Uso - Opción 1: tooltip = ToolTip(widget); tooltip.Text = "Help text"
+    Uso - Opción 2: tooltip = ToolTip(widget, {'Text': 'Help text', 'Delay': 1000, 'BgColor': 'yellow'})
+    """
+    
+    def __init__(self, widget, props=None):
         """Inicializa un ToolTip para un widget.
         
         Args:
             widget: Widget de tkinter al que se asocia el tooltip
-            text: Texto a mostrar en el tooltip
-            delay: Retraso en milisegundos antes de mostrar el tooltip
-            bg: Color de fondo
-            fg: Color del texto
-            bordercolor: Color del borde
-            borderwidth: Ancho del borde
-            font: Fuente del texto
+            props: Diccionario opcional con propiedades (Text, Delay, BgColor, FgColor, BorderColor, BorderWidth, Font)
         """
+        defaults = {
+            'Text': "",
+            'Delay': 500,
+            'BgColor': "lightyellow",
+            'FgColor': "black",
+            'BorderColor': "black",
+            'BorderWidth': 1,
+            'Font': ("Segoe UI", 9)
+        }
+        
+        if props:
+            defaults.update(props)
+            # Aliases para compatibilidad
+            if 'text' in props:
+                defaults['Text'] = props['text']
+            if 'bg' in props:
+                defaults['BgColor'] = props['bg']
+            if 'fg' in props:
+                defaults['FgColor'] = props['fg']
+            if 'delay' in props:
+                defaults['Delay'] = props['delay']
+            if 'bordercolor' in props:
+                defaults['BorderColor'] = props['bordercolor']
+            if 'borderwidth' in props:
+                defaults['BorderWidth'] = props['borderwidth']
+            if 'font' in props:
+                defaults['Font'] = props['font']
+        
         self.widget = widget
-        self.text = text
-        self.delay = delay
-        self.bg = bg
-        self.fg = fg
-        self.bordercolor = bordercolor
-        self.borderwidth = borderwidth
-        self.font = font
+        self.text = defaults['Text']
+        self.delay = defaults['Delay']
+        self.bg = defaults['BgColor']
+        self.fg = defaults['FgColor']
+        self.bordercolor = defaults['BorderColor']
+        self.borderwidth = defaults['BorderWidth']
+        self.font = defaults['Font']
         
         self._tooltip_window = None
         self._scheduled_id = None
@@ -829,31 +855,67 @@ class Label(ControlBase):
 class TextBox(ControlBase):
     """Representa una caja de texto simple."""
     
-    def __init__(self, master_form, Text="", Left=10, Top=80, Width=200, Height=25, Name="", Enabled=True, Visible=True, ReadOnly=False, Multiline=False, ScrollBars=None, PasswordChar="", UseSystemPasswordChar=False, MaxLength=0, TextAlign="left", WordWrap=True, AcceptsReturn=True, AutoSize=False, MinimumSize=None, MaximumSize=None, BackColor=None, ForeColor=None, Font=None):
-        super().__init__(master_form._root, Left, Top)
+    def __init__(self, master_form, props=None):
+        """Inicializa un TextBox.
+        
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 80,
+            'Width': 200,
+            'Height': 25,
+            'Name': '',
+            'Text': '',
+            'Enabled': True,
+            'Visible': True,
+            'ReadOnly': False,
+            'Multiline': False,
+            'ScrollBars': None,
+            'PasswordChar': '',
+            'UseSystemPasswordChar': False,
+            'MaxLength': 0,
+            'TextAlign': 'left',
+            'WordWrap': True,
+            'AcceptsReturn': True,
+            'AutoSize': False,
+            'MinimumSize': None,
+            'MaximumSize': None,
+            'BackColor': None,
+            'ForeColor': None,
+            'Font': None
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
         # Propiedades VB
-        self.Name = Name
-        self._text_value = Text  # Atributo interno para almacenar el texto
-        self.Width = Width
-        self.Height = Height
-        self.Enabled = Enabled
-        self._visible = Visible
-        self.ReadOnly = ReadOnly
-        self.Multiline = Multiline
-        self.ScrollBars = ScrollBars  # 'none', 'horizontal', 'vertical', 'both'
-        self.PasswordChar = PasswordChar
-        self.UseSystemPasswordChar = UseSystemPasswordChar
-        self.MaxLength = MaxLength
-        self.TextAlign = TextAlign  # 'left', 'center', 'right'
-        self.WordWrap = WordWrap
-        self.AcceptsReturn = AcceptsReturn
-        self.AutoSize = AutoSize
-        self.MinimumSize = MinimumSize
-        self.MaximumSize = MaximumSize
-        self.BackColor = BackColor
-        self.ForeColor = ForeColor
-        self.Font = Font
+        self.Name = defaults['Name']
+        self._text_value = defaults['Text']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self.ReadOnly = defaults['ReadOnly']
+        self.Multiline = defaults['Multiline']
+        self.ScrollBars = defaults['ScrollBars']
+        self.PasswordChar = defaults['PasswordChar']
+        self.UseSystemPasswordChar = defaults['UseSystemPasswordChar']
+        self.MaxLength = defaults['MaxLength']
+        self.TextAlign = defaults['TextAlign']
+        self.WordWrap = defaults['WordWrap']
+        self.AcceptsReturn = defaults['AcceptsReturn']
+        self.AutoSize = defaults['AutoSize']
+        self.MinimumSize = defaults['MinimumSize']
+        self.MaximumSize = defaults['MaximumSize']
+        self.BackColor = defaults['BackColor']
+        self.ForeColor = defaults['ForeColor']
+        self.Font = defaults['Font']
         
         # Eventos VB (callbacks)
         self.TextChanged = lambda: None
@@ -861,15 +923,15 @@ class TextBox(ControlBase):
         
         # Crear el widget Tkinter
         if self.Multiline:
-            self._tk_widget = tk.Text(self.master, height=Height//15, wrap='word' if self.WordWrap else 'none')
+            self._tk_widget = tk.Text(self.master, height=self.Height//15, wrap='word' if self.WordWrap else 'none')
             if self.ScrollBars in ['vertical', 'both']:
                 vscroll = tk.Scrollbar(self.master, command=self._tk_widget.yview)
                 self._tk_widget.config(yscrollcommand=vscroll.set)
-                vscroll.place(x=Left+Width-15, y=Top, height=Height)
+                vscroll.place(x=self.Left+self.Width-15, y=self.Top, height=self.Height)
             if self.ScrollBars in ['horizontal', 'both']:
                 hscroll = tk.Scrollbar(self.master, orient='horizontal', command=self._tk_widget.xview)
                 self._tk_widget.config(xscrollcommand=hscroll.set)
-                hscroll.place(x=Left, y=Top+Height-15, width=Width)
+                hscroll.place(x=self.Left, y=self.Top+self.Height-15, width=self.Width)
             self._tk_widget.insert('1.0', self._text_value)
             if self.ReadOnly:
                 self._tk_widget.config(state='disabled')
@@ -1022,28 +1084,62 @@ class TextBox(ControlBase):
 class ComboBox(ControlBase):
     """Representa un ComboBox (desplegable)."""
     
-    def __init__(self, master_form, Items=None, Left=10, Top=110, Width=200, Name="", DataSource=None, DisplayMember="", ValueMember="", SelectedItem=None, SelectedValue=None, SelectedIndex=-1, Text="", DropDownStyle="readonly", DroppedDown=False, MaxDropDownItems=10, MaxLength=0, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None):
-        super().__init__(master_form._root, Left, Top)
+    def __init__(self, master_form, props=None):
+        """Inicializa un ComboBox.
+        
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 110,
+            'Width': 200,
+            'Name': '',
+            'Items': None,
+            'DataSource': None,
+            'DisplayMember': '',
+            'ValueMember': '',
+            'SelectedItem': None,
+            'SelectedValue': None,
+            'SelectedIndex': -1,
+            'Text': '',
+            'DropDownStyle': 'readonly',
+            'DroppedDown': False,
+            'MaxDropDownItems': 10,
+            'MaxLength': 0,
+            'Enabled': True,
+            'Visible': True,
+            'Font': None,
+            'ForeColor': None,
+            'BackColor': None
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
         # Propiedades VB
-        self.Name = Name
-        self.Items = Items or []
-        self.DataSource = DataSource
-        self.DisplayMember = DisplayMember
-        self.ValueMember = ValueMember
-        self.SelectedItem = SelectedItem
-        self.SelectedValue = SelectedValue
-        self.SelectedIndex = SelectedIndex
-        self._text_value = Text  # Atributo interno para almacenar el texto
-        self.DropDownStyle = DropDownStyle  # 'readonly', 'normal'
-        self.DroppedDown = DroppedDown
-        self.MaxDropDownItems = MaxDropDownItems
-        self.MaxLength = MaxLength
-        self.Enabled = Enabled
-        self._visible = Visible
-        self.Font = Font
-        self.ForeColor = ForeColor
-        self.BackColor = BackColor
+        self.Name = defaults['Name']
+        self.Items = defaults['Items'] or []
+        self.DataSource = defaults['DataSource']
+        self.DisplayMember = defaults['DisplayMember']
+        self.ValueMember = defaults['ValueMember']
+        self.SelectedItem = defaults['SelectedItem']
+        self.SelectedValue = defaults['SelectedValue']
+        self.SelectedIndex = defaults['SelectedIndex']
+        self._text_value = defaults['Text']
+        self.DropDownStyle = defaults['DropDownStyle']
+        self.DroppedDown = defaults['DroppedDown']
+        self.MaxDropDownItems = defaults['MaxDropDownItems']
+        self.MaxLength = defaults['MaxLength']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self.Font = defaults['Font']
+        self.ForeColor = defaults['ForeColor']
+        self.BackColor = defaults['BackColor']
         
         # Eventos VB (callbacks)
         self.SelectedIndexChanged = lambda: None
@@ -1054,7 +1150,7 @@ class ComboBox(ControlBase):
         self.Validating = lambda: None
         self.DrawItem = lambda index, graphics, bounds, state: None  # Placeholder
         
-        self.Width = Width
+        self.Width = defaults['Width']
         self.Height = 25  # Fixed height for ComboBox
         
         # Si DataSource, poblar Items
@@ -1194,26 +1290,58 @@ class ComboBox(ControlBase):
 class ListBox(ControlBase):
     """Representa un ListBox."""
     
-    def __init__(self, master_form, Items=None, Left=10, Top=170, Width=200, Height=100, Name="", DataSource=None, DisplayMember="", ValueMember="", SelectedIndex=-1, SelectionMode="One", TopIndex=0, IntegralHeight=True, MultiColumn=False, ScrollAlwaysVisible=False, Enabled=True, Font=None, ForeColor=None, BackColor=None):
-        super().__init__(master_form._root, Left, Top)
+    def __init__(self, master_form, props=None):
+        """Inicializa un ListBox.
         
-        self.Name = Name
-        self.Width = Width
-        self.Height = Height
-        self.Items = Items or []
-        self.DataSource = DataSource
-        self.DisplayMember = DisplayMember
-        self.ValueMember = ValueMember
-        self.SelectedIndex = SelectedIndex
-        self.SelectionMode = SelectionMode
-        self.TopIndex = TopIndex
-        self.IntegralHeight = IntegralHeight
-        self.MultiColumn = MultiColumn
-        self.ScrollAlwaysVisible = ScrollAlwaysVisible
-        self.Enabled = Enabled
-        self.Font = Font
-        self.ForeColor = ForeColor
-        self.BackColor = BackColor
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 170,
+            'Width': 200,
+            'Height': 100,
+            'Name': '',
+            'Items': None,
+            'DataSource': None,
+            'DisplayMember': '',
+            'ValueMember': '',
+            'SelectedIndex': -1,
+            'SelectionMode': 'One',
+            'TopIndex': 0,
+            'IntegralHeight': True,
+            'MultiColumn': False,
+            'ScrollAlwaysVisible': False,
+            'Enabled': True,
+            'Font': None,
+            'ForeColor': None,
+            'BackColor': None
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        
+        self.Name = defaults['Name']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Items = defaults['Items'] or []
+        self.DataSource = defaults['DataSource']
+        self.DisplayMember = defaults['DisplayMember']
+        self.ValueMember = defaults['ValueMember']
+        self.SelectedIndex = defaults['SelectedIndex']
+        self.SelectionMode = defaults['SelectionMode']
+        self.TopIndex = defaults['TopIndex']
+        self.IntegralHeight = defaults['IntegralHeight']
+        self.MultiColumn = defaults['MultiColumn']
+        self.ScrollAlwaysVisible = defaults['ScrollAlwaysVisible']
+        self.Enabled = defaults['Enabled']
+        self.Font = defaults['Font']
+        self.ForeColor = defaults['ForeColor']
+        self.BackColor = defaults['BackColor']
         
         # Eventos VB (callbacks)
         self.SelectedIndexChanged = lambda: None
@@ -1240,11 +1368,11 @@ class ListBox(ControlBase):
         if self.ScrollAlwaysVisible:
             vscroll = tk.Scrollbar(self.master, command=self._tk_widget.yview)
             self._tk_widget.config(yscrollcommand=vscroll.set)
-            vscroll.place(x=Left+Width-15, y=Top, height=Height)
+            vscroll.place(x=self.Left+self.Width-15, y=self.Top, height=self.Height)
             if self.MultiColumn:  # For multi-column, add horizontal scroll
                 hscroll = tk.Scrollbar(self.master, orient='horizontal', command=self._tk_widget.xview)
                 self._tk_widget.config(xscrollcommand=hscroll.set)
-                hscroll.place(x=Left, y=Top+Height-15, width=Width)
+                hscroll.place(x=self.Left, y=self.Top+self.Height-15, width=self.Width)
         
         # Apply Font, ForeColor, BackColor, Enabled
         config = {}
@@ -1324,27 +1452,57 @@ class ListBox(ControlBase):
 class CheckBox(ControlBase):
     """Representa un CheckBox."""
     
-    def __init__(self, master_form, Text="CheckBox", Left=10, Top=140, Width=100, Height=25, Name="", Checked=False, CheckState=0, ThreeState=False, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None, TextAlign="w", Appearance="Normal", AutoSize=False):
-        super().__init__(master_form._root, Left, Top)
+    def __init__(self, master_form, props=None):
+        """Inicializa un CheckBox.
         
-        self.Name = Name
-        self._text_value = Text  # Atributo interno para almacenar el texto
-        self._checked_value = Checked  # Atributo interno para Checked
-        self._checkstate_value = CheckState  # Atributo interno para CheckState
-        self.ThreeState = ThreeState
-        self.Enabled = Enabled
-        self._visible = Visible
-        self.Font = Font
-        self.ForeColor = ForeColor
-        self.BackColor = BackColor
-        self.TextAlign = TextAlign
-        self.Appearance = Appearance
-        self.AutoSize = AutoSize
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 140,
+            'Width': 100,
+            'Height': 25,
+            'Name': '',
+            'Text': 'CheckBox',
+            'Checked': False,
+            'CheckState': 0,
+            'ThreeState': False,
+            'Enabled': True,
+            'Visible': True,
+            'Font': None,
+            'ForeColor': None,
+            'BackColor': None,
+            'TextAlign': 'w',
+            'Appearance': 'Normal',
+            'AutoSize': False
+        }
         
-        self.Width = Width
-        self.Height = Height
+        if props:
+            defaults.update(props)
         
-        self.Location = (Left, Top)
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        
+        self.Name = defaults['Name']
+        self._text_value = defaults['Text']
+        self._checked_value = defaults['Checked']
+        self._checkstate_value = defaults['CheckState']
+        self.ThreeState = defaults['ThreeState']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self.Font = defaults['Font']
+        self.ForeColor = defaults['ForeColor']
+        self.BackColor = defaults['BackColor']
+        self.TextAlign = defaults['TextAlign']
+        self.Appearance = defaults['Appearance']
+        self.AutoSize = defaults['AutoSize']
+        
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        
+        self.Location = (self.Left, self.Top)
         
         # Variable based on ThreeState
         if self.ThreeState:
@@ -1430,25 +1588,56 @@ class CheckBox(ControlBase):
 class CheckedListBox(ControlBase):
     """Representa un CheckedListBox (lista con checkboxes)."""
     
-    def __init__(self, master_form, Items=None, Left=10, Top=200, Width=200, Height=100, Name="", DataSource=None, DisplayMember="", ValueMember="", SelectedItems=None, SelectionMode="One", CheckOnClick=True, ThreeDCheckBoxes=True, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None):
-        super().__init__(master_form._root, Left, Top)
+    def __init__(self, master_form, props=None):
+        """Inicializa un CheckedListBox.
         
-        self.Name = Name
-        self.Width = Width
-        self.Height = Height
-        self.Items = Items or []
-        self.DataSource = DataSource
-        self.DisplayMember = DisplayMember
-        self.ValueMember = ValueMember
-        self.SelectedItems = SelectedItems or []
-        self.SelectionMode = SelectionMode
-        self.CheckOnClick = CheckOnClick
-        self.ThreeDCheckBoxes = ThreeDCheckBoxes
-        self.Enabled = Enabled
-        self._visible = Visible
-        self.Font = Font
-        self.ForeColor = ForeColor
-        self.BackColor = BackColor
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 200,
+            'Width': 200,
+            'Height': 100,
+            'Name': '',
+            'Items': None,
+            'DataSource': None,
+            'DisplayMember': '',
+            'ValueMember': '',
+            'SelectedItems': None,
+            'SelectionMode': 'One',
+            'CheckOnClick': True,
+            'ThreeDCheckBoxes': True,
+            'Enabled': True,
+            'Visible': True,
+            'Font': None,
+            'ForeColor': None,
+            'BackColor': None
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        
+        self.Name = defaults['Name']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Items = defaults['Items'] or []
+        self.DataSource = defaults['DataSource']
+        self.DisplayMember = defaults['DisplayMember']
+        self.ValueMember = defaults['ValueMember']
+        self.SelectedItems = defaults['SelectedItems'] or []
+        self.SelectionMode = defaults['SelectionMode']
+        self.CheckOnClick = defaults['CheckOnClick']
+        self.ThreeDCheckBoxes = defaults['ThreeDCheckBoxes']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self.Font = defaults['Font']
+        self.ForeColor = defaults['ForeColor']
+        self.BackColor = defaults['BackColor']
         
         # Eventos VB (callbacks)
         self.ItemCheck = lambda item, new_value: None
@@ -1456,7 +1645,7 @@ class CheckedListBox(ControlBase):
         self.SelectedValueChanged = lambda: None
         self.Format = lambda item: None
         
-        self.Location = (Left, Top)
+        self.Location = (self.Left, self.Top)
         
         # If DataSource, populate Items
         if self.DataSource and self.DisplayMember:
@@ -1534,32 +1723,65 @@ class CheckedListBox(ControlBase):
 class Panel(ControlBase):
     """Representa un Panel (contenedor)."""
     
-    def __init__(self, master_form, Left=0, Top=0, Width=200, Height=100, Name="", Text="", Enabled=True, Visible=True, BackColor='lightgray', BackgroundImage=None, BorderStyle='flat', AutoScroll=False, AutoScrollOffset=(0,0), Dock=None, Anchor=None, Padding=(0,0), AutoSize=False, AutoSizeMode='GrowOnly', MinimumSize=None, MaximumSize=None):
+    def __init__(self, master_form, props=None):
+        """Inicializa un Panel.
+        
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 0,
+            'Top': 0,
+            'Width': 200,
+            'Height': 100,
+            'Name': '',
+            'Text': '',
+            'Enabled': True,
+            'Visible': True,
+            'BackColor': 'lightgray',
+            'BackgroundImage': None,
+            'BorderStyle': 'flat',
+            'AutoScroll': False,
+            'AutoScrollOffset': (0, 0),
+            'Dock': None,
+            'Anchor': None,
+            'Padding': (0, 0),
+            'AutoSize': False,
+            'AutoSizeMode': 'GrowOnly',
+            'MinimumSize': None,
+            'MaximumSize': None
+        }
+        
+        if props:
+            defaults.update(props)
+        
         # Resolve master widget
         master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
-        super().__init__(master_widget, Left, Top)
+        super().__init__(master_widget, defaults['Left'], defaults['Top'])
         
-        self.Name = Name
-        self._text = Text
-        self.Width = Width
-        self.Height = Height
-        self.Enabled = Enabled
-        self._visible = Visible
-        self.BackColor = BackColor
-        self.BackgroundImage = BackgroundImage
-        self.BorderStyle = BorderStyle
-        self.AutoScroll = AutoScroll
-        self.AutoScrollOffset = AutoScrollOffset
-        self.Dock = Dock
-        self.Anchor = Anchor
-        self.Padding = Padding
-        self.AutoSize = AutoSize
-        self.AutoSizeMode = AutoSizeMode  # 'GrowOnly' o 'GrowAndShrink'
-        self.MinimumSize = MinimumSize
-        self.MaximumSize = MaximumSize
-        self._original_size = (Width, Height)  # Para GrowOnly
+        self.Name = defaults['Name']
+        self._text = defaults['Text']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self.BackColor = defaults['BackColor']
+        self.BackgroundImage = defaults['BackgroundImage']
+        self.BorderStyle = defaults['BorderStyle']
+        self.AutoScroll = defaults['AutoScroll']
+        self.AutoScrollOffset = defaults['AutoScrollOffset']
+        self.Dock = defaults['Dock']
+        self.Anchor = defaults['Anchor']
+        self.Padding = defaults['Padding']
+        self.AutoSize = defaults['AutoSize']
+        self.AutoSizeMode = defaults['AutoSizeMode']
+        self.MinimumSize = defaults['MinimumSize']
+        self.MaximumSize = defaults['MaximumSize']
+        self._original_size = (defaults['Width'], defaults['Height'])
         
-        self.Location = (Left, Top)
+        self.Location = (self.Left, self.Top)
         
         # Crear el widget Tkinter (Frame o LabelFrame según haya título)
         padx, pady = self.Padding
@@ -1946,26 +2168,39 @@ class Panel(ControlBase):
 
 
 class Line:
-    """Representa una línea (System.Windows.Shapes.Line de WPF/UWP) dibujada en un Canvas.
+    """
+    Representa una línea (System.Windows.Shapes.Line de WPF/UWP) dibujada en un Canvas.
     
-    En WPF/UWP, Line es un elemento visual que se dibuja entre dos puntos.
-    Esta implementación usa tkinter Canvas para dibujar líneas con propiedades similares.
+    Uso - Opción 1 (asignación de propiedades):
+        line = Line(form)
+        line.X1 = 10
+        line.Y1 = 10
+        line.X2 = 200
+        line.Y2 = 100
+        line.Stroke = "blue"
+        line.StrokeThickness = 2
+    
+    Uso - Opción 2 (diccionario):
+        line = Line(form, {'X1': 10, 'Y1': 10, 'X2': 200, 'Y2': 100, 'Stroke': 'blue'})
     """
     
-    def __init__(self, master_form, X1=0, Y1=0, X2=100, Y2=100, Name="", Stroke="black", StrokeThickness=1, StrokeDashArray=None, Visible=True, Tag=None):
-        """Inicializa una línea.
+    def __init__(self, master_form, props=None):
+        defaults = {
+            'X1': 0,
+            'Y1': 0,
+            'X2': 100,
+            'Y2': 100,
+            'Name': "",
+            'Stroke': "black",
+            'StrokeThickness': 1,
+            'StrokeDashArray': None,
+            'Visible': True,
+            'Tag': None
+        }
         
-        Parámetros:
-        - master_form: El formulario o control contenedor que debe tener un Canvas
-        - X1, Y1: Coordenadas del punto inicial
-        - X2, Y2: Coordenadas del punto final
-        - Name: Identificador único
-        - Stroke: Color de la línea (nombre de color, hex, etc.)
-        - StrokeThickness: Grosor de la línea en píxeles
-        - StrokeDashArray: Lista de valores para patrón de guiones [dash, space, dash, space, ...]
-        - Visible: Si la línea es visible
-        - Tag: Objeto personalizado para datos asociados
-        """
+        if props:
+            defaults.update(props)
+        
         # Resolver el canvas o widget master
         if hasattr(master_form, '_canvas'):
             self._canvas = master_form._canvas
@@ -1980,16 +2215,16 @@ class Line:
             self._canvas.pack(fill='both', expand=True)
         
         # Propiedades WPF/UWP
-        self.Name = Name
-        self.X1 = X1
-        self.Y1 = Y1
-        self.X2 = X2
-        self.Y2 = Y2
-        self.Stroke = Stroke
-        self.StrokeThickness = StrokeThickness
-        self.StrokeDashArray = StrokeDashArray  # Lista como [5, 2, 3, 2] para patrón de guiones
-        self._visible = Visible
-        self.Tag = Tag
+        self.Name = defaults['Name']
+        self.X1 = defaults['X1']
+        self.Y1 = defaults['Y1']
+        self.X2 = defaults['X2']
+        self.Y2 = defaults['Y2']
+        self.Stroke = defaults['Stroke']
+        self.StrokeThickness = defaults['StrokeThickness']
+        self.StrokeDashArray = defaults['StrokeDashArray']  # Lista como [5, 2, 3, 2] para patrón de guiones
+        self._visible = defaults['Visible']
+        self.Tag = defaults['Tag']
         
         # Eventos UIElement (WPF/UWP)
         self.MouseEnter = lambda sender, e: None
@@ -2310,24 +2545,65 @@ class PrintDialog:
 
 
 class PictureBox(ControlBase):
-    """Representa un PictureBox para mostrar imágenes con propiedades VB.NET."""
+    """
+    Representa un PictureBox para mostrar imágenes con propiedades VB.NET.
     
-    def __init__(self, master_form, Image=None, Left=10, Top=10, Width=100, Height=100, Name="", ImageLocation="", SizeMode="Normal", BorderStyle=None, Enabled=True, Visible=True, BackColor=None, ErrorImage=None, InitialImage=None, WaitOnLoad=False):
-        super().__init__(master_form._root, Left, Top)
+    Uso - Opción 1 (asignación de propiedades):
+        picture = PictureBox(form)
+        picture.Left = 10
+        picture.Top = 10
+        picture.Width = 200
+        picture.Height = 200
+        picture.ImageLocation = "path/to/image.png"
+        picture.SizeMode = "Zoom"
+    
+    Uso - Opción 2 (diccionario):
+        picture = PictureBox(form, {
+            'Left': 10, 'Top': 10, 'Width': 200, 'Height': 200,
+            'ImageLocation': 'path/to/image.png', 'SizeMode': 'Zoom'
+        })
+    """
+    
+    def __init__(self, master_form, props=None):
+        # Valores por defecto
+        defaults = {
+            'Image': None,
+            'Left': 10,
+            'Top': 10,
+            'Width': 100,
+            'Height': 100,
+            'Name': "",
+            'ImageLocation': "",
+            'SizeMode': "Normal",
+            'BorderStyle': None,
+            'Enabled': True,
+            'Visible': True,
+            'BackColor': None,
+            'ErrorImage': None,
+            'InitialImage': None,
+            'WaitOnLoad': False
+        }
         
-        self.Name = Name
-        self.Width = Width
-        self.Height = Height
-        self.Image = Image
-        self.ImageLocation = ImageLocation
-        self.SizeMode = SizeMode  # 'Normal', 'StretchImage', 'AutoSize', 'CenterImage', 'Zoom'
-        self.BorderStyle = BorderStyle  # 'None', 'FixedSingle', 'Fixed3D'
-        self.Enabled = Enabled
-        self._visible = Visible
-        self.BackColor = BackColor
-        self.ErrorImage = ErrorImage
-        self.InitialImage = InitialImage
-        self.WaitOnLoad = WaitOnLoad
+        # Merge con props si existe
+        if props:
+            defaults.update(props)
+        
+        # Asignar todas las propiedades
+        self.Name = defaults['Name']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Image = defaults['Image']
+        self.ImageLocation = defaults['ImageLocation']
+        self.SizeMode = defaults['SizeMode']  # 'Normal', 'StretchImage', 'AutoSize', 'CenterImage', 'Zoom'
+        self.BorderStyle = defaults['BorderStyle']  # 'None', 'FixedSingle', 'Fixed3D'
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self.BackColor = defaults['BackColor']
+        self.ErrorImage = defaults['ErrorImage']
+        self.InitialImage = defaults['InitialImage']
+        self.WaitOnLoad = defaults['WaitOnLoad']
+        
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
         # Eventos VB
         self.LoadCompleted = lambda sender, e: None
@@ -2465,15 +2741,31 @@ class PictureBox(ControlBase):
 
 
 class ImageList:
-    """Representa una ImageList para gestionar imágenes con propiedades VB.NET."""
+    """
+    Representa una ImageList para gestionar imágenes con propiedades VB.NET.
     
-    def __init__(self, Name="", ImageSize=(16, 16), ColorDepth=32, TransparentColor=None, ImageStream=None):
-        self.Name = Name  # Identificador único
+    Uso - Opción 1: imgList = ImageList(); imgList.ImageSize = (32, 32)
+    Uso - Opción 2: imgList = ImageList({'ImageSize': (32, 32), 'Name': 'icons'})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Name': "",
+            'ImageSize': (16, 16),
+            'ColorDepth': 32,
+            'TransparentColor': None,
+            'ImageStream': None
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        self.Name = defaults['Name']  # Identificador único
         self.Images = {}  # Diccionario de imágenes (clave: índice o nombre, valor: PhotoImage)
-        self.ImageSize = ImageSize  # (ancho, alto) en píxeles
-        self.ColorDepth = ColorDepth  # Profundidad de color (8, 16, 24, 32 bits)
-        self.TransparentColor = TransparentColor  # Color transparente
-        self.ImageStream = ImageStream  # Para serialización (placeholder)
+        self.ImageSize = defaults['ImageSize']  # (ancho, alto) en píxeles
+        self.ColorDepth = defaults['ColorDepth']  # Profundidad de color (8, 16, 24, 32 bits)
+        self.TransparentColor = defaults['TransparentColor']  # Color transparente
+        self.ImageStream = defaults['ImageStream']  # Para serialización (placeholder)
         self._next_index = 0  # Para asignar índices automáticamente
         
         # Eventos VB
@@ -2628,22 +2920,55 @@ class MaskedFormat:
 
 
 class MaskedTextBox(TextBox):
-    """Representa un MaskedTextBox con validación de máscara y propiedades VB.NET."""
+    """
+    Representa un MaskedTextBox con validación de máscara y propiedades VB.NET.
     
-    def __init__(self, master_form, Mask="", Text="", Left=10, Top=80, Width=200, Name="", PromptChar='_', HidePromptOnLeave=False, PasswordChar=None, UseSystemPasswordChar=False, BeepOnError=False, CutCopyMaskFormat='IncludeLiterals', InsertKeyMode='Insert', AllowPromptAsInput=False, FormatProvider=None):
-        super().__init__(master_form, Text, Left, Top, Width, Name=Name)
+    Uso - Opción 1 (asignación de propiedades):
+        mtb = MaskedTextBox(form)
+        mtb.Mask = "(999) 000-0000"
+        mtb.Left = 10
+        mtb.Top = 80
+    
+    Uso - Opción 2 (diccionario):
+        mtb = MaskedTextBox(form, {'Mask': '(999) 000-0000', 'Left': 10, 'Top': 80})
+    """
+    
+    def __init__(self, master_form, props=None):
+        defaults = {
+            'Mask': "",
+            'Text': "",
+            'Left': 10,
+            'Top': 80,
+            'Width': 200,
+            'Name': "",
+            'PromptChar': '_',
+            'HidePromptOnLeave': False,
+            'PasswordChar': None,
+            'UseSystemPasswordChar': False,
+            'BeepOnError': False,
+            'CutCopyMaskFormat': 'IncludeLiterals',
+            'InsertKeyMode': 'Insert',
+            'AllowPromptAsInput': False,
+            'FormatProvider': None
+        }
         
-        # Propiedades VB
-        self.Mask = Mask
-        self.PromptChar = PromptChar
-        self.HidePromptOnLeave = HidePromptOnLeave
-        self.PasswordChar = PasswordChar
-        self.UseSystemPasswordChar = UseSystemPasswordChar
-        self.BeepOnError = BeepOnError
-        self.CutCopyMaskFormat = CutCopyMaskFormat  # 'IncludeLiterals', 'ExcludePromptAndLiterals', etc.
-        self.InsertKeyMode = InsertKeyMode  # 'Insert', 'Overwrite'
-        self.AllowPromptAsInput = AllowPromptAsInput
-        self.FormatProvider = FormatProvider  # Placeholder para cultura
+        if props:
+            defaults.update(props)
+        
+        # Llamar al constructor padre con los parámetros necesarios
+        super().__init__(master_form, {'Text': defaults['Text'], 'Left': defaults['Left'], 'Top': defaults['Top'], 'Width': defaults['Width'], 'Name': defaults['Name']})
+        
+        # Propiedades VB específicas
+        self.Mask = defaults['Mask']
+        self.PromptChar = defaults['PromptChar']
+        self.HidePromptOnLeave = defaults['HidePromptOnLeave']
+        self.PasswordChar = defaults['PasswordChar']
+        self.UseSystemPasswordChar = defaults['UseSystemPasswordChar']
+        self.BeepOnError = defaults['BeepOnError']
+        self.CutCopyMaskFormat = defaults['CutCopyMaskFormat']  # 'IncludeLiterals', 'ExcludePromptAndLiterals', etc.
+        self.InsertKeyMode = defaults['InsertKeyMode']  # 'Insert', 'Overwrite'
+        self.AllowPromptAsInput = defaults['AllowPromptAsInput']
+        self.FormatProvider = defaults['FormatProvider']  # Placeholder para cultura
         
         # Eventos específicos de MaskedTextBox
         self.MaskInputRejected = lambda sender, e: None
@@ -2766,19 +3091,39 @@ class MaskedTextBox(TextBox):
 
 
 class TabPage:
-    """Representa una página de pestaña para TabControl con propiedades VB.NET."""
+    """
+    Representa una página de pestaña para TabControl con propiedades VB.NET.
     
-    def __init__(self, Text="TabPage", Name="", Enabled=True, Visible=True, ImageIndex=-1, ImageKey="", ToolTipText="", UseVisualStyleBackColor=True, Padding=(3,3)):
-        self.Name = Name or Text  # Usar Text si Name vacío
-        self._text_value = Text  # Atributo interno para almacenar el texto
+    Uso - Opción 1: page = TabPage(); page.Text = "Mi Pestaña"; page.Name = "tabPage1"
+    Uso - Opción 2: page = TabPage({'Text': 'Mi Pestaña', 'Name': 'tabPage1'})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Text': "TabPage",
+            'Name': "",
+            'Enabled': True,
+            'Visible': True,
+            'ImageIndex': -1,
+            'ImageKey': "",
+            'ToolTipText': "",
+            'UseVisualStyleBackColor': True,
+            'Padding': (3, 3)
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        self.Name = defaults['Name'] or defaults['Text']  # Usar Text si Name vacío
+        self._text_value = defaults['Text']  # Atributo interno para almacenar el texto
         self.Parent = None  # Asignado por TabControl
-        self.Enabled = Enabled
-        self._visible = Visible  # Placeholder, ttk.Notebook maneja visibilidad automáticamente
-        self.ImageIndex = ImageIndex
-        self.ImageKey = ImageKey
-        self.ToolTipText = ToolTipText  # Placeholder, Tkinter no tiene tooltips nativos
-        self.UseVisualStyleBackColor = UseVisualStyleBackColor  # Placeholder
-        self.Padding = Padding  # (padx, pady)
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']  # Placeholder, ttk.Notebook maneja visibilidad automáticamente
+        self.ImageIndex = defaults['ImageIndex']
+        self.ImageKey = defaults['ImageKey']
+        self.ToolTipText = defaults['ToolTipText']  # Placeholder, Tkinter no tiene tooltips nativos
+        self.UseVisualStyleBackColor = defaults['UseVisualStyleBackColor']  # Placeholder
+        self.Padding = defaults['Padding']  # (padx, pady)
         
         # Crear el frame con padding
         padx, pady = self.Padding
@@ -2881,32 +3226,69 @@ class TabPage:
 
 
 class TabControl(ControlBase):
-    """Representa un TabControl con pestañas."""
+    """
+    Representa un TabControl con pestañas.
     
-    def __init__(self, master_form, Left=10, Top=10, Width=300, Height=200, Name="", TabPages=None, SelectedIndex=0, ImageList=None, Appearance="Normal", Alignment="Top", Multiline=False, SizeMode="Normal", Enabled=True, Visible=True, Padding=(0,0), HotTrack=False):
+    Uso - Opción 1 (asignación de propiedades):
+        tab = TabControl(form)
+        tab.Left = 10
+        tab.Top = 10
+        tab.Width = 400
+        tab.Height = 300
+    
+    Uso - Opción 2 (diccionario):
+        tab = TabControl(form, {'Left': 10, 'Top': 10, 'Width': 400, 'Height': 300})
+    """
+    
+    def __init__(self, master_form, props=None):
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 10,
+            'Width': 300,
+            'Height': 200,
+            'Name': "",
+            'TabPages': None,
+            'SelectedIndex': 0,
+            'ImageList': None,
+            'Appearance': "Normal",
+            'Alignment': "Top",
+            'Multiline': False,
+            'SizeMode': "Normal",
+            'Enabled': True,
+            'Visible': True,
+            'Padding': (0, 0),
+            'HotTrack': False
+        }
+        
+        # Merge con props si existe
+        if props:
+            defaults.update(props)
+        
         # Resolve master widget
         master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
-        super().__init__(master_widget, Left, Top)
+        super().__init__(master_widget, defaults['Left'], defaults['Top'])
         
-        self.Width = Width
-        self.Height = Height
+        # Asignar propiedades
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
         
         # Store master_form for container access
         self.master_form = master_form
         
         # Propiedades VB
-        self.Name = Name
-        self.Enabled = Enabled
-        self._visible = Visible
-        self.TabPages = TabPages or []
-        self.SelectedIndex = SelectedIndex
-        self.ImageList = ImageList
-        self.Appearance = Appearance  # 'Normal', 'Buttons', 'FlatButtons' - placeholder
-        self.Alignment = Alignment  # 'Top', 'Bottom', 'Left', 'Right'
-        self.Multiline = Multiline
-        self.SizeMode = SizeMode  # 'Normal', 'Fixed', 'FillToRight' - placeholder
-        self.Padding = Padding  # (padx, pady)
-        self.HotTrack = HotTrack  # Placeholder
+        self.Name = defaults['Name']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self.TabPages = defaults['TabPages'] or []
+        self.SelectedIndex = defaults['SelectedIndex']
+        self.ImageList = defaults['ImageList']
+        self.Appearance = defaults['Appearance']  # 'Normal', 'Buttons', 'FlatButtons' - placeholder
+        self.Alignment = defaults['Alignment']  # 'Top', 'Bottom', 'Left', 'Right'
+        self.Multiline = defaults['Multiline']
+        self.SizeMode = defaults['SizeMode']  # 'Normal', 'Fixed', 'FillToRight' - placeholder
+        self.Padding = defaults['Padding']  # (padx, pady)
+        self.HotTrack = defaults['HotTrack']  # Placeholder
         
         # Eventos VB
         self.SelectedIndexChanged = lambda: None
@@ -3047,27 +3429,56 @@ class TabControl(ControlBase):
 class RadioButton(ControlBase):
     """Representa un RadioButton."""
     
-    def __init__(self, master_form, Text="Radio", Group=None, Left=10, Top=140, Width=100, Height=25, Name="", Checked=False, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None, TextAlign="w", Appearance="Normal", AutoSize=False):
+    def __init__(self, master_form, props=None):
+        """Inicializa un RadioButton.
+        
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 140,
+            'Width': 100,
+            'Height': 25,
+            'Name': '',
+            'Text': 'Radio',
+            'Group': None,
+            'Checked': False,
+            'Enabled': True,
+            'Visible': True,
+            'Font': None,
+            'ForeColor': None,
+            'BackColor': None,
+            'TextAlign': 'w',
+            'Appearance': 'Normal',
+            'AutoSize': False
+        }
+        
+        if props:
+            defaults.update(props)
+        
         # Resolve master widget
         master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
-        super().__init__(master_widget, Left, Top)
+        super().__init__(master_widget, defaults['Left'], defaults['Top'])
         
         # Propiedades VB
-        self.Name = Name
-        self.Enabled = Enabled
-        self._visible = Visible
-        self._text_value = Text  # Atributo interno para almacenar el texto
-        self.Group = Group or tk.StringVar()
-        self._checked_value = Checked  # Atributo interno para Checked
-        self.Font = Font
-        self.ForeColor = ForeColor
-        self.BackColor = BackColor
-        self.TextAlign = TextAlign  # 'w' (left), 'e' (right), etc.
-        self.Appearance = Appearance  # 'Normal', 'Button'
-        self.AutoSize = AutoSize
+        self.Name = defaults['Name']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self._text_value = defaults['Text']
+        self.Group = defaults['Group'] or tk.StringVar()
+        self._checked_value = defaults['Checked']
+        self.Font = defaults['Font']
+        self.ForeColor = defaults['ForeColor']
+        self.BackColor = defaults['BackColor']
+        self.TextAlign = defaults['TextAlign']
+        self.Appearance = defaults['Appearance']
+        self.AutoSize = defaults['AutoSize']
         
-        self.Width = Width
-        self.Height = Height
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
         
         # Crear el widget Tkinter
         self._tk_widget = tk.Radiobutton(self.master, text=self._text_value, variable=self.Group, value=self._text_value)
@@ -3160,15 +3571,36 @@ class RadioButton(ControlBase):
 class ProgressBar(ControlBase):
     """Representa una ProgressBar."""
     
-    def __init__(self, master_form, Minimum=0, Maximum=100, Value=0, Left=10, Top=10, Width=200, Height=20, Style="Blocks"):
-        super().__init__(master_form._root, Left, Top)
+    def __init__(self, master_form, props=None):
+        """Inicializa un ProgressBar.
         
-        self.Minimum = Minimum
-        self.Maximum = Maximum
-        self.Value = Value
-        self.Width = Width
-        self.Height = Height
-        self.Style = Style  # 'Blocks', 'Continuous', 'Marquee'
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 10,
+            'Width': 200,
+            'Height': 20,
+            'Minimum': 0,
+            'Maximum': 100,
+            'Value': 0,
+            'Style': 'Blocks'
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        
+        self.Minimum = defaults['Minimum']
+        self.Maximum = defaults['Maximum']
+        self.Value = defaults['Value']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Style = defaults['Style']  # 'Blocks', 'Continuous', 'Marquee'
         
         # Eventos VB
         self.ValueChanged = lambda: None
@@ -3178,10 +3610,10 @@ class ProgressBar(ControlBase):
         mode = 'indeterminate' if self.Style == 'Marquee' else 'determinate'
         
         # Crear el widget Tkinter
-        self._tk_widget = ttk.Progressbar(self.master, orient='horizontal', length=Width, mode=mode)
+        self._tk_widget = ttk.Progressbar(self.master, orient='horizontal', length=self.Width, mode=mode)
         self._tk_widget['maximum'] = self.Maximum
         self._tk_widget['value'] = self.Value
-        self._place_control(Width, Height)
+        self._place_control(self.Width, self.Height)
         
         # Bind common events
         self._bind_common_events()
@@ -3209,45 +3641,113 @@ class ProgressBar(ControlBase):
 
 
 class ListViewItem:
-    """Representa un elemento en un ListView."""
+    """
+    Representa un elemento en un ListView.
     
-    def __init__(self, Text="", SubItems=None, ImageIndex=-1, ImageKey="", Tag=None):
-        self.Text = Text
-        self.SubItems = SubItems or []  # Lista de subelementos para columnas adicionales
-        self.ImageIndex = ImageIndex
-        self.ImageKey = ImageKey
-        self.Tag = Tag  # Objeto personalizado
+    Uso - Opción 1: item = ListViewItem(); item.Text = "Item1"
+    Uso - Opción 2: item = ListViewItem({'Text': 'Item1', 'SubItems': ['SubItem1', 'SubItem2']})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Text': "",
+            'SubItems': None,
+            'ImageIndex': -1,
+            'ImageKey': "",
+            'Tag': None
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        self.Text = defaults['Text']
+        self.SubItems = defaults['SubItems'] or []  # Lista de subelementos para columnas adicionales
+        self.ImageIndex = defaults['ImageIndex']
+        self.ImageKey = defaults['ImageKey']
+        self.Tag = defaults['Tag']  # Objeto personalizado
 
 
 class ColumnHeader:
-    """Representa un encabezado de columna en un ListView."""
+    """
+    Representa un encabezado de columna en un ListView.
     
-    def __init__(self, Text="", Width=100, TextAlign="left", ImageIndex=-1):
-        self.Text = Text
-        self.Width = Width
-        self.TextAlign = TextAlign  # 'left', 'center', 'right'
-        self.ImageIndex = ImageIndex
+    Uso - Opción 1: col = ColumnHeader(); col.Text = "Columna"; col.Width = 150
+    Uso - Opción 2: col = ColumnHeader({'Text': 'Columna', 'Width': 150})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Text': "",
+            'Width': 100,
+            'TextAlign': "left",
+            'ImageIndex': -1
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        self.Text = defaults['Text']
+        self.Width = defaults['Width']
+        self.TextAlign = defaults['TextAlign']  # 'left', 'center', 'right'
+        self.ImageIndex = defaults['ImageIndex']
 
 
 class ListView(ControlBase):
-    """Representa un ListView con propiedades VB.NET."""
+    """
+    Representa un ListView con propiedades VB.NET.
     
-    def __init__(self, master_form, Columns=None, Left=10, Top=280, Width=300, Height=150, Name="", Items=None, View="Details", SmallImageList=None, LargeImageList=None, FullRowSelect=True, MultiSelect=True, CheckBoxes=False, GridLines=False, HeaderStyle="Clickable", Sorting="None", Enabled=True, Visible=True):
-        super().__init__(master_form._root, Left, Top, Name=Name, Enabled=Enabled, Visible=Visible)
+    Uso - Opción 1 (asignación de propiedades):
+        lv = ListView(form)
+        lv.Left = 10
+        lv.Top = 10
+        lv.Width = 400
+        lv.Height = 200
+        lv.View = "Details"
+    
+    Uso - Opción 2 (diccionario):
+        lv = ListView(form, {'Left': 10, 'Top': 10, 'Width': 400, 'Height': 200, 'View': 'Details'})
+    """
+    
+    def __init__(self, master_form, props=None):
+        defaults = {
+            'Columns': None,
+            'Left': 10,
+            'Top': 280,
+            'Width': 300,
+            'Height': 150,
+            'Name': "",
+            'Items': None,
+            'View': "Details",
+            'SmallImageList': None,
+            'LargeImageList': None,
+            'FullRowSelect': True,
+            'MultiSelect': True,
+            'CheckBoxes': False,
+            'GridLines': False,
+            'HeaderStyle': "Clickable",
+            'Sorting': "None",
+            'Enabled': True,
+            'Visible': True
+        }
         
-        self.Width = Width
-        self.Height = Height
-        self.Items = Items or []  # Lista de ListViewItem
-        self.View = View  # 'LargeIcon', 'SmallIcon', 'List', 'Details', 'Tile'
-        self.Columns = Columns or [ColumnHeader("Column1")]
-        self.SmallImageList = SmallImageList
-        self.LargeImageList = LargeImageList
-        self.FullRowSelect = FullRowSelect
-        self.MultiSelect = MultiSelect
-        self.CheckBoxes = CheckBoxes
-        self.GridLines = GridLines
-        self.HeaderStyle = HeaderStyle  # 'Clickable', 'Nonclickable', 'None'
-        self.Sorting = Sorting  # 'Ascending', 'Descending', 'None'
+        if props:
+            defaults.update(props)
+        
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'], Name=defaults['Name'], Enabled=defaults['Enabled'], Visible=defaults['Visible'])
+        
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Items = defaults['Items'] or []  # Lista de ListViewItem
+        self.View = defaults['View']  # 'LargeIcon', 'SmallIcon', 'List', 'Details', 'Tile'
+        self.Columns = defaults['Columns'] or [ColumnHeader()]
+        self.SmallImageList = defaults['SmallImageList']
+        self.LargeImageList = defaults['LargeImageList']
+        self.FullRowSelect = defaults['FullRowSelect']
+        self.MultiSelect = defaults['MultiSelect']
+        self.CheckBoxes = defaults['CheckBoxes']
+        self.GridLines = defaults['GridLines']
+        self.HeaderStyle = defaults['HeaderStyle']  # 'Clickable', 'Nonclickable', 'None'
+        self.Sorting = defaults['Sorting']  # 'Ascending', 'Descending', 'None'
         
         # Eventos VB
         self.SelectedIndexChanged = lambda: None
@@ -3375,15 +3875,32 @@ class ListView(ControlBase):
         self.KeyPress(self, {'KeyChar': event.char})
 
 class DataGridViewColumn:
-    """Representa una columna en DataGridView."""
+    """
+    Representa una columna en DataGridView.
     
-    def __init__(self, Name="", HeaderText="", DataPropertyName="", Width=100, Visible=True, ReadOnly=False):
-        self.Name = Name
-        self.HeaderText = HeaderText
-        self.DataPropertyName = DataPropertyName
-        self.Width = Width
-        self.Visible = Visible
-        self.ReadOnly = ReadOnly
+    Uso - Opción 1: col = DataGridViewColumn(); col.Name = "col1"; col.HeaderText = "Columna 1"
+    Uso - Opción 2: col = DataGridViewColumn({'Name': 'col1', 'HeaderText': 'Columna 1', 'Width': 150})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Name': "",
+            'HeaderText': "",
+            'DataPropertyName': "",
+            'Width': 100,
+            'Visible': True,
+            'ReadOnly': False
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        self.Name = defaults['Name']
+        self.HeaderText = defaults['HeaderText']
+        self.DataPropertyName = defaults['DataPropertyName']
+        self.Width = defaults['Width']
+        self.Visible = defaults['Visible']
+        self.ReadOnly = defaults['ReadOnly']
         self.DisplayIndex = 0
         self.DefaultCellStyle = {}
         self.SortMode = "Automatic"
@@ -3394,35 +3911,73 @@ class DataGridViewColumn:
 
 
 class DataGridView(ControlBase):
-    """Representa un DataGridView con propiedades VB.NET."""
+    """
+    Representa un DataGridView con propiedades VB.NET.
     
-    def __init__(self, master_form, Left=10, Top=10, Width=400, Height=200, Name="", DataSource=None, Columns=None, AllowUserToAddRows=False, AllowUserToDeleteRows=False, AllowUserToResizeColumns=True, ReadOnly=False, SelectionMode="FullRowSelect", DefaultCellStyle=None, AutoGenerateColumns=True, AlternatingRowsDefaultCellStyle=None, RowHeadersVisible=True, ColumnHeadersVisible=True, Dock=None, Anchor=None):
-        super().__init__(master_form._root, Left, Top)
-        self.Name = Name
+    Uso - Opción 1 (asignación de propiedades):
+        grid = DataGridView(form)
+        grid.Left = 10
+        grid.Top = 10
+        grid.Width = 500
+        grid.Height = 300
+        grid.DataSource = data_list
+    
+    Uso - Opción 2 (diccionario):
+        grid = DataGridView(form, {'Left': 10, 'Top': 10, 'Width': 500, 'DataSource': data_list})
+    """
+    
+    def __init__(self, master_form, props=None):
+        defaults = {
+            'Left': 10,
+            'Top': 10,
+            'Width': 400,
+            'Height': 200,
+            'Name': "",
+            'DataSource': None,
+            'Columns': None,
+            'AllowUserToAddRows': False,
+            'AllowUserToDeleteRows': False,
+            'AllowUserToResizeColumns': True,
+            'ReadOnly': False,
+            'SelectionMode': "FullRowSelect",
+            'DefaultCellStyle': None,
+            'AutoGenerateColumns': True,
+            'AlternatingRowsDefaultCellStyle': None,
+            'RowHeadersVisible': True,
+            'ColumnHeadersVisible': True,
+            'Dock': None,
+            'Anchor': None
+        }
         
-        self.Width = Width
-        self.Height = Height
-        self.DataSource = DataSource
+        if props:
+            defaults.update(props)
+        
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        self.Name = defaults['Name']
+        
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.DataSource = defaults['DataSource']
         # Convertir columnas si son strings
         self.Columns = []
-        if Columns:
-            for col in Columns:
+        if defaults['Columns']:
+            for col in defaults['Columns']:
                 if isinstance(col, str):
-                    self.Columns.append(DataGridViewColumn(Name=col, HeaderText=col, DataPropertyName=col))
+                    self.Columns.append(DataGridViewColumn({'Name': col, 'HeaderText': col, 'DataPropertyName': col}))
                 else:
                     self.Columns.append(col)
-        self.AllowUserToAddRows = AllowUserToAddRows
-        self.AllowUserToDeleteRows = AllowUserToDeleteRows
-        self.AllowUserToResizeColumns = AllowUserToResizeColumns
-        self.ReadOnly = ReadOnly
-        self.SelectionMode = SelectionMode  # 'FullRowSelect', 'CellSelect', etc.
-        self.DefaultCellStyle = DefaultCellStyle or {}
-        self.AutoGenerateColumns = AutoGenerateColumns
-        self.AlternatingRowsDefaultCellStyle = AlternatingRowsDefaultCellStyle or {}
-        self.RowHeadersVisible = RowHeadersVisible
-        self.ColumnHeadersVisible = ColumnHeadersVisible
-        self.Dock = Dock
-        self.Anchor = Anchor
+        self.AllowUserToAddRows = defaults['AllowUserToAddRows']
+        self.AllowUserToDeleteRows = defaults['AllowUserToDeleteRows']
+        self.AllowUserToResizeColumns = defaults['AllowUserToResizeColumns']
+        self.ReadOnly = defaults['ReadOnly']
+        self.SelectionMode = defaults['SelectionMode']  # 'FullRowSelect', 'CellSelect', etc.
+        self.DefaultCellStyle = defaults['DefaultCellStyle'] or {}
+        self.AutoGenerateColumns = defaults['AutoGenerateColumns']
+        self.AlternatingRowsDefaultCellStyle = defaults['AlternatingRowsDefaultCellStyle'] or {}
+        self.RowHeadersVisible = defaults['RowHeadersVisible']
+        self.ColumnHeadersVisible = defaults['ColumnHeadersVisible']
+        self.Dock = defaults['Dock']
+        self.Anchor = defaults['Anchor']
         
         self.Rows = []
         
@@ -3520,14 +4075,30 @@ class DataGridView(ControlBase):
 
 
 class TreeNode:
-    """Representa un nodo en un TreeView."""
+    """
+    Representa un nodo en un TreeView.
     
-    def __init__(self, Text="", ImageIndex=-1, SelectedImageIndex=-1, Tag=None, Nodes=None):
-        self.Text = Text
-        self.ImageIndex = ImageIndex
-        self.SelectedImageIndex = SelectedImageIndex
-        self.Tag = Tag
-        self.Nodes = Nodes or []  # Lista de TreeNode hijos
+    Uso - Opción 1: node = TreeNode(); node.Text = "Nodo1"; node.Tag = data
+    Uso - Opción 2: node = TreeNode({'Text': 'Nodo1', 'Tag': data, 'Nodes': [child1, child2]})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Text': "",
+            'ImageIndex': -1,
+            'SelectedImageIndex': -1,
+            'Tag': None,
+            'Nodes': None
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        self.Text = defaults['Text']
+        self.ImageIndex = defaults['ImageIndex']
+        self.SelectedImageIndex = defaults['SelectedImageIndex']
+        self.Tag = defaults['Tag']
+        self.Nodes = defaults['Nodes'] or []  # Lista de TreeNode hijos
         self.Parent = None  # Asignado por TreeView
         self.TreeView = None  # Referencia al TreeView
     
@@ -3543,29 +4114,67 @@ class TreeNode:
 
 
 class TreeView(ControlBase):
-    """Representa un TreeView con propiedades VB.NET."""
+    """
+    Representa un TreeView con propiedades VB.NET.
     
-    def __init__(self, master_form, Left=10, Top=10, Width=200, Height=200, Name="", Nodes=None, ImageList=None, ImageIndex=-1, SelectedImageIndex=-1, FullRowSelect=False, CheckBoxes=False, ShowLines=True, ShowPlusMinus=True, ShowRootLines=True, PathSeparator="\\", LabelEdit=False, Font=None, ForeColor=None, BackColor=None):
-        super().__init__(master_form._root, Left, Top)
+    Uso - Opción 1 (asignación de propiedades):
+        tree = TreeView(form)
+        tree.Left = 10
+        tree.Top = 10
+        tree.Width = 250
+        tree.Height = 300
+        tree.ShowLines = True
+    
+    Uso - Opción 2 (diccionario):
+        tree = TreeView(form, {'Left': 10, 'Top': 10, 'Width': 250, 'Height': 300})
+    """
+    
+    def __init__(self, master_form, props=None):
+        defaults = {
+            'Left': 10,
+            'Top': 10,
+            'Width': 200,
+            'Height': 200,
+            'Name': "",
+            'Nodes': None,
+            'ImageList': None,
+            'ImageIndex': -1,
+            'SelectedImageIndex': -1,
+            'FullRowSelect': False,
+            'CheckBoxes': False,
+            'ShowLines': True,
+            'ShowPlusMinus': True,
+            'ShowRootLines': True,
+            'PathSeparator': "\\",
+            'LabelEdit': False,
+            'Font': None,
+            'ForeColor': None,
+            'BackColor': None
+        }
         
-        self.Name = Name
+        if props:
+            defaults.update(props)
         
-        self.Width = Width
-        self.Height = Height
-        self.Nodes = Nodes or []  # Lista de TreeNode raíz
-        self.ImageList = ImageList
-        self.ImageIndex = ImageIndex
-        self.SelectedImageIndex = SelectedImageIndex
-        self.FullRowSelect = FullRowSelect
-        self.CheckBoxes = CheckBoxes
-        self.ShowLines = ShowLines
-        self.ShowPlusMinus = ShowPlusMinus
-        self.ShowRootLines = ShowRootLines
-        self.PathSeparator = PathSeparator
-        self.LabelEdit = LabelEdit
-        self.Font = Font
-        self.ForeColor = ForeColor
-        self.BackColor = BackColor
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        
+        self.Name = defaults['Name']
+        
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Nodes = defaults['Nodes'] or []  # Lista de TreeNode raíz
+        self.ImageList = defaults['ImageList']
+        self.ImageIndex = defaults['ImageIndex']
+        self.SelectedImageIndex = defaults['SelectedImageIndex']
+        self.FullRowSelect = defaults['FullRowSelect']
+        self.CheckBoxes = defaults['CheckBoxes']
+        self.ShowLines = defaults['ShowLines']
+        self.ShowPlusMinus = defaults['ShowPlusMinus']
+        self.ShowRootLines = defaults['ShowRootLines']
+        self.PathSeparator = defaults['PathSeparator']
+        self.LabelEdit = defaults['LabelEdit']
+        self.Font = defaults['Font']
+        self.ForeColor = defaults['ForeColor']
+        self.BackColor = defaults['BackColor']
         
         # Eventos VB
         self.AfterSelect = lambda sender, e: None
@@ -3605,7 +4214,7 @@ class TreeView(ControlBase):
         if self.BackColor:
             style.configure('Treeview', background=self.BackColor)
         
-        self._place_control(Width, Height)
+        self._place_control(self.Width, self.Height)
         
         # Bind events
         self._tk_widget.bind('<<TreeviewSelect>>', self._on_after_select)
@@ -3692,30 +4301,68 @@ class TreeView(ControlBase):
 
 
 class MonthCalendar(ControlBase):
-    """Representa un MonthCalendar con propiedades VB.NET."""
+    """
+    Representa un MonthCalendar con propiedades VB.NET.
     
-    def __init__(self, master_form, Left=10, Top=10, Width=200, Height=200, Name="", SelectionRange=None, SelectionStart=None, SelectionEnd=None, MaxSelectionCount=7, MinDate=None, MaxDate=None, TodayDate=None, ShowToday=True, ShowTodayCircle=True, ShowWeekNumbers=False, CalendarDimensions=(1,1), FirstDayOfWeek="Sunday", BoldedDates=None, AnnuallyBoldedDates=None, MonthlyBoldedDates=None):
-        super().__init__(master_form._root, Left, Top)
+    Uso - Opción 1 (asignación de propiedades):
+        cal = MonthCalendar(form)
+        cal.Left = 10
+        cal.Top = 10
+        cal.Width = 220
+        cal.ShowWeekNumbers = True
+    
+    Uso - Opción 2 (diccionario):
+        cal = MonthCalendar(form, {'Left': 10, 'Top': 10, 'ShowWeekNumbers': True})
+    """
+    
+    def __init__(self, master_form, props=None):
+        defaults = {
+            'Left': 10,
+            'Top': 10,
+            'Width': 200,
+            'Height': 200,
+            'Name': "",
+            'SelectionRange': None,
+            'SelectionStart': None,
+            'SelectionEnd': None,
+            'MaxSelectionCount': 7,
+            'MinDate': None,
+            'MaxDate': None,
+            'TodayDate': None,
+            'ShowToday': True,
+            'ShowTodayCircle': True,
+            'ShowWeekNumbers': False,
+            'CalendarDimensions': (1, 1),
+            'FirstDayOfWeek': "Sunday",
+            'BoldedDates': None,
+            'AnnuallyBoldedDates': None,
+            'MonthlyBoldedDates': None
+        }
         
-        self.Name = Name
+        if props:
+            defaults.update(props)
         
-        self.Width = Width
-        self.Height = Height
-        self.SelectionRange = SelectionRange or (SelectionStart, SelectionEnd)
-        self.SelectionStart = SelectionStart
-        self.SelectionEnd = SelectionEnd
-        self.MaxSelectionCount = MaxSelectionCount
-        self.MinDate = MinDate
-        self.MaxDate = MaxDate
-        self.TodayDate = TodayDate or str(date.today())
-        self.ShowToday = ShowToday
-        self.ShowTodayCircle = ShowTodayCircle
-        self.ShowWeekNumbers = ShowWeekNumbers
-        self.CalendarDimensions = CalendarDimensions
-        self.FirstDayOfWeek = FirstDayOfWeek
-        self.BoldedDates = BoldedDates or []
-        self.AnnuallyBoldedDates = AnnuallyBoldedDates or []
-        self.MonthlyBoldedDates = MonthlyBoldedDates or []
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        
+        self.Name = defaults['Name']
+        
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.SelectionRange = defaults['SelectionRange'] or (defaults['SelectionStart'], defaults['SelectionEnd'])
+        self.SelectionStart = defaults['SelectionStart']
+        self.SelectionEnd = defaults['SelectionEnd']
+        self.MaxSelectionCount = defaults['MaxSelectionCount']
+        self.MinDate = defaults['MinDate']
+        self.MaxDate = defaults['MaxDate']
+        self.TodayDate = defaults['TodayDate'] or str(date.today())
+        self.ShowToday = defaults['ShowToday']
+        self.ShowTodayCircle = defaults['ShowTodayCircle']
+        self.ShowWeekNumbers = defaults['ShowWeekNumbers']
+        self.CalendarDimensions = defaults['CalendarDimensions']
+        self.FirstDayOfWeek = defaults['FirstDayOfWeek']
+        self.BoldedDates = defaults['BoldedDates'] or []
+        self.AnnuallyBoldedDates = defaults['AnnuallyBoldedDates'] or []
+        self.MonthlyBoldedDates = defaults['MonthlyBoldedDates'] or []
         
         # Eventos VB
         self.DateChanged = lambda sender, e: None
@@ -3734,7 +4381,7 @@ class MonthCalendar(ControlBase):
         except ImportError:
             self._tk_widget = tk.Label(self.master, text="MonthCalendar Placeholder\nInstall tkcalendar for full functionality")
         
-        self._place_control(Width, Height)
+        self._place_control(self.Width, self.Height)
         
         # Bind events
         if hasattr(self._tk_widget, 'bind'):
@@ -3759,24 +4406,56 @@ class MonthCalendar(ControlBase):
 
 
 class DateTimePicker(ControlBase):
-    """Representa un DateTimePicker con propiedades VB.NET."""
+    """
+    Representa un DateTimePicker con propiedades VB.NET.
     
-    def __init__(self, master_form, Left=10, Top=10, Width=150, Height=25, Name="", Value=None, Format="Long", CustomFormat="", MinDate=None, MaxDate=None, ShowUpDown=False, ShowCheckBox=False, CalendarForeColor=None, TitleBackColor=None):
-        super().__init__(master_form._root, Left, Top)
+    Uso - Opción 1 (asignación de propiedades):
+        dtp = DateTimePicker(form)
+        dtp.Left = 10
+        dtp.Top = 10
+        dtp.Width = 200
+        dtp.Format = "Short"
+    
+    Uso - Opción 2 (diccionario):
+        dtp = DateTimePicker(form, {'Left': 10, 'Top': 10, 'Format': 'Short'})
+    """
+    
+    def __init__(self, master_form, props=None):
+        defaults = {
+            'Left': 10,
+            'Top': 10,
+            'Width': 150,
+            'Height': 25,
+            'Name': "",
+            'Value': None,
+            'Format': "Long",
+            'CustomFormat': "",
+            'MinDate': None,
+            'MaxDate': None,
+            'ShowUpDown': False,
+            'ShowCheckBox': False,
+            'CalendarForeColor': None,
+            'TitleBackColor': None
+        }
         
-        self.Name = Name
+        if props:
+            defaults.update(props)
         
-        self.Width = Width
-        self.Height = Height
-        self._value = Value or datetime.now()
-        self._format = Format
-        self._custom_format = CustomFormat
-        self.MinDate = MinDate
-        self.MaxDate = MaxDate
-        self.ShowUpDown = ShowUpDown
-        self.ShowCheckBox = ShowCheckBox
-        self.CalendarForeColor = CalendarForeColor
-        self.TitleBackColor = TitleBackColor
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        
+        self.Name = defaults['Name']
+        
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self._value = defaults['Value'] or datetime.now()
+        self._format = defaults['Format']
+        self._custom_format = defaults['CustomFormat']
+        self.MinDate = defaults['MinDate']
+        self.MaxDate = defaults['MaxDate']
+        self.ShowUpDown = defaults['ShowUpDown']
+        self.ShowCheckBox = defaults['ShowCheckBox']
+        self.CalendarForeColor = defaults['CalendarForeColor']
+        self.TitleBackColor = defaults['TitleBackColor']
         
         # Eventos VB
         self.ValueChanged = lambda sender, e: None
@@ -3787,7 +4466,7 @@ class DateTimePicker(ControlBase):
         
         # Placeholder: use Entry with button for calendar
         self._frame = tk.Frame(self.master)
-        self._entry = tk.Entry(self._frame, width=Width//10)
+        self._entry = tk.Entry(self._frame, width=self.Width//10)
         self._button = tk.Button(self._frame, text="...", command=self._open_calendar)
         self._entry.pack(side='left')
         self._button.pack(side='left')
@@ -3796,7 +4475,7 @@ class DateTimePicker(ControlBase):
         # Set initial value
         self._update_display()
         
-        self._place_control(Width, Height)
+        self._place_control(self.Width, self.Height)
         
         # Bind events
         self._button.bind('<Button-1>', self._on_drop_down)
@@ -3967,17 +4646,36 @@ class Size:
 
 
 class Form:
-    """Representa la ventana principal (Form)."""
+    """
+    Representa la ventana principal (Form).
     
-    def __init__(self, Title="WinFormPy Application", Width=500, Height=300, Name="", AutoScroll=False):
+    Uso - Opción 1: form = Form(); form.Text = "Mi App"; form.Width = 800
+    Uso - Opción 2: form = Form({'Text': 'Mi App', 'Width': 800, 'Height': 600})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Title': "WinFormPy Application",
+            'Width': 500,
+            'Height': 300,
+            'Name': "",
+            'AutoScroll': False
+        }
+        
+        if props:
+            defaults.update(props)
+            # Alias: Text es equivalente a Title
+            if 'Text' in props:
+                defaults['Title'] = props['Text']
+        
         self._root = tk.Tk()
         
         # Propiedades VB principales
-        self.Name = Name or "Form1"
-        self._text_value = Title
-        self.Width = Width
-        self.Height = Height
-        self.Size = Size(Width, Height)
+        self.Name = defaults['Name'] or "Form1"
+        self._text_value = defaults['Title']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Size = Size(self.Width, self.Height)
         self.Location = Point(0, 0)
         self.StartPosition = "WindowsDefaultLocation"  # 'CenterScreen', 'WindowsDefaultLocation', 'Manual', etc.
         self.FormBorderStyle = "Sizable"  # 'Sizable', 'FixedSingle', 'FixedDialog', 'None'
@@ -3995,7 +4693,7 @@ class Form:
         self.IsMdiContainer = False
         self.CancelButton = None
         self.AcceptButton = None
-        self.AutoScroll = AutoScroll
+        self.AutoScroll = defaults['AutoScroll']
         
         # Lista interna para mantener una referencia a todos los controles
         self.Controls = [] 
@@ -4263,10 +4961,27 @@ class Form:
                 self._canvas.yview_scroll(-1, 'units')
 
 class MDIParent(Form):
-    """Representa el formulario padre MDI."""
+    """
+    Representa el formulario padre MDI.
     
-    def __init__(self, Title="MDI Parent", Width=800, Height=600):
-        super().__init__(Title, Width, Height)
+    Uso - Opción 1: parent = MDIParent(); parent.Text = "MDI App"; parent.Width = 1024
+    Uso - Opción 2: parent = MDIParent({'Text': 'MDI App', 'Width': 1024, 'Height': 768})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Title': "MDI Parent",
+            'Width': 800,
+            'Height': 600
+        }
+        
+        if props:
+            defaults.update(props)
+            # Alias: Text es equivalente a Title
+            if 'Text' in props:
+                defaults['Title'] = props['Text']
+        
+        super().__init__(defaults)
         
         self.IsMdiContainer = True  # Configura como contenedor MDI
         self.MDIChildren = []
@@ -4316,27 +5031,34 @@ class MDIParent(Form):
 
 
 class StatusBarPanel:
-    """Representa un panel individual dentro de un StatusBar."""
+    """
+    Representa un panel individual dentro de un StatusBar.
     
-    def __init__(self, Text="", Width=100, AutoSize="None", Icon=None, ToolTipText="", Bevel="Sunken", Style="Text"):
-        """Inicializa un panel de StatusBar.
+    Uso - Opción 1: panel = StatusBarPanel(); panel.Text = "Ready"; panel.Width = 150
+    Uso - Opción 2: panel = StatusBarPanel({'Text': 'Ready', 'Width': 150})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Text': "",
+            'Width': 100,
+            'AutoSize': "None",
+            'Icon': None,
+            'ToolTipText': "",
+            'Bevel': "Sunken",
+            'Style': "Text"
+        }
         
-        Args:
-            Text: Texto a mostrar en el panel
-            Width: Ancho del panel en píxeles
-            AutoSize: Modo de redimensionamiento automático ('None', 'Spring', 'Contents')
-            Icon: Icono a mostrar junto al texto
-            ToolTipText: Texto del tooltip
-            Bevel: Estilo del borde ('Raised', 'Sunken', 'None')
-            Style: Estilo del panel ('Text', 'OwnerDraw')
-        """
-        self._text = Text
-        self.Width = Width
-        self.AutoSize = AutoSize  # 'None', 'Spring', 'Contents'
-        self.Icon = Icon
-        self.ToolTipText = ToolTipText
-        self.Bevel = Bevel  # 'Raised', 'Sunken', 'None'
-        self.Style = Style  # 'Text', 'OwnerDraw'
+        if props:
+            defaults.update(props)
+        
+        self._text = defaults['Text']
+        self.Width = defaults['Width']
+        self.AutoSize = defaults['AutoSize']  # 'None', 'Spring', 'Contents'
+        self.Icon = defaults['Icon']
+        self.ToolTipText = defaults['ToolTipText']
+        self.Bevel = defaults['Bevel']  # 'Raised', 'Sunken', 'None'
+        self.Style = defaults['Style']  # 'Text', 'OwnerDraw'
         self.MinWidth = 10
         self.Alignment = "Left"  # 'Left', 'Center', 'Right'
         self.BorderStyle = "Sunken"
@@ -4432,32 +5154,45 @@ class StatusBarPanel:
 
 
 class StatusBar(ControlBase):
-    """Control de barra de estado de Windows Forms."""
+    """
+    Control de barra de estado de Windows Forms.
     
-    def __init__(self, master_form, Text="Ready", Left=0, Top=570, Width=800, Height=25, 
-                 ShowPanels=False, SizingGrip=True, BorderStyle="Fixed3D", Name=""):
-        """Inicializa un StatusBar.
+    Uso - Opción 1 (asignación de propiedades):
+        sb = StatusBar(form)
+        sb.Text = "Ready"
+        sb.Width = 800
+        sb.ShowPanels = False
+    
+    Uso - Opción 2 (diccionario):
+        sb = StatusBar(form, {'Text': 'Ready', 'Width': 800, 'ShowPanels': False})
+    """
+    
+    def __init__(self, master_form, props=None):
+        defaults = {
+            'Text': "Ready",
+            'Left': 0,
+            'Top': 570,
+            'Width': 800,
+            'Height': 25,
+            'ShowPanels': False,
+            'SizingGrip': True,
+            'BorderStyle': "Fixed3D",
+            'Name': ""
+        }
         
-        Args:
-            master_form: Formulario padre
-            Text: Texto a mostrar cuando ShowPanels es False
-            Left, Top: Posición (usualmente se ancla al fondo)
-            Width, Height: Tamaño del StatusBar
-            ShowPanels: Si True, muestra los paneles; si False, solo muestra Text
-            SizingGrip: Si True, muestra el grip de redimensionamiento
-            BorderStyle: Estilo del borde
-            Name: Nombre del control
-        """
-        super().__init__(master_form._root, Left, Top)
+        if props:
+            defaults.update(props)
+        
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
         
         # Propiedades básicas
-        self.Name = Name
-        self._text = Text
-        self.Width = Width
-        self.Height = Height
-        self.ShowPanels = ShowPanels
-        self.SizingGrip = SizingGrip
-        self.BorderStyle = BorderStyle
+        self.Name = defaults['Name']
+        self._text = defaults['Text']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.ShowPanels = defaults['ShowPanels']
+        self.SizingGrip = defaults['SizingGrip']
+        self.BorderStyle = defaults['BorderStyle']
         self.BackColor = 'SystemButtonFace'
         self.ForeColor = 'black'
         self.Font = ('Segoe UI', 9)
@@ -4481,10 +5216,10 @@ class StatusBar(ControlBase):
         
         self._tk_widget = tk.Frame(
             self.master,
-            relief=relief_map.get(BorderStyle, 'ridge'),
-            borderwidth=1 if BorderStyle != 'None' else 0,
+            relief=relief_map.get(self.BorderStyle, 'ridge'),
+            borderwidth=1 if self.BorderStyle != 'None' else 0,
             bg=self.BackColor,
-            height=Height
+            height=self.Height
         )
         
         # Frame contenedor para paneles o texto simple
@@ -4507,7 +5242,7 @@ class StatusBar(ControlBase):
             self._grip_canvas = tk.Canvas(
                 self._tk_widget,
                 width=15,
-                height=Height,
+                height=self.Height,
                 bg=self.BackColor,
                 highlightthickness=0
             )
@@ -4642,18 +5377,39 @@ class StatusBar(ControlBase):
 
 
 class MDIChild:
-    """Representa un formulario hijo MDI."""
+    """
+    Representa un formulario hijo MDI.
     
-    def __init__(self, title="Child"):
-        self.Title = title
-        self._text_value = title  # Alias para Title
-        self.MdiParent = None  # Asignar el MDIParent
+    Uso - Opción 1: child = MDIChild(); child.Title = "Child Window"
+    Uso - Opción 2: child = MDIChild({'Title': 'Child Window', 'WindowState': 'Maximized'})
+    """
+    
+    def __init__(self, props=None):
+        defaults = {
+            'Title': "Child",
+            'MdiParent': None,
+            'ControlBox': True,
+            'MinimizeBox': True,
+            'MaximizeBox': True,
+            'ShowInTaskbar': False,
+            'WindowState': "Normal"
+        }
+        
+        if props:
+            defaults.update(props)
+            # Alias: Text es equivalente a Title
+            if 'Text' in props:
+                defaults['Title'] = props['Text']
+        
+        self.Title = defaults['Title']
+        self._text_value = defaults['Title']  # Alias para Title
+        self.MdiParent = defaults['MdiParent']  # Asignar el MDIParent
         self.IsMdiChild = True  # Indica que es un formulario hijo MDI
-        self.ControlBox = True
-        self.MinimizeBox = True
-        self.MaximizeBox = True
-        self.ShowInTaskbar = False
-        self.WindowState = "Normal"  # 'Normal', 'Minimized', 'Maximized'
+        self.ControlBox = defaults['ControlBox']
+        self.MinimizeBox = defaults['MinimizeBox']
+        self.MaximizeBox = defaults['MaximizeBox']
+        self.ShowInTaskbar = defaults['ShowInTaskbar']
+        self.WindowState = defaults['WindowState']  # 'Normal', 'Minimized', 'Maximized'
         self.MainMenuStrip = None  # Placeholder para MenuStrip
         
         self._frame = tk.Frame()
@@ -4793,16 +5549,35 @@ class SendKeys:
 
 
 class Timer:
-    """Representa un Timer para eventos temporizados."""
+    """
+    Representa un Timer para eventos temporizados.
     
-    def __init__(self, root, interval=1000, Name="", Enabled=False, Tag=None, Modifiers="Private"):
+    Uso - Opción 1: timer = Timer(root); timer.Interval = 2000; timer.Enabled = True
+    Uso - Opción 2: timer = Timer(root, {'Interval': 2000, 'Enabled': True})
+    """
+    
+    def __init__(self, root, props=None):
+        defaults = {
+            'interval': 1000,
+            'Name': "",
+            'Enabled': False,
+            'Tag': None,
+            'Modifiers': "Private"
+        }
+        
+        if props:
+            defaults.update(props)
+            # Alias: Interval (mayúscula) también es válido
+            if 'Interval' in props:
+                defaults['interval'] = props['Interval']
+        
         self._root = root
-        self.Name = Name
-        self.Interval = interval
+        self.Name = defaults['Name']
+        self.Interval = defaults['interval']
         self._enabled = False  # Initialize _enabled before property setter usage
-        self.Enabled = Enabled
-        self.Tag = Tag  # Objeto personalizado
-        self.Modifiers = Modifiers  # 'Public', 'Private', etc. (placeholder)
+        self.Enabled = defaults['Enabled']
+        self.Tag = defaults['Tag']  # Objeto personalizado
+        self.Modifiers = defaults['Modifiers']  # 'Public', 'Private', etc. (placeholder)
         self.Tick = lambda: None
         self._job = None
         
