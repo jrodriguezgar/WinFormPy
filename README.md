@@ -28,11 +28,22 @@ WinFormPy is a complete library designed to help developers familiar with Window
 
 ## Installation
 
-### From Source
+### Using UV (Recommended)
+
+Ensure you have [UV](https://github.com/astral-sh/uv) installed. Then:
 
 ```bash
 git clone https://github.com/DatamanEdge/WinFormPy.git
 cd WinFormPy
+uv sync
+```
+
+### From Source (Manual)
+
+```bash
+git clone https://github.com/DatamanEdge/WinFormPy.git
+cd WinFormPy
+pip install -r requirements.txt  # If requirements.txt exists
 ```
 
 ### Using pip (if published)
@@ -84,6 +95,25 @@ class MyForm(Form):
 if __name__ == "__main__":
     app = MyForm()
     app.Show()
+```
+
+## Examples
+
+The `examples/` directory contains various demonstration scripts showing different features of the library:
+
+- `basic_controls_example.py` - Basic controls usage (Button, Label, TextBox)
+- `system_fonts_colors_example.py` - Demonstration of system fonts and colors
+- `autosize_example.py` - AutoSize functionality
+- `tooltip_example.py` - ToolTip usage
+- `anchor_dock_example.py` - Anchor and Dock properties
+- `css_set_controls_example.py` - CSS styling examples
+- `hierarchical_visibility_example.py` - Control visibility management
+- `all_system_styles_example.py` - System styles demonstration
+
+To run any example:
+
+```bash
+uv run examples/example_name.py
 ```
 
 ## Documentation
