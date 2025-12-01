@@ -1,11 +1,12 @@
 
 # =============================================================
-# Module: winform_py.py
+# Module: winform-py.py
 # Author: Vibe coding by DatamanEdge 
-# Date: 2025-11-29
-# Version: 1.0.0
+# Date: 2025-12-01
+# Version: 1.0.1
 # Description: Complete library mapping Windows Forms/(VB) syntax and objects to Tkinter.
 # =============================================================
+
 
 import tkinter as tk
 from tkinter import messagebox
@@ -13,28 +14,155 @@ import tkinter.ttk as ttk
 import os
 import winsound
 from datetime import date, datetime
+import importlib.util
+import sys
+
+# Importar utilidades de winform-py_tools
+try:
+    spec = importlib.util.spec_from_file_location("winform_py_tools", 
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "winform-py_tools.py"))
+    winform_py_tools = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(winform_py_tools)
+    from winform_py_tools import css_to_tkinter_config, apply_css_to_widget
+except:
+    # Fallback si no se puede importar
+    def css_to_tkinter_config(css_string, current_widget=None):
+        return {}
+    def apply_css_to_widget(widget, css_string):
+        pass
 
 # =======================================================================
-# MAIN MODULE: winformpy.py
+# MÓDULO PRINCIPAL: winformpy.py
 # =======================================================================
+
+class ToolTip:
+    """Clase para crear tooltips (información contextual al pasar el ratón)."""
+    
+    def __init__(self, widget, text="", delay=500, bg="lightyellow", fg="black", 
+                 bordercolor="black", borderwidth=1, font=("Segoe UI", 9)):
+        """Inicializa un ToolTip para un widget.
+        
+        Args:
+            widget: Widget de tkinter al que se asocia el tooltip
+            text: Texto a mostrar en el tooltip
+            delay: Retraso en milisegundos antes de mostrar el tooltip
+            bg: Color de fondo
+            fg: Color del texto
+            bordercolor: Color del borde
+            borderwidth: Ancho del borde
+            font: Fuente del texto
+        """
+        self.widget = widget
+        self.text = text
+        self.delay = delay
+        self.bg = bg
+        self.fg = fg
+        self.bordercolor = bordercolor
+        self.borderwidth = borderwidth
+        self.font = font
+        
+        self._tooltip_window = None
+        self._scheduled_id = None
+        
+        # Bind eventos
+        self.widget.bind('<Enter>', self._on_enter)
+        self.widget.bind('<Leave>', self._on_leave)
+        self.widget.bind('<Motion>', self._on_motion)
+    
+    def _on_enter(self, event):
+        """Maneja el evento de entrada del ratón."""
+        self._schedule_tooltip(event)
+    
+    def _on_leave(self, event):
+        """Maneja el evento de salida del ratón."""
+        self._cancel_tooltip()
+        self._hide_tooltip()
+    
+    def _on_motion(self, event):
+        """Maneja el movimiento del ratón."""
+        if self._tooltip_window:
+            # Actualizar posición del tooltip
+            x = event.x_root + 15
+            y = event.y_root + 10
+            self._tooltip_window.wm_geometry(f"+{x}+{y}")
+    
+    def _schedule_tooltip(self, event):
+        """Programa la aparición del tooltip después del delay."""
+        self._cancel_tooltip()
+        if self.text:
+            self._scheduled_id = self.widget.after(
+                self.delay, 
+                lambda: self._show_tooltip(event)
+            )
+    
+    def _cancel_tooltip(self):
+        """Cancela la aparición programada del tooltip."""
+        if self._scheduled_id:
+            self.widget.after_cancel(self._scheduled_id)
+            self._scheduled_id = None
+    
+    def _show_tooltip(self, event):
+        """Muestra el tooltip."""
+        if self._tooltip_window or not self.text:
+            return
+        
+        x = event.x_root + 15
+        y = event.y_root + 10
+        
+        self._tooltip_window = tk.Toplevel(self.widget)
+        self._tooltip_window.wm_overrideredirect(True)
+        self._tooltip_window.wm_geometry(f"+{x}+{y}")
+        
+        # Crear label con el texto
+        label = tk.Label(
+            self._tooltip_window,
+            text=self.text,
+            background=self.bg,
+            foreground=self.fg,
+            relief="solid",
+            borderwidth=self.borderwidth,
+            font=self.font,
+            padx=5,
+            pady=2,
+            justify='left'
+        )
+        label.pack()
+        
+        # Configurar borde
+        if self.bordercolor != self.bg:
+            label.config(highlightbackground=self.bordercolor, highlightthickness=self.borderwidth)
+    
+    def _hide_tooltip(self):
+        """Oculta el tooltip."""
+        if self._tooltip_window:
+            self._tooltip_window.destroy()
+            self._tooltip_window = None
+    
+    def update_text(self, new_text):
+        """Actualiza el texto del tooltip."""
+        self.text = new_text
+        if self._tooltip_window:
+            # Si está visible, ocultarlo y volver a mostrarlo con el nuevo texto
+            self._hide_tooltip()
+
 
 class ControlBase:
-    # Base class for all WinFormPy controls.
+    """Clase base para todos los controles de WinFormPy."""
     
     def __init__(self, master_tk_widget, Left=0, Top=0):
-        # The actual Tkinter widget (e.g., tk.Button, tk.Label)
+        # El widget de Tkinter real (e.g., tk.Button, tk.Label)
         self._tk_widget = None 
-        # Reference to the container widget (the Form or UserControl)
+        # Referencia al widget contenedor (la Form o UserControl)
         self.master = master_tk_widget 
         
-        # VB-style position properties
+        # Propiedades de posición tipo VB
         self.Left = Left
         self.Top = Top
         
-        # MousePointer property (mouse cursor)
+        # Propiedad MousePointer (cursor del mouse)
         self.MousePointer = "arrow"
         
-        # New VB properties
+        # Nuevas propiedades VB
         self.Enabled = True
         self.BackColor = None
         self.BorderStyle = None  # e.g., 'flat', 'raised', 'sunken', 'ridge', 'groove'
@@ -42,7 +170,17 @@ class ControlBase:
         self.Font = None
         self.FontColor = None
         
-        # Common VB events (callbacks)
+        # AutoSize properties
+        self.AutoSize = False
+        self.MinimumSize = None  # (width, height) or None
+        self.MaximumSize = None  # (width, height) or None
+        self._original_size = None  # Para AutoSizeMode.GrowOnly
+        
+        # ToolTip
+        self._tooltip_text = ""
+        self._tooltip_instance = None
+        
+        # Eventos comunes VB (callbacks)
         self.MouseDown = lambda button, x, y: None
         self.MouseUp = lambda button, x, y: None
         self.MouseEnter = lambda: None
@@ -58,12 +196,12 @@ class ControlBase:
         self.KeyUp = lambda key: None
         
     def _place_control(self, width=None, height=None):
-        # Uses the 'place' geometry manager to position the control.
+        """Usa el gestor de geometría 'place' para posicionar el control."""
         if self._tk_widget:
             place_args = {
                 'x': self.Left,
                 'y': self.Top,
-                'in_': self.master  # Ensure it's positioned relative to the current container
+                'in_': self.master  # Asegurar que se posiciona relativo al contenedor actual
             }
             if width is not None:
                 place_args['width'] = width
@@ -71,14 +209,28 @@ class ControlBase:
                 place_args['height'] = height
                 
             self._tk_widget.place(**place_args)
-            # Set the cursor
+            
+            # Notificar al padre si es un contenedor WinFormPy (como Panel)
+            # Esto permite que el Panel ajuste su tamaño si AutoSize=True
+            if hasattr(self.master, '_control_wrapper'):
+                parent = self.master._control_wrapper
+                if hasattr(parent, '_apply_autosize_panel') and getattr(parent, 'AutoSize', False):
+                    parent._apply_autosize_panel()
+            
+            # Establecer el cursor
             self._tk_widget.config(cursor=self.MousePointer)
-            # Apply VB properties
+            # Aplicar propiedades VB
             config = {}
             if self.BackColor is not None:
                 config['bg'] = self.BackColor
             if self.BorderStyle is not None:
-                config['relief'] = self.BorderStyle
+                # Mapear BorderStyle de VB.NET a tkinter
+                relief_map = {
+                    'None': 'flat', 'Fixed3D': 'ridge', 'FixedSingle': 'solid',
+                    'flat': 'flat', 'groove': 'groove', 'raised': 'raised',
+                    'ridge': 'ridge', 'solid': 'solid', 'sunken': 'sunken'
+                }
+                config['relief'] = relief_map.get(self.BorderStyle, 'flat')
             if self.BackgroundImage is not None:
                 config['image'] = self.BackgroundImage
             if self.Font is not None:
@@ -88,10 +240,19 @@ class ControlBase:
             if not self.Enabled:
                 config['state'] = 'disabled'
             if config:
-                self._tk_widget.config(**config)
+                try:
+                    self._tk_widget.config(**config)
+                except tk.TclError:
+                    # Algunos widgets no soportan todas las opciones (ej: Frame no tiene font)
+                    # Intentar aplicar opciones una por una
+                    for key, value in config.items():
+                        try:
+                            self._tk_widget.config(**{key: value})
+                        except tk.TclError:
+                            pass  # Ignorar opciones no soportadas
 
     def _bind_common_events(self):
-        # Binds common events to the widget.
+        """Binds common events to the widget."""
         if self._tk_widget:
             self._tk_widget.bind('<Button-1>', self._on_click)
             self._tk_widget.bind('<ButtonPress>', self._on_mouse_down)
@@ -107,116 +268,337 @@ class ControlBase:
             self._tk_widget.bind('<KeyRelease>', self._on_key_up)
 
     def _on_mouse_down(self, event):
-        # Handler for MouseDown event.
+        """Handler for MouseDown event."""
         self.MouseDown(event.num, event.x, event.y)
 
     def _on_mouse_up(self, event):
-        # Handler for MouseUp event.
+        """Handler for MouseUp event."""
         self.MouseUp(event.num, event.x, event.y)
 
     def _on_mouse_enter(self, event):
-        # Handler for MouseEnter event.
+        """Handler for MouseEnter event."""
         self.MouseEnter()
 
     def _on_mouse_leave(self, event):
-        # Handler for MouseLeave event.
+        """Handler for MouseLeave event."""
         self.MouseLeave()
 
     def _on_enter(self, event):
-        # Handler for Enter (GotFocus) event.
+        """Handler for Enter (GotFocus) event."""
         self.Enter()
 
     def _on_leave(self, event):
-        # Handler for Leave (LostFocus) event.
+        """Handler for Leave (LostFocus) event."""
         self.Leave()
 
     def _on_key_down(self, event):
-        # Handler for KeyDown event.
+        """Handler for KeyDown event."""
         self.KeyDown(event.keysym)
 
     def _on_click(self, event):
-        # Handler for Click event.
+        """Handler for Click event."""
         self.Click()
 
     def _on_double_click(self, event):
-        # Handler for DoubleClick event.
+        """Handler for DoubleClick event."""
         self.DoubleClick()
 
     def _on_paint(self, event):
-        # Handler for Paint and Resize events.
+        """Handler for Paint and Resize events."""
         self.Paint()
         self.Resize()
 
     def _on_key_press(self, event):
-        # Handler for KeyPress event.
+        """Handler for KeyPress event."""
         self.KeyPress(event.char)
 
     def _on_key_up(self, event):
-        # Handler for KeyUp event.
+        """Handler for KeyUp event."""
         self.KeyUp(event.keysym)
 
     def apply_css(self, css_string):
-        # Applies CSS styles to the control.
-        styles = {}
-        for rule in css_string.split(';'):
-            if ':' in rule:
-                key, value = rule.split(':', 1)
-                styles[key.strip()] = value.strip()
+        """Aplica estilos CSS al control usando la utilidad de winform-py_tools."""
+        apply_css_to_widget(self._tk_widget, css_string)
+
+    def get_Parent(self):
+        """Obtiene el control padre (contenedor) de este control.
         
-        config = {}
-        if 'color' in styles:
-            config['fg'] = styles['color']
-        if 'background-color' in styles:
-            config['bg'] = styles['background-color']
-        if 'font-size' in styles:
-            # Assume font is tuple, update size
-            current_font = self._tk_widget.cget('font') or ('TkDefaultFont', 10)
-            if isinstance(current_font, str):
-                config['font'] = (current_font, int(styles['font-size']))
+        Returns:
+            El control padre si existe, None en caso contrario.
+        """
+        # Buscar el control padre recorriendo el master hasta encontrar un control
+        # que tenga la lista de Controls (Panel, Form, TabPage, etc.)
+        parent = None
+        current_master = self.master
+        
+        # Buscar en la jerarquía de widgets Tkinter hasta encontrar un contenedor
+        while current_master is not None:
+            # Verificar si hay un objeto wrapper que contenga este widget
+            if hasattr(current_master, '_control_wrapper'):
+                parent = current_master._control_wrapper
+                break
+            # Intentar obtener el master del widget actual
+            try:
+                current_master = current_master.master
+            except AttributeError:
+                break
+        
+        return parent
+    
+    @property
+    def Visible(self):
+        """Obtiene el estado de visibilidad efectiva del control.
+        
+        Un control solo es visible si su propiedad Visible está en True
+        Y todos sus contenedores padre también están visibles.
+        """
+        return self.get_Visible()
+
+    @Visible.setter
+    def Visible(self, value):
+        """Establece el estado de visibilidad del control."""
+        self.set_Visible(value)
+
+    def get_Visible(self):
+        """Obtiene el estado de visibilidad efectiva del control.
+        
+        Implementa la jerarquía de visibilidad de Windows Forms:
+        - Un control solo es visible si su propia propiedad _visible es True
+        - Y todos sus contenedores padre también tienen _visible = True
+        
+        Returns:
+            True si el control y todos sus padres están visibles, False en caso contrario.
+        """
+        # Verificar la propiedad _visible propia
+        if not getattr(self, '_visible', True):
+            return False
+        
+        # Verificar la visibilidad de todos los padres en la jerarquía
+        parent = self.get_Parent()
+        while parent is not None:
+            if not getattr(parent, '_visible', True):
+                return False
+            # Subir al siguiente nivel de la jerarquía
+            parent = parent.get_Parent() if hasattr(parent, 'get_Parent') else None
+        
+        return True
+
+    def set_Visible(self, value):
+        """Establece el estado de visibilidad del control.
+        
+        Implementa la jerarquía de visibilidad de Windows Forms:
+        - Establece la propiedad _visible del control
+        - Si el control es un contenedor (Panel, etc.), propaga el cambio a sus hijos
+        - Solo muestra u oculta físicamente el widget si la visibilidad efectiva cambia
+        
+        Args:
+            value: True para hacer visible, False para ocultar
+        """
+        old_visible = getattr(self, '_visible', True)
+        self._visible = value
+        
+        # Determinar si el control debe mostrarse u ocultarse físicamente
+        # Solo mostrar si value es True Y todos los padres también son visibles
+        should_be_visible = value
+        if value:
+            # Verificar visibilidad de padres
+            parent = self.get_Parent()
+            while parent is not None:
+                if not getattr(parent, '_visible', True):
+                    should_be_visible = False
+                    break
+                parent = parent.get_Parent() if hasattr(parent, 'get_Parent') else None
+        
+        # Aplicar visibilidad física al widget
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            if should_be_visible:
+                # Mostrar el control usando place con su posición y tamaño actuales
+                if hasattr(self, 'Width') and hasattr(self, 'Height'):
+                    self._place_control(self.Width, self.Height)
+                else:
+                    self._tk_widget.place(x=self.Left, y=self.Top)
             else:
-                config['font'] = (current_font[0], int(styles['font-size']))
-        if 'width' in styles:
-            config['width'] = int(styles['width'])
-        if 'height' in styles:
-            config['height'] = int(styles['height'])
+                # Ocultar el control
+                self._tk_widget.place_forget()
         
-        if config:
-            self._tk_widget.config(**config)
+        # Si es un contenedor con controles hijos, propagar el cambio
+        if hasattr(self, 'Controls'):
+            for control in self.Controls:
+                if hasattr(control, '_visible'):
+                    # Solo actualizar la visibilidad física si el hijo tiene _visible = True
+                    if control._visible:
+                        if should_be_visible:
+                            # El contenedor se hace visible, mostrar hijos visibles
+                            if hasattr(control, '_place_control'):
+                                if hasattr(control, 'Width') and hasattr(control, 'Height'):
+                                    control._place_control(control.Width, control.Height)
+                                else:
+                                    control._place_control()
+                        else:
+                            # El contenedor se oculta, ocultar todos los hijos
+                            if hasattr(control, '_tk_widget') and control._tk_widget:
+                                control._tk_widget.place_forget()
+                    # Si el hijo está propagando cambios a sus propios hijos (ej. Panel dentro de Panel)
+                    if hasattr(control, 'set_Visible') and old_visible != value:
+                        # Re-evaluar la visibilidad del hijo para que propague a sus hijos
+                        control_visible = control._visible
+                        control.set_Visible(control_visible)
+    
+    @property
+    def ToolTipText(self):
+        """Obtiene el texto del tooltip."""
+        return self._tooltip_text
+    
+    @ToolTipText.setter
+    def ToolTipText(self, value):
+        """Establece el texto del tooltip."""
+        self._tooltip_text = value
+        
+        # Crear o actualizar el tooltip
+        if self._tk_widget:
+            if value and value.strip():
+                if self._tooltip_instance:
+                    # Actualizar texto existente
+                    self._tooltip_instance.update_text(value)
+                else:
+                    # Crear nuevo tooltip
+                    self._tooltip_instance = ToolTip(self._tk_widget, value)
+            else:
+                # Remover tooltip si el texto está vacío
+                if self._tooltip_instance:
+                    self._tooltip_instance._hide_tooltip()
+                    self._tooltip_instance = None
+    
+    def _apply_autosize(self):
+        """Aplica el redimensionamiento automático basado en el contenido.
+        
+        Este método calcula el tamaño necesario para mostrar todo el contenido
+        del control y ajusta Width y Height respetando MinimumSize y MaximumSize.
+        
+        Debe ser sobrescrito por controles específicos que necesiten
+        comportamiento personalizado de AutoSize.
+        """
+        if not self.AutoSize or not self._tk_widget:
+            return
+        
+        # Forzar actualización del widget para obtener dimensiones correctas
+        self._tk_widget.update_idletasks()
+        
+        # Obtener tamaño requerido del widget
+        required_width = self._tk_widget.winfo_reqwidth()
+        required_height = self._tk_widget.winfo_reqheight()
+        
+        # Aplicar restricciones de MinimumSize
+        if self.MinimumSize:
+            min_width, min_height = self.MinimumSize
+            required_width = max(required_width, min_width)
+            required_height = max(required_height, min_height)
+        
+        # Aplicar restricciones de MaximumSize
+        if self.MaximumSize:
+            max_width, max_height = self.MaximumSize
+            if max_width > 0:
+                required_width = min(required_width, max_width)
+            if max_height > 0:
+                required_height = min(required_height, max_height)
+        
+        # Actualizar dimensiones
+        self.Width = required_width
+        self.Height = required_height
 
 class Button(ControlBase):
-    # Represents a button (CommandButton in VB6, Button in VB.NET).
+    """Representa un botón (CommandButton en VB6, Button en VB.NET)."""
     
-    def __init__(self, master_form, Text="Button", Left=10, Top=10, Width=100, Height=30, Name="", Enabled=True, Visible=True, DialogResult=None, Font=None, ForeColor=None, BackColor=None, FlatStyle="Standard", Image=None, ImageAlign="left", TextImageRelation="left", UseCompatibleTextRendering=False):
-        super().__init__(master_form._root, Left, Top)
+    def __init__(self, master_form, props=None):
+        """Inicializa un Button.
         
-        # VB-style properties
-        self.Name = Name
-        self.Text = Text
-        self.Width = Width
-        self.Height = Height
-        self.Enabled = Enabled
-        self.Visible = Visible
-        self.DialogResult = DialogResult
-        self.Font = Font
-        self.ForeColor = ForeColor
-        self.BackColor = BackColor
-        self.FlatStyle = FlatStyle
-        self.Image = Image
-        self.ImageAlign = ImageAlign
-        self.TextImageRelation = TextImageRelation
-        self.UseCompatibleTextRendering = UseCompatibleTextRendering
-
-        # Location as a tuple
-        self.Location = (Left, Top)
-
-        # Create the Tkinter widget
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+                   Ejemplo: {'Text': 'Click', 'Left': 10, 'Top': 20, 'BackColor': 'blue'}
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 10,
+            'Width': 100,
+            'Height': 30,
+            'Name': '',
+            'Text': 'Button',
+            'Enabled': True,
+            'Visible': True,
+            'DialogResult': None,
+            'Font': None,
+            'ForeColor': None,
+            'BackColor': None,
+            'FlatStyle': 'Standard',
+            'Image': None,
+            'ImageAlign': 'left',
+            'TextImageRelation': 'left',
+            'UseCompatibleTextRendering': False,
+            'AutoSize': False,
+            'MinimumSize': None,
+            'MaximumSize': None,
+            'ToolTipText': ''
+        }
+        
+        # Combinar valores por defecto con props proporcionadas
+        if props:
+            defaults.update(props)
+        
+        # Inicializar ControlBase con posición
+        super().__init__(master_form._root, defaults['Left'], defaults['Top'])
+        
+        # Establecer propiedades básicas
+        self.Name = defaults['Name']
+        self._text_value = defaults['Text']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self.DialogResult = defaults['DialogResult']
+        self.Font = defaults['Font']
+        self.ForeColor = defaults['ForeColor']
+        self.BackColor = defaults['BackColor']
+        self._flatstyle = defaults['FlatStyle']
+        self.Image = defaults['Image']
+        self.ImageAlign = defaults['ImageAlign']
+        self.TextImageRelation = defaults['TextImageRelation']
+        self.UseCompatibleTextRendering = defaults['UseCompatibleTextRendering']
+        self.AutoSize = defaults['AutoSize']
+        self.MinimumSize = defaults['MinimumSize']
+        self.MaximumSize = defaults['MaximumSize']
+        
+        # Location como tupla
+        self.Location = (self.Left, self.Top)
+        
+        # Crear el widget Tkinter
         self._tk_widget = tk.Button(
             self.master, 
-            text=self.Text, 
+            text=self._text_value, 
             command=self._handle_click_event
         )
-
-        # Apply configurations
+        
+        # Aplicar configuraciones visuales
+        self._apply_visual_config()
+        
+        # Establecer tooltip
+        if defaults['ToolTipText']:
+            self.ToolTipText = defaults['ToolTipText']
+        
+        # Bind common events
+        self._bind_common_events()
+        
+        # Posicionar si visible
+        if self.Visible:
+            if self.AutoSize:
+                self._apply_autosize()
+            self._place_control(self.Width, self.Height)
+        else:
+            self._tk_widget.place_forget()
+    
+    def _apply_visual_config(self):
+        """Aplica la configuración visual al widget."""
         config = {}
         if self.Font:
             config['font'] = self.Font
@@ -230,90 +612,144 @@ class Button(ControlBase):
             config['compound'] = self.TextImageRelation
         # Map FlatStyle to relief
         relief_map = {'Standard': 'raised', 'Flat': 'flat', 'Popup': 'ridge', 'System': 'raised'}
-        config['relief'] = relief_map.get(self.FlatStyle, 'raised')
-        if self.Enabled:
-            config['state'] = 'normal'
-        else:
-            config['state'] = 'disabled'
-
+        config['relief'] = relief_map.get(self._flatstyle, 'raised')
+        config['state'] = 'normal' if self.Enabled else 'disabled'
+        
         if config:
             self._tk_widget.config(**config)
 
-        # Bind common events
-        self._bind_common_events()
-
-        # Position if visible
-        if self.Visible:
-            self._place_control(self.Width, self.Height)
-        else:
-            self._tk_widget.place_forget()
-
     def _handle_click_event(self):
-        # Intermediate function to execute the assigned Click method.
+        """Función intermediaria para ejecutar el método Click asignado."""
         self.Click()
 
     def set_Enabled(self, enabled):
-        # Sets whether the button is enabled.
+        """Establece si el botón está habilitado."""
         self.Enabled = enabled
         self._tk_widget.config(state='normal' if enabled else 'disabled')
 
-    def set_Visible(self, visible):
-        # Sets the visibility of the button.
-        self.Visible = visible
-        if visible:
-            self._place_control(self.Width, self.Height)
-        else:
-            self._tk_widget.place_forget()
+    @property
+    def Text(self):
+        """Property getter para Text en Button."""
+        return self._text_value
+    
+    @Text.setter
+    def Text(self, value):
+        """Property setter para Text en Button."""
+        self._text_value = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.config(text=value)
+            # Aplicar AutoSize si está habilitado
+            if self.AutoSize:
+                self._apply_autosize()
+                # Reposicionar con nuevo tamaño
+                if self.Visible:
+                    self._place_control(self.Width, self.Height)
+    
+    @property
+    def FlatStyle(self):
+        """Property getter para FlatStyle."""
+        return self._flatstyle
+    
+    @FlatStyle.setter
+    def FlatStyle(self, value):
+        """Property setter para FlatStyle."""
+        self._flatstyle = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            relief_map = {'Standard': 'raised', 'Flat': 'flat', 'Popup': 'ridge', 'System': 'raised'}
+            self._tk_widget.config(relief=relief_map.get(value, 'raised'))
 
 class Label(ControlBase):
-    # Represents a text label.
+    """Representa una etiqueta de texto."""
     
-    def __init__(self, master_form, Text="Label", Left=10, Top=50, Name="", Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None, BorderStyle=None, TextAlign="left", AutoSize=True, UseMnemonic=False, Padding=(0,0), Margin=(0,0)):
+    def __init__(self, master_form, props=None):
+        """Inicializa un Label.
+        
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto
+        defaults = {
+            'Left': 10,
+            'Top': 50,
+            'Width': None,
+            'Height': None,
+            'Name': '',
+            'Text': 'Label',
+            'Enabled': True,
+            'Visible': True,
+            'Font': None,
+            'ForeColor': None,
+            'BackColor': None,
+            'BorderStyle': None,
+            'TextAlign': 'left',
+            'AutoSize': True,
+            'MinimumSize': None,
+            'MaximumSize': None,
+            'UseMnemonic': False,
+            'Padding': (0, 0),
+            'Margin': (0, 0),
+            'ToolTipText': ''
+        }
+        
+        if props:
+            defaults.update(props)
+        
         # Resolve master widget
         master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
-        super().__init__(master_widget, Left, Top)
-
-        # VB-style properties
-        self.Name = Name
-        self.Text = Text
-        self.Enabled = Enabled
-        self.Visible = Visible
-        self.Font = Font
-        self.ForeColor = ForeColor
-        self.BackColor = BackColor
-        self.BorderStyle = BorderStyle
-        self.TextAlign = TextAlign  # 'left', 'center', 'right', or combinations like 'nw', 'center', etc.
-        self.AutoSize = AutoSize
-        self.UseMnemonic = UseMnemonic
-        self.Padding = Padding  # (padx, pady)
-        self.Margin = Margin  # Not directly used in Tkinter
-
-        # VB events
+        super().__init__(master_widget, defaults['Left'], defaults['Top'])
+        
+        # Propiedades VB
+        self.Name = defaults['Name']
+        self._text_value = defaults['Text']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+        self.Font = defaults['Font']
+        self.ForeColor = defaults['ForeColor']
+        self.BackColor = defaults['BackColor']
+        self.BorderStyle = defaults['BorderStyle']
+        self.TextAlign = defaults['TextAlign']
+        self.AutoSize = defaults['AutoSize']
+        self.MinimumSize = defaults['MinimumSize']
+        self.MaximumSize = defaults['MaximumSize']
+        self.UseMnemonic = defaults['UseMnemonic']
+        self.Padding = defaults['Padding']
+        self.Margin = defaults['Margin']
+        
+        # Eventos VB
         self.TextChanged = lambda: None
         
-        # Process UseMnemonic
-        display_text = self.Text
+        # Procesar UseMnemonic
+        display_text = self._text_value
         underline = -1
-        if self.UseMnemonic and '&' in self.Text:
-            idx = self.Text.find('&')
-            if idx + 1 < len(self.Text):
+        if self.UseMnemonic and '&' in self._text_value:
+            idx = self._text_value.find('&')
+            if idx + 1 < len(self._text_value):
                 underline = idx
-                display_text = self.Text[:idx] + self.Text[idx+1:]
+                display_text = self._text_value[:idx] + self._text_value[idx+1:]
         
-        # Create the Tkinter widget
+        # Crear el widget Tkinter
         self._tk_widget = tk.Label(self.master, text=display_text, underline=underline)
         
-        # Apply properties
+        # Aplicar propiedades
         if self.ForeColor:
             self._tk_widget.config(fg=self.ForeColor)
         if self.BackColor:
             self._tk_widget.config(bg=self.BackColor)
         if self.BorderStyle:
-            self._tk_widget.config(relief=self.BorderStyle)
+            # Mapear BorderStyle de VB.NET a tkinter
+            relief_map = {
+                'None': 'flat', 'Fixed3D': 'ridge', 'FixedSingle': 'solid',
+                'flat': 'flat', 'groove': 'groove', 'raised': 'raised',
+                'ridge': 'ridge', 'solid': 'solid', 'sunken': 'sunken'
+            }
+            self._tk_widget.config(relief=relief_map.get(self.BorderStyle, 'flat'))
         if self.Font:
             self._tk_widget.config(font=self.Font)
         
-        # Alignment
+        # Alineación
         if self.TextAlign == 'left':
             self._tk_widget.config(anchor='w', justify='left')
         elif self.TextAlign == 'center':
@@ -333,47 +769,76 @@ class Label(ControlBase):
         if not self.Visible:
             self._tk_widget.place_forget()
         
+        # Establecer tooltip
+        if defaults['ToolTipText']:
+            self.ToolTipText = defaults['ToolTipText']
+        
         # Bind events
         self._bind_common_events()
         self._tk_widget.bind('<Button-1>', self._on_click)
         self._tk_widget.bind('<Double-Button-1>', self._on_double_click)
         self._tk_widget.bind('<Configure>', self._on_paint)  # Placeholder for Paint
         
-        # AutoSize: if True, do not set width/height
+        # AutoSize: ajustar tamaño automáticamente según contenido
         if self.AutoSize:
-            self._place_control()  # Without width/height
+            self._apply_autosize()
+            self._place_control(self.Width, self.Height)
         else:
-            self._place_control(width=100, height=25)  # Default values
+            # Tamaño fijo
+            if self.Width is None or self.Height is None:
+                # Si no se especifica tamaño, usar auto
+                self._place_control()
+            else:
+                self._place_control(self.Width, self.Height)
 
     def _on_click(self, event):
-        # Handler for Click event.
+        """Handler for Click event."""
         self.Click()
 
     def _on_double_click(self, event):
-        # Handler for DoubleClick event.
+        """Handler for DoubleClick event."""
         self.DoubleClick()
 
     def _on_paint(self, event):
-        # Handler for Paint event (placeholder).
+        """Handler for Paint event (placeholder)."""
         self.Paint()
 
     def set_Text(self, new_text):
-        # Set method to update the text at runtime.
-        self.Text = new_text
+        """Método set para actualizar el texto en tiempo de ejecución."""
+        self._text_value = new_text
         self._tk_widget.config(text=new_text)
         self.TextChanged()
         
-class TextBox(ControlBase):
-    # Represents a simple text box.
+        # Aplicar AutoSize si está habilitado
+        if self.AutoSize:
+            self._apply_autosize()
+            # Reposicionar con nuevo tamaño
+            if self.Visible:
+                self._place_control(self.Width, self.Height)
     
-    def __init__(self, master_form, Text="", Left=10, Top=80, Width=200, Height=25, Name="", Enabled=True, Visible=True, ReadOnly=False, Multiline=False, ScrollBars=None, PasswordChar="", UseSystemPasswordChar=False, MaxLength=0, TextAlign="left", WordWrap=True, AcceptsReturn=True):
+    @property
+    def Text(self):
+        """Property getter para Text en Label."""
+        return self._text_value
+    
+    @Text.setter
+    def Text(self, value):
+        """Property setter para Text en Label."""
+        self.set_Text(value)
+        
+class TextBox(ControlBase):
+    """Representa una caja de texto simple."""
+    
+    def __init__(self, master_form, Text="", Left=10, Top=80, Width=200, Height=25, Name="", Enabled=True, Visible=True, ReadOnly=False, Multiline=False, ScrollBars=None, PasswordChar="", UseSystemPasswordChar=False, MaxLength=0, TextAlign="left", WordWrap=True, AcceptsReturn=True, AutoSize=False, MinimumSize=None, MaximumSize=None, BackColor=None, ForeColor=None, Font=None):
         super().__init__(master_form._root, Left, Top)
         
-        # VB Properties
+        # Propiedades VB
         self.Name = Name
-        self.Text = Text
+        self._text_value = Text  # Atributo interno para almacenar el texto
+        self.Width = Width
+        self.Height = Height
         self.Enabled = Enabled
-        self.Visible = Visible
+        self._visible = Visible
         self.ReadOnly = ReadOnly
         self.Multiline = Multiline
         self.ScrollBars = ScrollBars  # 'none', 'horizontal', 'vertical', 'both'
@@ -383,12 +848,18 @@ class TextBox(ControlBase):
         self.TextAlign = TextAlign  # 'left', 'center', 'right'
         self.WordWrap = WordWrap
         self.AcceptsReturn = AcceptsReturn
+        self.AutoSize = AutoSize
+        self.MinimumSize = MinimumSize
+        self.MaximumSize = MaximumSize
+        self.BackColor = BackColor
+        self.ForeColor = ForeColor
+        self.Font = Font
         
-        # VB Events (callbacks)
+        # Eventos VB (callbacks)
         self.TextChanged = lambda: None
         self.MouseMove = lambda x, y: None
         
-        # Create the Tkinter widget
+        # Crear el widget Tkinter
         if self.Multiline:
             self._tk_widget = tk.Text(self.master, height=Height//15, wrap='word' if self.WordWrap else 'none')
             if self.ScrollBars in ['vertical', 'both']:
@@ -399,7 +870,7 @@ class TextBox(ControlBase):
                 hscroll = tk.Scrollbar(self.master, orient='horizontal', command=self._tk_widget.xview)
                 self._tk_widget.config(xscrollcommand=hscroll.set)
                 hscroll.place(x=Left, y=Top+Height-15, width=Width)
-            self._tk_widget.insert('1.0', self.Text)
+            self._tk_widget.insert('1.0', self._text_value)
             if self.ReadOnly:
                 self._tk_widget.config(state='disabled')
             
@@ -410,7 +881,7 @@ class TextBox(ControlBase):
             self._tk_widget.bind('<Double-Button-1>', self._on_double_click)
             self._tk_widget.bind('<Motion>', self._on_mouse_move)
         else:
-            self._text_var = tk.StringVar(value=Text)
+            self._text_var = tk.StringVar(value=self._text_value)
             self._tk_widget = tk.Entry(self.master, textvariable=self._text_var)
             if self.PasswordChar:
                 self._tk_widget.config(show=self.PasswordChar)
@@ -431,59 +902,130 @@ class TextBox(ControlBase):
         
         self._bind_common_events()
         
-        # Apply alignment
+        # Aplicar configuraciones de estilo
+        config = {}
+        if self.BackColor:
+            config['bg'] = self.BackColor
+        if self.ForeColor:
+            config['fg'] = self.ForeColor
+        if self.Font:
+            config['font'] = self.Font
+        if config:
+            try:
+                self._tk_widget.config(**config)
+            except tk.TclError:
+                pass  # Algunos widgets no soportan todas las opciones
+        
+        # Aplicar alineación
         if self.TextAlign == 'center':
             self._tk_widget.config(justify='center')
         elif self.TextAlign == 'right':
             self._tk_widget.config(justify='right')
         
-        # Apply Enabled/Visible
+        # Aplicar Enabled/Visible
         if not self.Enabled:
             self._tk_widget.config(state='disabled')
         if not self.Visible:
             self._tk_widget.place_forget()
         
-        self._place_control(Width, Height if not self.Multiline else Height)
+        if self.AutoSize:
+            self._apply_autosize_textbox()
+            
+        self._place_control(self.Width, self.Height if not self.Multiline else self.Height)
 
     def _on_text_changed(self, event=None):
-        # Handler for TextChanged event (Text widget).
+        """Handler for TextChanged event (Text widget)."""
         self.TextChanged()
         # Reset modified flag
         self._tk_widget.edit_modified(False)
 
     def _on_text_changed_entry(self, *args):
-        # Handler for TextChanged event (Entry widget).
+        """Handler for TextChanged event (Entry widget)."""
         self.TextChanged()
 
     def _on_mouse_move(self, event):
-        # Handler for MouseMove event.
+        """Handler for MouseMove event."""
         self.MouseMove(event.x, event.y)
 
     def _validate_length(self, new_text):
         return len(new_text) <= self.MaxLength
 
     def get_Text(self):
-        # Gets the text from the TextBox.
+        """Obtiene el texto del TextBox."""
         if self.Multiline:
             return self._tk_widget.get('1.0', 'end-1c')
         else:
             return self._text_var.get()
 
     def set_Text(self, new_text):
-        # Sets the text of the TextBox.
+        """Establece el texto del TextBox."""
+        self._text_value = new_text
         if self.Multiline:
             self._tk_widget.delete('1.0', 'end')
             self._tk_widget.insert('1.0', new_text)
         else:
             self._text_var.set(new_text)
+        # Aplicar AutoSize si está habilitado
+        if self.AutoSize:
+            self._apply_autosize_textbox()
+    
+    def _apply_autosize_textbox(self):
+        """Aplica AutoSize específico para TextBox.
+        
+        - Para TextBox de una línea: Solo ajusta altura según la fuente
+        - Para TextBox multilínea: Ajusta altura para mostrar todo el texto
+        """
+        if not self.AutoSize or not self._tk_widget:
+            return
+        
+        self._tk_widget.update_idletasks()
+        
+        if self.Multiline:
+            # Para multilínea, ajustar altura según número de líneas
+            num_lines = int(self._tk_widget.index('end-1c').split('.')[0])
+            # Estimar altura por línea (aproximadamente 20-25 píxeles por línea)
+            line_height = 22
+            required_height = num_lines * line_height + 10  # +10 para padding
+            
+            # Mantener ancho, solo ajustar altura
+            self.Height = required_height
+        else:
+            # Para una línea, solo ajustar altura según fuente
+            required_height = self._tk_widget.winfo_reqheight()
+            self.Height = required_height
+        
+        # Aplicar restricciones de MinimumSize
+        if self.MinimumSize:
+            _, min_height = self.MinimumSize
+            self.Height = max(self.Height, min_height)
+        
+        # Aplicar restricciones de MaximumSize
+        if self.MaximumSize:
+            _, max_height = self.MaximumSize
+            if max_height > 0:
+                self.Height = min(self.Height, max_height)
+        
+        # Reposicionar con nuevo tamaño
+        if self.Visible:
+            self._place_control(self.Width, self.Height)
+    
+    @property
+    def Text(self):
+        """Property getter para Text."""
+        return self.get_Text()
+    
+    @Text.setter
+    def Text(self, value):
+        """Property setter para Text que llama a set_Text()."""
+        self.set_Text(value)
 
 class ComboBox(ControlBase):
-    # Represents a ComboBox (dropdown).
+    """Representa un ComboBox (desplegable)."""
     
-    def __init__(self, master_form, Items=None, Left=10, Top=110, Width=200, Name="", DataSource=None, DisplayMember="", ValueMember="", SelectedItem=None, SelectedValue=None, SelectedIndex=-1, Text="", DropDownStyle="readonly", DroppedDown=False, MaxDropDownItems=10, MaxLength=0, Enabled=True, Visible=True):
+    def __init__(self, master_form, Items=None, Left=10, Top=110, Width=200, Name="", DataSource=None, DisplayMember="", ValueMember="", SelectedItem=None, SelectedValue=None, SelectedIndex=-1, Text="", DropDownStyle="readonly", DroppedDown=False, MaxDropDownItems=10, MaxLength=0, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None):
         super().__init__(master_form._root, Left, Top)
         
-        # VB Properties
+        # Propiedades VB
         self.Name = Name
         self.Items = Items or []
         self.DataSource = DataSource
@@ -492,15 +1034,18 @@ class ComboBox(ControlBase):
         self.SelectedItem = SelectedItem
         self.SelectedValue = SelectedValue
         self.SelectedIndex = SelectedIndex
-        self.Text = Text
+        self._text_value = Text  # Atributo interno para almacenar el texto
         self.DropDownStyle = DropDownStyle  # 'readonly', 'normal'
         self.DroppedDown = DroppedDown
         self.MaxDropDownItems = MaxDropDownItems
         self.MaxLength = MaxLength
         self.Enabled = Enabled
-        self.Visible = Visible
+        self._visible = Visible
+        self.Font = Font
+        self.ForeColor = ForeColor
+        self.BackColor = BackColor
         
-        # VB Events (callbacks)
+        # Eventos VB (callbacks)
         self.SelectedIndexChanged = lambda: None
         self.SelectionChangeCommitted = lambda: None
         self.TextChanged = lambda: None
@@ -512,26 +1057,40 @@ class ComboBox(ControlBase):
         self.Width = Width
         self.Height = 25  # Fixed height for ComboBox
         
-        # If DataSource, populate Items
+        # Si DataSource, poblar Items
         if self.DataSource:
             self._populate_from_datasource()
         
         self._selected_var = tk.StringVar(value=self.Text)
         
-        # Create the Tkinter widget
+        # Crear el widget Tkinter
         self._tk_widget = ttk.Combobox(self.master, textvariable=self._selected_var, values=self.Items, state=self.DropDownStyle)
         self._tk_widget.config(height=self.MaxDropDownItems)
         if self.MaxLength > 0:
             vcmd = (self.master.register(self._validate_length), '%P')
             self._tk_widget.config(validate='key', validatecommand=vcmd)
         
-        # Apply Enabled/Visible
+        # Aplicar estilos
+        config = {}
+        if self.Font:
+            config['font'] = self.Font
+        if self.BackColor:
+            config['background'] = self.BackColor
+        if self.ForeColor:
+            config['foreground'] = self.ForeColor
+        if config:
+            try:
+                self._tk_widget.config(**config)
+            except tk.TclError:
+                pass  # ttk.Combobox no soporta todas las opciones
+        
+        # Aplicar Enabled/Visible
         if not self.Enabled:
             self._tk_widget.config(state='disabled')
         if not self.Visible:
             self._tk_widget.place_forget()
         
-        self._place_control(self.Width, 25) # Fixed height
+        self._place_control(self.Width, 25) # Altura fija
         
         # Bind events
         self._tk_widget.bind('<<ComboboxSelected>>', self._on_selected_index_changed)
@@ -553,7 +1112,7 @@ class ComboBox(ControlBase):
                 pass
 
     def _populate_from_datasource(self):
-        # Populates Items from DataSource using DisplayMember.
+        """Pobla Items desde DataSource usando DisplayMember."""
         if self.DataSource and self.DisplayMember:
             self.Items = [getattr(item, self.DisplayMember) for item in self.DataSource]
 
@@ -561,14 +1120,14 @@ class ComboBox(ControlBase):
         return len(new_text) <= self.MaxLength
 
     def get_SelectedItem(self):
-        # Gets the selected item.
+        """Obtiene el elemento seleccionado."""
         idx = self._tk_widget.current()
         if idx >= 0:
             return self.Items[idx]
         return None
 
     def set_SelectedItem(self, item):
-        # Sets the selected item.
+        """Establece el elemento seleccionado."""
         try:
             idx = self.Items.index(item)
             self._tk_widget.current(idx)
@@ -576,7 +1135,7 @@ class ComboBox(ControlBase):
             pass
 
     def get_SelectedValue(self):
-        # Gets the value of the ValueMember of the selected item.
+        """Obtiene el valor del ValueMember del elemento seleccionado."""
         if self.DataSource and self.ValueMember and self.get_SelectedItem():
             idx = self._tk_widget.current()
             if idx >= 0:
@@ -584,29 +1143,29 @@ class ComboBox(ControlBase):
         return self.get_SelectedItem()
 
     def get_SelectedIndex(self):
-        # Gets the index of the selected item.
+        """Obtiene el índice del elemento seleccionado."""
         return self._tk_widget.current()
 
     def set_SelectedIndex(self, index):
-        # Sets the selected index.
+        """Establece el índice seleccionado."""
         if 0 <= index < len(self.Items):
             self._tk_widget.current(index)
 
     def _on_selected_index_changed(self, event=None):
-        # Handler for SelectedIndexChanged event.
+        """Handler for SelectedIndexChanged event."""
         self.SelectedIndexChanged()
         self.SelectionChangeCommitted()
 
     def _on_text_changed(self, *args):
-        # Handler for TextChanged event.
+        """Handler for TextChanged event."""
         self.TextChanged()
 
     def _on_enter(self, event):
-        # Handler for Enter (GotFocus) event.
+        """Handler for Enter (GotFocus) event."""
         self.Enter()
 
     def _on_leave(self, event):
-        # Handler for Leave (LostFocus) event.
+        """Handler for Leave (LostFocus) event."""
         self.Leave()
         self.Validating()
 
@@ -617,11 +1176,25 @@ class ComboBox(ControlBase):
     def _on_key_press(self, event):
         """Handler for KeyPress event."""
         self.KeyPress(event.char)
+    
+    @property
+    def Text(self):
+        """Property getter para Text en ComboBox."""
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            return self._tk_widget.get()
+        return self._text_value
+    
+    @Text.setter
+    def Text(self, value):
+        """Property setter para Text en ComboBox."""
+        self._text_value = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.set(value)
 
 class ListBox(ControlBase):
-    # Represents a ListBox.
+    """Representa un ListBox."""
     
-    def __init__(self, master_form, Items=None, Left=10, Top=170, Width=200, Height=100, Name="", DataSource=None, DisplayMember="", ValueMember="", SelectedIndex=-1, SelectionMode="One", TopIndex=0, IntegralHeight=True, MultiColumn=False, ScrollAlwaysVisible=False, Enabled=True, Font=None, ForeColor=None):
+    def __init__(self, master_form, Items=None, Left=10, Top=170, Width=200, Height=100, Name="", DataSource=None, DisplayMember="", ValueMember="", SelectedIndex=-1, SelectionMode="One", TopIndex=0, IntegralHeight=True, MultiColumn=False, ScrollAlwaysVisible=False, Enabled=True, Font=None, ForeColor=None, BackColor=None):
         super().__init__(master_form._root, Left, Top)
         
         self.Name = Name
@@ -640,8 +1213,9 @@ class ListBox(ControlBase):
         self.Enabled = Enabled
         self.Font = Font
         self.ForeColor = ForeColor
+        self.BackColor = BackColor
         
-        # VB Events (callbacks)
+        # Eventos VB (callbacks)
         self.SelectedIndexChanged = lambda: None
         self.SelectedValueChanged = lambda: None
         self.Format = lambda item: None  # placeholder
@@ -651,7 +1225,7 @@ class ListBox(ControlBase):
         if self.DataSource and self.DisplayMember:
             self.Items = [getattr(item, self.DisplayMember) for item in self.DataSource]
         
-        # Create the Tkinter widget
+        # Crear el widget Tkinter
         self._tk_widget = tk.Listbox(self.master)
         
         # Set selectmode
@@ -672,12 +1246,14 @@ class ListBox(ControlBase):
                 self._tk_widget.config(xscrollcommand=hscroll.set)
                 hscroll.place(x=Left, y=Top+Height-15, width=Width)
         
-        # Apply Font, ForeColor, Enabled
+        # Apply Font, ForeColor, BackColor, Enabled
         config = {}
         if self.Font:
             config['font'] = self.Font
         if self.ForeColor:
             config['fg'] = self.ForeColor
+        if self.BackColor:
+            config['bg'] = self.BackColor
         if not self.Enabled:
             config['state'] = 'disabled'
         if config:
@@ -702,33 +1278,33 @@ class ListBox(ControlBase):
         self._tk_widget.bind('<Key>', self._on_key_down)
 
     def get_SelectedItem(self):
-        # Gets the selected item.
+        """Obtiene el elemento seleccionado."""
         selection = self._tk_widget.curselection()
         if selection:
             return self._tk_widget.get(selection[0])
         return None
 
     def get_SelectedIndex(self):
-        # Gets the index of the selected item.
+        """Obtiene el índice del elemento seleccionado."""
         selection = self._tk_widget.curselection()
         return selection[0] if selection else -1
 
     def set_SelectedIndex(self, index):
-        # Sets the selected index.
+        """Establece el índice seleccionado."""
         if 0 <= index < self._tk_widget.size():
             self._tk_widget.selection_set(index)
 
     def get_SelectedItems(self):
-        # Gets the list of selected items.
+        """Obtiene la lista de elementos seleccionados."""
         selections = self._tk_widget.curselection()
         return [self._tk_widget.get(i) for i in selections]
 
     def get_SelectedIndices(self):
-        # Gets the list of selected indices.
+        """Obtiene la lista de índices seleccionados."""
         return list(self._tk_widget.curselection())
 
     def get_SelectedValue(self):
-        # Gets the ValueMember value of the selected item.
+        """Obtiene el valor del ValueMember del elemento seleccionado."""
         if self.DataSource and self.ValueMember:
             idx = self.get_SelectedIndex()
             if idx >= 0:
@@ -736,46 +1312,50 @@ class ListBox(ControlBase):
         return self.get_SelectedItem()
 
     def set_TopIndex(self, index):
-        # Sets the index of the first visible item.
+        """Establece el índice del primer elemento visible."""
         self.TopIndex = index
         self._tk_widget.yview(index)
     
     def _on_selected_index_changed(self, event=None):
-        # Handler for SelectedIndexChanged event.
+        """Handler for SelectedIndexChanged event."""
         self.SelectedIndexChanged()
         self.SelectedValueChanged()
 
 class CheckBox(ControlBase):
-    # Represents a CheckBox.
+    """Representa un CheckBox."""
     
-    def __init__(self, master_form, Text="CheckBox", Left=10, Top=140, Name="", Checked=False, CheckState=0, ThreeState=False, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None, TextAlign="w", Appearance="Normal"):
+    def __init__(self, master_form, Text="CheckBox", Left=10, Top=140, Width=100, Height=25, Name="", Checked=False, CheckState=0, ThreeState=False, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None, TextAlign="w", Appearance="Normal", AutoSize=False):
         super().__init__(master_form._root, Left, Top)
         
         self.Name = Name
-        self.Text = Text
-        self.Checked = Checked
-        self.CheckState = CheckState
+        self._text_value = Text  # Atributo interno para almacenar el texto
+        self._checked_value = Checked  # Atributo interno para Checked
+        self._checkstate_value = CheckState  # Atributo interno para CheckState
         self.ThreeState = ThreeState
         self.Enabled = Enabled
-        self.Visible = Visible
+        self._visible = Visible
         self.Font = Font
         self.ForeColor = ForeColor
         self.BackColor = BackColor
         self.TextAlign = TextAlign
         self.Appearance = Appearance
+        self.AutoSize = AutoSize
+        
+        self.Width = Width
+        self.Height = Height
         
         self.Location = (Left, Top)
         
         # Variable based on ThreeState
         if self.ThreeState:
-            self._state_var = tk.IntVar(value=self.CheckState)
+            self._state_var = tk.IntVar(value=self._checkstate_value)
         else:
-            self._state_var = tk.BooleanVar(value=self.Checked)
+            self._state_var = tk.BooleanVar(value=self._checked_value)
         
-        # Create the Tkinter widget
-        self._tk_widget = tk.Checkbutton(self.master, text=self.Text, variable=self._state_var)
+        # Crear el widget Tkinter
+        self._tk_widget = tk.Checkbutton(self.master, text=self._text_value, variable=self._state_var)
         
-        # Apply configurations
+        # Aplicar configuraciones
         config = {}
         if self.Font:
             config['font'] = self.Font
@@ -792,32 +1372,63 @@ class CheckBox(ControlBase):
         if config:
             self._tk_widget.config(**config)
         
-        # Position if visible
+        # Posicionar si visible
         if self.Visible:
-            self._place_control()
+            if self.AutoSize:
+                self._apply_autosize()
+            self._place_control(self.Width, self.Height)
         else:
             self._tk_widget.place_forget()
 
     def get_Checked(self):
-        # Gets whether it is checked (boolean).
+        """Obtiene si está marcado (booleano)."""
         return bool(self._state_var.get())
 
     def set_Checked(self, value):
-        # Sets whether it is checked.
-        self.Checked = value
+        """Establece si está marcado."""
+        self._checked_value = value
         self._state_var.set(value)
 
     def get_CheckState(self):
-        # Gets the checkbox state (0=Unchecked, 1=Checked, 2=Indeterminate).
+        """Obtiene el estado de la casilla (0=Unchecked, 1=Checked, 2=Indeterminate)."""
         return self._state_var.get()
 
     def set_CheckState(self, value):
-        # Sets the checkbox state.
-        self.CheckState = value
+        """Establece el estado de la casilla."""
+        self._checkstate_value = value
         self._state_var.set(value)
+    
+    @property
+    def Checked(self):
+        """Property getter para Checked."""
+        return self.get_Checked()
+    
+    @Checked.setter
+    def Checked(self, value):
+        """Property setter para Checked que llama a set_Checked()."""
+        self.set_Checked(value)
+    
+    @property
+    def Text(self):
+        """Property getter para Text en CheckBox."""
+        return self._text_value
+    
+    @Text.setter
+    def Text(self, value):
+        """Property setter para Text en CheckBox."""
+        self._text_value = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.config(text=value)
+            
+            # Aplicar AutoSize si está habilitado
+            if self.AutoSize:
+                self._apply_autosize()
+                # Reposicionar con nuevo tamaño
+                if self.Visible:
+                    self._place_control(self.Width, self.Height)
 
 class CheckedListBox(ControlBase):
-    # Represents a CheckedListBox (list with checkboxes).
+    """Representa un CheckedListBox (lista con checkboxes)."""
     
     def __init__(self, master_form, Items=None, Left=10, Top=200, Width=200, Height=100, Name="", DataSource=None, DisplayMember="", ValueMember="", SelectedItems=None, SelectionMode="One", CheckOnClick=True, ThreeDCheckBoxes=True, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None):
         super().__init__(master_form._root, Left, Top)
@@ -834,12 +1445,12 @@ class CheckedListBox(ControlBase):
         self.CheckOnClick = CheckOnClick
         self.ThreeDCheckBoxes = ThreeDCheckBoxes
         self.Enabled = Enabled
-        self.Visible = Visible
+        self._visible = Visible
         self.Font = Font
         self.ForeColor = ForeColor
         self.BackColor = BackColor
         
-        # VB Events (callbacks)
+        # Eventos VB (callbacks)
         self.ItemCheck = lambda item, new_value: None
         self.SelectedIndexChanged = lambda: None
         self.SelectedValueChanged = lambda: None
@@ -851,7 +1462,7 @@ class CheckedListBox(ControlBase):
         if self.DataSource and self.DisplayMember:
             self.Items = [getattr(item, self.DisplayMember) for item in self.DataSource]
         
-        # Create a Frame to contain the Checkbuttons
+        # Crear un Frame para contener los Checkbuttons
         self._frame = tk.Frame(self.master, width=self.Width, height=self.Height)
         self._tk_widget = self._frame
         
@@ -883,56 +1494,57 @@ class CheckedListBox(ControlBase):
             # For ItemCheck, use trace
             self._vars[i].trace('w', lambda *args, idx=i: self._on_item_check(idx))
         
-        # Position if visible
+        # Posicionar si visible
         if self.Visible:
             self._place_control(self.Width, self.Height)
         else:
             self._frame.place_forget()
 
     def get_CheckedItems(self):
-        # Gets the list of checked items.
+        """Obtiene la lista de elementos marcados."""
         return [self.Items[i] for i, var in enumerate(self._vars) if var.get()]
 
     def get_CheckedIndices(self):
-        # Gets the list of checked indices.
+        """Obtiene la lista de índices marcados."""
         return [i for i, var in enumerate(self._vars) if var.get()]
 
     def set_Checked(self, index, value):
-        # Sets whether an item is checked.
+        """Establece si un elemento está marcado."""
         self.ItemCheck(index, value)
         if 0 <= index < len(self._vars):
             self._vars[index].set(value)
 
     def get_SelectedItems(self):
-        # Gets the list of selected items (same as checked for simplicity).
+        """Obtiene la lista de elementos seleccionados (igual a marcados para simplicidad)."""
         return self.get_CheckedItems()
 
     def get_SelectedIndices(self):
-        # Gets the list of selected indices.
+        """Obtiene la lista de índices seleccionados."""
         return self.get_CheckedIndices()
     
     def _on_item_check(self, index):
-        # Handler for ItemCheck event.
+        """Handler for ItemCheck event."""
         self.ItemCheck(index, self._vars[index].get())
     
     def _on_selected_index_changed(self, event=None):
-        # Handler for SelectedIndexChanged event.
+        """Handler for SelectedIndexChanged event."""
         self.SelectedIndexChanged()
         self.SelectedValueChanged()
 
 class Panel(ControlBase):
-    # Represents a Panel (container).
+    """Representa un Panel (contenedor)."""
     
-    def __init__(self, master_form, Left=0, Top=0, Width=200, Height=100, Name="", Enabled=True, Visible=True, BackColor='lightgray', BackgroundImage=None, BorderStyle='flat', AutoScroll=False, AutoScrollOffset=(0,0), Dock=None, Anchor=None, Padding=(0,0)):
+    def __init__(self, master_form, Left=0, Top=0, Width=200, Height=100, Name="", Text="", Enabled=True, Visible=True, BackColor='lightgray', BackgroundImage=None, BorderStyle='flat', AutoScroll=False, AutoScrollOffset=(0,0), Dock=None, Anchor=None, Padding=(0,0), AutoSize=False, AutoSizeMode='GrowOnly', MinimumSize=None, MaximumSize=None):
         # Resolve master widget
         master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
         super().__init__(master_widget, Left, Top)
         
         self.Name = Name
+        self._text = Text
         self.Width = Width
         self.Height = Height
         self.Enabled = Enabled
-        self.Visible = Visible
+        self._visible = Visible
         self.BackColor = BackColor
         self.BackgroundImage = BackgroundImage
         self.BorderStyle = BorderStyle
@@ -941,22 +1553,106 @@ class Panel(ControlBase):
         self.Dock = Dock
         self.Anchor = Anchor
         self.Padding = Padding
+        self.AutoSize = AutoSize
+        self.AutoSizeMode = AutoSizeMode  # 'GrowOnly' o 'GrowAndShrink'
+        self.MinimumSize = MinimumSize
+        self.MaximumSize = MaximumSize
+        self._original_size = (Width, Height)  # Para GrowOnly
         
         self.Location = (Left, Top)
         
-        # Create the Tkinter widget (Frame)
+        # Crear el widget Tkinter (Frame o LabelFrame según haya título)
         padx, pady = self.Padding
+        
+        # Mapear BorderStyle de VB.NET a tkinter
+        relief_map = {
+            'None': 'flat',
+            'Fixed3D': 'ridge',
+            'FixedSingle': 'solid',
+            'flat': 'flat',
+            'groove': 'groove',
+            'raised': 'raised',
+            'ridge': 'ridge',
+            'solid': 'solid',
+            'sunken': 'sunken'
+        }
+        
         config = {
             'width': self.Width,
             'height': self.Height,
             'bg': self.BackColor,
-            'relief': self.BorderStyle,
+            'relief': relief_map.get(self.BorderStyle, 'flat'),
             'padx': padx,
             'pady': pady
         }
-        if self.BackgroundImage:
-            config['image'] = self.BackgroundImage
-        self._tk_widget = tk.Frame(self.master, **config)
+        
+        # Crear widget principal (Frame o LabelFrame)
+        if self._text:
+            config['text'] = self._text
+            if self.BackgroundImage:
+                config['image'] = self.BackgroundImage
+            self._tk_widget = tk.LabelFrame(self.master, **config)
+        else:
+            if self.BackgroundImage:
+                config['image'] = self.BackgroundImage
+            self._tk_widget = tk.Frame(self.master, **config)
+        
+        # Si AutoScroll está activado, crear estructura con Canvas y Scrollbars
+        if self.AutoScroll:
+            # Canvas para contenido desplazable
+            self._canvas = tk.Canvas(
+                self._tk_widget,
+                bg=self.BackColor,
+                highlightthickness=0
+            )
+            
+            # Scrollbars
+            self._v_scrollbar = tk.Scrollbar(
+                self._tk_widget,
+                orient='vertical',
+                command=self._canvas.yview
+            )
+            self._h_scrollbar = tk.Scrollbar(
+                self._tk_widget,
+                orient='horizontal',
+                command=self._canvas.xview
+            )
+            
+            # Configurar canvas con scrollbars
+            self._canvas.configure(
+                yscrollcommand=self._v_scrollbar.set,
+                xscrollcommand=self._h_scrollbar.set
+            )
+            
+            # Frame interno que contendrá los controles
+            self._scroll_frame = tk.Frame(self._canvas, bg=self.BackColor)
+            self._canvas_window = self._canvas.create_window(
+                (0, 0),
+                window=self._scroll_frame,
+                anchor='nw'
+            )
+            
+            # Posicionar scrollbars y canvas
+            self._v_scrollbar.pack(side='right', fill='y')
+            self._h_scrollbar.pack(side='bottom', fill='x')
+            self._canvas.pack(side='left', fill='both', expand=True)
+            
+            # Actualizar región desplazable cuando cambia el tamaño
+            self._scroll_frame.bind('<Configure>', self._on_scroll_frame_configure)
+            self._canvas.bind('<Configure>', self._on_canvas_configure)
+            
+            # Soporte para rueda del ratón
+            self._canvas.bind('<Enter>', self._bind_mousewheel)
+            self._canvas.bind('<Leave>', self._unbind_mousewheel)
+            
+            # El contenedor para controles será el scroll_frame
+            self._container = self._scroll_frame
+        else:
+            # Sin AutoScroll, el contenedor es el widget principal
+            self._container = self._tk_widget
+        
+        # Add _root for container functionality
+        self._root = master_form._root
         
         if self.Visible:
             self._place_control(self.Width, self.Height)
@@ -972,49 +1668,500 @@ class Panel(ControlBase):
         self._tk_widget.bind('<ButtonPress>', self._on_mouse_down)
         self._tk_widget.bind('<ButtonRelease>', self._on_mouse_up)
         
-        # List of controls inside the panel
+        # Lista de controles dentro del panel
         self.Controls = []
         
-        # VB Events
+        # Eventos VB
         self.ControlAdded = lambda control: None
         self.ControlRemoved = lambda control: None
 
     def AddControl(self, control):
-        # Adds a control to the Panel.
+        """Añade un control al Panel con posiciones relativas.
+        
+        Implementa la jerarquía de visibilidad de Windows Forms:
+        - El control se añade al Panel (se convierte en su padre)
+        - El control solo será visible si su propia propiedad Visible es True
+          Y el Panel (y todos sus padres) también están visibles
+        """
         self.Controls.append(control)
-        # Change the control's master to the panel
-        control.master = self._tk_widget
-        control._place_control()
-        # Apply the panel's Enabled property to the control
+        # Cambiar el master del control al contenedor apropiado (scroll_frame o widget principal)
+        control.master = self._container
+        
+        # Registrar este Panel como wrapper del contenedor para la jerarquía de padres
+        if not hasattr(self._container, '_control_wrapper'):
+            self._container._control_wrapper = self
+        
+        # Heredar propiedades del contenedor
         if hasattr(control, 'Enabled'):
             control.Enabled = self.Enabled
             if hasattr(control, '_tk_widget'):
-                control._tk_widget.config(state='normal' if self.Enabled else 'disabled')
+                try:
+                    control._tk_widget.config(state='normal' if self.Enabled else 'disabled')
+                except tk.TclError:
+                    pass  # Algunos widgets no soportan state
+        
+        # Aplicar jerarquía de visibilidad:
+        # El control solo se muestra si su _visible es True Y el Panel está visible
+        if hasattr(control, '_visible'):
+            control_should_be_visible = control._visible and self.get_Visible()
+            if control_should_be_visible:
+                # Mostrar el control
+                control._place_control()
+            else:
+                # Ocultar el control
+                if hasattr(control, '_tk_widget') and control._tk_widget:
+                    control._tk_widget.place_forget()
+        else:
+            # Si el control no tiene _visible, usar comportamiento por defecto
+            if self.get_Visible():
+                control._place_control()
+        
+        # Actualizar región de scroll si AutoScroll está activado
+        if self.AutoScroll and hasattr(self, '_scroll_frame'):
+            self._scroll_frame.update_idletasks()
+            self._canvas.configure(scrollregion=self._canvas.bbox('all'))
+        
+        # Aplicar AutoSize si está habilitado
+        if self.AutoSize:
+            self._apply_autosize_panel()
+        
         self.ControlAdded(control)
 
     def set_Enabled(self, enabled):
-        # Sets whether the panel is enabled and propagates to controls.
+        """Establece si el panel está habilitado y propaga a los controles."""
         self.Enabled = enabled
         for control in self.Controls:
             if hasattr(control, 'Enabled'):
                 control.Enabled = enabled
                 if hasattr(control, '_tk_widget'):
                     control._tk_widget.config(state='normal' if enabled else 'disabled')
+    
+    def set_Visible(self, value):
+        """Establece la visibilidad del panel y la propaga a sus controles.
+        
+        Implementa la jerarquía de visibilidad de Windows Forms:
+        - Cuando el Panel se oculta (Visible = False), automáticamente oculta
+          todos sus controles hijos, sin importar su propiedad Visible individual
+        - Cuando el Panel se hace visible (Visible = True), solo muestra los
+          controles hijos cuya propiedad Visible individual sea True
+        """
+        # Usar la implementación base que maneja la jerarquía completa
+        # Esto propagará automáticamente a todos los hijos
+        super().set_Visible(value)
 
     def RemoveControl(self, control):
-        # Removes a control from the Panel.
+        """Quita un control del Panel."""
         if control in self.Controls:
             self.Controls.remove(control)
             self.ControlRemoved(control)
+            # Aplicar AutoSize si está habilitado
+            if self.AutoSize:
+                self._apply_autosize_panel()
+    
+    def _apply_autosize_panel(self):
+        """Aplica AutoSize específico para Panel.
+        
+        El Panel se redimensiona para abarcar todos sus controles hijos,
+        respetando AutoSizeMode:
+        - GrowOnly: Crece pero no se encoge por debajo del tamaño original
+        - GrowAndShrink: Se ajusta exactamente al contenido
+        """
+        if not self.AutoSize or not self.Controls:
+            return
+        
+        # Calcular el área necesaria para contener todos los controles
+        max_right = 0
+        max_bottom = 0
+        
+        for control in self.Controls:
+            if hasattr(control, 'Left') and hasattr(control, 'Top'):
+                control_right = control.Left + getattr(control, 'Width', 0)
+                control_bottom = control.Top + getattr(control, 'Height', 0)
+                max_right = max(max_right, control_right)
+                max_bottom = max(max_bottom, control_bottom)
+        
+        # Agregar padding
+        padx, pady = self.Padding
+        required_width = max_right + padx * 2
+        required_height = max_bottom + pady * 2
+        
+        # Aplicar AutoSizeMode
+        if self.AutoSizeMode == 'GrowOnly':
+            # No encoger por debajo del tamaño original
+            original_width, original_height = self._original_size
+            required_width = max(required_width, original_width)
+            required_height = max(required_height, original_height)
+        # GrowAndShrink: usar tamaño calculado tal cual
+        
+        # Aplicar restricciones de MinimumSize
+        if self.MinimumSize:
+            min_width, min_height = self.MinimumSize
+            required_width = max(required_width, min_width)
+            required_height = max(required_height, min_height)
+        
+        # Aplicar restricciones de MaximumSize
+        if self.MaximumSize:
+            max_width, max_height = self.MaximumSize
+            if max_width > 0:
+                required_width = min(required_width, max_width)
+            if max_height > 0:
+                required_height = min(required_height, max_height)
+        
+        # Actualizar dimensiones
+        self.Width = required_width
+        self.Height = required_height
+        
+        # Reposicionar con nuevo tamaño
+        if self.Visible:
+            self._place_control(self.Width, self.Height)
+
+    @property
+    def Text(self):
+        """Obtiene el título del Panel."""
+        return self._text
+    
+    @Text.setter
+    def Text(self, value):
+        """Establece el título del Panel."""
+        self._text = value
+        if self._tk_widget:
+            # Si el widget actual es un Frame y se quiere agregar texto,
+            # necesitamos recrear como LabelFrame
+            if isinstance(self._tk_widget, tk.Frame) and not isinstance(self._tk_widget, tk.LabelFrame) and value:
+                self._recreate_widget_as_labelframe()
+            # Si ya es LabelFrame, simplemente actualizar el texto
+            elif isinstance(self._tk_widget, tk.LabelFrame):
+                self._tk_widget.config(text=value)
+    
+    @property
+    def Visible(self):
+        """Property getter para Visible en Panel."""
+        return self._visible
+    
+    @Visible.setter
+    def Visible(self, value):
+        """Property setter para Visible en Panel."""
+        self.set_Visible(value)
+    
+    def _recreate_widget_as_labelframe(self):
+        """Recrea el widget como LabelFrame cuando se agrega texto a un Frame existente."""
+        # Guardar configuración actual
+        old_widget = self._tk_widget
+        old_place_info = old_widget.place_info()
+        
+        # Crear nuevo LabelFrame con la misma configuración
+        padx, pady = self.Padding
+        
+        # Mapear BorderStyle de VB.NET a tkinter
+        relief_map = {
+            'None': 'flat', 'Fixed3D': 'ridge', 'FixedSingle': 'solid',
+            'flat': 'flat', 'groove': 'groove', 'raised': 'raised',
+            'ridge': 'ridge', 'solid': 'solid', 'sunken': 'sunken'
+        }
+        
+        config = {
+            'text': self._text,
+            'width': self.Width,
+            'height': self.Height,
+            'bg': self.BackColor,
+            'relief': relief_map.get(self.BorderStyle, 'flat'),
+            'padx': padx,
+            'pady': pady
+        }
+        if self.BackgroundImage:
+            config['image'] = self.BackgroundImage
+        
+        new_widget = tk.LabelFrame(self.master, **config)
+        
+        # Mover todos los controles hijos al nuevo widget
+        for control in self.Controls:
+            control.master = new_widget
+            if hasattr(control, '_tk_widget'):
+                control._tk_widget.place_forget()
+        
+        # Reemplazar el widget
+        old_widget.destroy()
+        self._tk_widget = new_widget
+        
+        # Reposicionar el nuevo widget
+        if old_place_info:
+            self._tk_widget.place(**old_place_info)
+        else:
+            self._place_control(self.Width, self.Height)
+        
+        # Reposicionar controles hijos
+        for control in self.Controls:
+            if hasattr(control, '_place_control'):
+                control._place_control()
+        
+        # Re-bind eventos
+        self._tk_widget.bind('<Configure>', self._on_paint)
+        self._tk_widget.bind('<Button-1>', self._on_click)
+        self._tk_widget.bind('<Double-Button-1>', self._on_double_click)
+        self._tk_widget.bind('<Enter>', self._on_mouse_enter)
+        self._tk_widget.bind('<Leave>', self._on_mouse_leave)
+        self._tk_widget.bind('<ButtonPress>', self._on_mouse_down)
+        self._tk_widget.bind('<ButtonRelease>', self._on_mouse_up)
 
     def _on_paint(self, event):
-        # Handler for Paint and Resize events.
+        """Handler for Paint and Resize events."""
         self.Paint()
         self.Resize()
+    
+    def _on_scroll_frame_configure(self, event):
+        """Actualiza la región de scroll cuando cambia el contenido."""
+        if hasattr(self, '_canvas'):
+            self._canvas.configure(scrollregion=self._canvas.bbox('all'))
+    
+    def _on_canvas_configure(self, event):
+        """Ajusta el ancho del frame interno al ancho del canvas."""
+        if hasattr(self, '_canvas') and hasattr(self, '_canvas_window'):
+            canvas_width = event.width
+            self._canvas.itemconfig(self._canvas_window, width=canvas_width)
+    
+    def _bind_mousewheel(self, event):
+        """Habilita el scroll con la rueda del ratón."""
+        if hasattr(self, '_canvas'):
+            # Windows y MacOS
+            self._canvas.bind_all('<MouseWheel>', self._on_mousewheel)
+            # Linux
+            self._canvas.bind_all('<Button-4>', self._on_mousewheel)
+            self._canvas.bind_all('<Button-5>', self._on_mousewheel)
+    
+    def _unbind_mousewheel(self, event):
+        """Deshabilita el scroll con la rueda del ratón."""
+        if hasattr(self, '_canvas'):
+            self._canvas.unbind_all('<MouseWheel>')
+            self._canvas.unbind_all('<Button-4>')
+            self._canvas.unbind_all('<Button-5>')
+    
+    def _on_mousewheel(self, event):
+        """Maneja el scroll con la rueda del ratón."""
+        if hasattr(self, '_canvas'):
+            # Windows y MacOS
+            if event.num == 5 or event.delta < 0:
+                self._canvas.yview_scroll(1, 'units')
+            elif event.num == 4 or event.delta > 0:
+                self._canvas.yview_scroll(-1, 'units')
+
+
+class Line:
+    """Representa una línea (System.Windows.Shapes.Line de WPF/UWP) dibujada en un Canvas.
+    
+    En WPF/UWP, Line es un elemento visual que se dibuja entre dos puntos.
+    Esta implementación usa tkinter Canvas para dibujar líneas con propiedades similares.
+    """
+    
+    def __init__(self, master_form, X1=0, Y1=0, X2=100, Y2=100, Name="", Stroke="black", StrokeThickness=1, StrokeDashArray=None, Visible=True, Tag=None):
+        """Inicializa una línea.
+        
+        Parámetros:
+        - master_form: El formulario o control contenedor que debe tener un Canvas
+        - X1, Y1: Coordenadas del punto inicial
+        - X2, Y2: Coordenadas del punto final
+        - Name: Identificador único
+        - Stroke: Color de la línea (nombre de color, hex, etc.)
+        - StrokeThickness: Grosor de la línea en píxeles
+        - StrokeDashArray: Lista de valores para patrón de guiones [dash, space, dash, space, ...]
+        - Visible: Si la línea es visible
+        - Tag: Objeto personalizado para datos asociados
+        """
+        # Resolver el canvas o widget master
+        if hasattr(master_form, '_canvas'):
+            self._canvas = master_form._canvas
+        elif hasattr(master_form, '_tk_widget') and isinstance(master_form._tk_widget, tk.Canvas):
+            self._canvas = master_form._tk_widget
+        elif isinstance(master_form, tk.Canvas):
+            self._canvas = master_form
+        else:
+            # Si no hay canvas, crear uno
+            master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
+            self._canvas = tk.Canvas(master_widget, bg='white')
+            self._canvas.pack(fill='both', expand=True)
+        
+        # Propiedades WPF/UWP
+        self.Name = Name
+        self.X1 = X1
+        self.Y1 = Y1
+        self.X2 = X2
+        self.Y2 = Y2
+        self.Stroke = Stroke
+        self.StrokeThickness = StrokeThickness
+        self.StrokeDashArray = StrokeDashArray  # Lista como [5, 2, 3, 2] para patrón de guiones
+        self._visible = Visible
+        self.Tag = Tag
+        
+        # Eventos UIElement (WPF/UWP)
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
+        self.MouseLeftButtonDown = lambda sender, e: None
+        self.MouseLeftButtonUp = lambda sender, e: None
+        self.MouseMove = lambda sender, e: None
+        self.MouseRightButtonDown = lambda sender, e: None
+        self.MouseRightButtonUp = lambda sender, e: None
+        self.ManipulationStarted = lambda sender, e: None
+        self.ManipulationDelta = lambda sender, e: None
+        self.ManipulationCompleted = lambda sender, e: None
+        
+        # Dibujar la línea
+        self._line_id = None
+        self._draw()
+        
+        # Bind eventos si la línea es visible
+        if self.Visible:
+            self._bind_events()
+    
+    def _draw(self):
+        """Dibuja o actualiza la línea en el canvas."""
+        if self._line_id:
+            # Actualizar línea existente
+            self._canvas.coords(self._line_id, self.X1, self.Y1, self.X2, self.Y2)
+            self._canvas.itemconfig(self._line_id, 
+                                   fill=self.Stroke, 
+                                   width=self.StrokeThickness,
+                                   dash=self._convert_dash_array())
+        else:
+            # Crear nueva línea
+            self._line_id = self._canvas.create_line(
+                self.X1, self.Y1, self.X2, self.Y2,
+                fill=self.Stroke,
+                width=self.StrokeThickness,
+                dash=self._convert_dash_array(),
+                tags=self.Name if self.Name else None
+            )
+        
+        # Aplicar visibilidad
+        if self.Visible:
+            self._canvas.itemconfig(self._line_id, state='normal')
+        else:
+            self._canvas.itemconfig(self._line_id, state='hidden')
+    
+    def _convert_dash_array(self):
+        """Convierte StrokeDashArray a formato tkinter."""
+        if self.StrokeDashArray:
+            # Tkinter usa tupla de enteros para dash
+            return tuple(int(x) for x in self.StrokeDashArray)
+        return None
+    
+    def _bind_events(self):
+        """Vincula eventos del mouse a la línea."""
+        if self._line_id:
+            self._canvas.tag_bind(self._line_id, '<Enter>', self._on_mouse_enter)
+            self._canvas.tag_bind(self._line_id, '<Leave>', self._on_mouse_leave)
+            self._canvas.tag_bind(self._line_id, '<Button-1>', self._on_mouse_left_down)
+            self._canvas.tag_bind(self._line_id, '<ButtonRelease-1>', self._on_mouse_left_up)
+            self._canvas.tag_bind(self._line_id, '<Motion>', self._on_mouse_move)
+            self._canvas.tag_bind(self._line_id, '<Button-3>', self._on_mouse_right_down)
+            self._canvas.tag_bind(self._line_id, '<ButtonRelease-3>', self._on_mouse_right_up)
+    
+    def _on_mouse_enter(self, event):
+        """Handler para MouseEnter."""
+        self.MouseEnter(self, event)
+    
+    def _on_mouse_leave(self, event):
+        """Handler para MouseLeave."""
+        self.MouseLeave(self, event)
+    
+    def _on_mouse_left_down(self, event):
+        """Handler para MouseLeftButtonDown."""
+        self.MouseLeftButtonDown(self, event)
+        # Simulación básica de ManipulationStarted
+        self.ManipulationStarted(self, event)
+    
+    def _on_mouse_left_up(self, event):
+        """Handler para MouseLeftButtonUp."""
+        self.MouseLeftButtonUp(self, event)
+        # Simulación básica de ManipulationCompleted
+        self.ManipulationCompleted(self, event)
+    
+    def _on_mouse_move(self, event):
+        """Handler para MouseMove."""
+        self.MouseMove(self, event)
+        # Simulación básica de ManipulationDelta
+        self.ManipulationDelta(self, event)
+    
+    def _on_mouse_right_down(self, event):
+        """Handler para MouseRightButtonDown."""
+        self.MouseRightButtonDown(self, event)
+    
+    def _on_mouse_right_up(self, event):
+        """Handler para MouseRightButtonUp."""
+        self.MouseRightButtonUp(self, event)
+    
+    # Properties con getters/setters
+    
+    def set_X1(self, value):
+        """Establece la coordenada X del punto inicial."""
+        self.X1 = value
+        self._draw()
+    
+    def set_Y1(self, value):
+        """Establece la coordenada Y del punto inicial."""
+        self.Y1 = value
+        self._draw()
+    
+    def set_X2(self, value):
+        """Establece la coordenada X del punto final."""
+        self.X2 = value
+        self._draw()
+    
+    def set_Y2(self, value):
+        """Establece la coordenada Y del punto final."""
+        self.Y2 = value
+        self._draw()
+    
+    def set_Stroke(self, value):
+        """Establece el color de la línea."""
+        self.Stroke = value
+        if self._line_id:
+            self._canvas.itemconfig(self._line_id, fill=value)
+    
+    def set_StrokeThickness(self, value):
+        """Establece el grosor de la línea."""
+        self.StrokeThickness = value
+        if self._line_id:
+            self._canvas.itemconfig(self._line_id, width=value)
+    
+    def set_StrokeDashArray(self, value):
+        """Establece el patrón de guiones de la línea.
+        
+        Parámetro:
+        - value: Lista de números [dash, space, dash, space, ...]
+                Ejemplo: [5, 2] = 5px línea, 2px espacio
+                         [5, 2, 1, 2] = 5px línea, 2px espacio, 1px línea, 2px espacio
+        """
+        self.StrokeDashArray = value
+        if self._line_id:
+            self._canvas.itemconfig(self._line_id, dash=self._convert_dash_array())
+    
+    def set_Visible(self, value):
+        """Establece la visibilidad de la línea."""
+        super().set_Visible(value)
+        if self._line_id:
+            if value:
+                self._canvas.itemconfig(self._line_id, state='normal')
+            else:
+                self._canvas.itemconfig(self._line_id, state='hidden')
+    
+    def Delete(self):
+        """Elimina la línea del canvas."""
+        if self._line_id:
+            self._canvas.delete(self._line_id)
+            self._line_id = None
+    
+    def BringToFront(self):
+        """Trae la línea al frente (encima de otros elementos)."""
+        if self._line_id:
+            self._canvas.tag_raise(self._line_id)
+    
+    def SendToBack(self):
+        """Envía la línea al fondo (detrás de otros elementos)."""
+        if self._line_id:
+            self._canvas.tag_lower(self._line_id)
 
 
 class FileDialog:
-    # Base class for file dialogs.
+    """Clase base para diálogos de archivos."""
     
     def __init__(self):
         self.FileName = ""
@@ -1031,13 +2178,13 @@ class FileDialog:
         self.ValidateNames = True
         self.ShowHelp = False
         
-        # VB Events
+        # Eventos VB
         self.FileOk = lambda sender, e: None
         self.HelpRequest = lambda sender, hlpevent: None
         self.Disposed = lambda sender, e: None
     
     def _parse_filter(self):
-        # Parse the Filter string into filetypes for Tkinter.
+        """Parse the Filter string into filetypes for Tkinter."""
         if not self.Filter:
             return [("All files", "*.*")]
         # Simple parsing: "Description|*.ext|Description2|*.ext2"
@@ -1049,12 +2196,12 @@ class FileDialog:
         return filetypes
     
     def __del__(self):
-        # Destructor to trigger Disposed event.
+        """Destructor to trigger Disposed event."""
         self.Disposed(self, None)
 
 
 class OpenFileDialog(FileDialog):
-    # Represents an OpenFileDialog.
+    """Representa un OpenFileDialog."""
     
     def __init__(self):
         super().__init__()
@@ -1064,7 +2211,7 @@ class OpenFileDialog(FileDialog):
         self.SafeFileName = ""
     
     def ShowDialog(self):
-        # Shows the dialog and returns the selected file.
+        """Muestra el diálogo y devuelve el archivo seleccionado."""
         from tkinter import filedialog
         if self.Multiselect:
             files = filedialog.askopenfilenames(
@@ -1093,7 +2240,7 @@ class OpenFileDialog(FileDialog):
 
 
 class SaveFileDialog(FileDialog):
-    # Represents a SaveFileDialog.
+    """Representa un SaveFileDialog."""
     
     def __init__(self):
         super().__init__()
@@ -1101,7 +2248,7 @@ class SaveFileDialog(FileDialog):
         self.CreatePrompt = False
     
     def ShowDialog(self):
-        # Shows the dialog and returns the selected file.
+        """Muestra el diálogo y devuelve el archivo seleccionado."""
         from tkinter import filedialog
         self.FileName = filedialog.asksaveasfilename(
             initialdir=self.InitialDirectory or None,
@@ -1118,43 +2265,43 @@ class SaveFileDialog(FileDialog):
 
 
 class PrintDialog:
-    # Represents a PrintDialog with main VB.NET properties.
+    """Representa un PrintDialog con propiedades principales de VB.NET."""
     
     def __init__(self):
-        self.Document = None  # The PrintDocument object to be printed
-        self.PrinterSettings = None  # Selected printer settings
-        self.AllowCurrentPage = False  # Enables "Current Page" option
-        self.AllowSelection = False  # Enables "Selection" option
-        self.AllowPrintToFile = False  # Displays "Print to File" checkbox
-        self.AllowSomePages = False  # Enables "Pages" option
-        self.ShowHelp = False  # Displays Help button
-        self.ShowNetwork = False  # Allows access to network printers
-        self.UseEXDialog = True  # Uses modern dialog (default True)
-        self.PrintToFile = False  # Set by the user if "Print to File" is checked
-        self.PrinterName = ""  # Name of the selected printer
+        self.Document = None  # El objeto PrintDocument que se va a imprimir
+        self.PrinterSettings = None  # Configuraciones de impresora seleccionadas
+        self.AllowCurrentPage = False  # Habilita opción "Página actual"
+        self.AllowSelection = False  # Habilita opción "Selección"
+        self.AllowPrintToFile = False  # Muestra casilla "Imprimir a archivo"
+        self.AllowSomePages = False  # Habilita opción "Páginas"
+        self.ShowHelp = False  # Muestra botón de Ayuda
+        self.ShowNetwork = False  # Permite acceso a impresoras de red
+        self.UseEXDialog = True  # Usa diálogo moderno (por defecto True)
+        self.PrintToFile = False  # Establecido por el usuario si marca "Imprimir a archivo"
+        self.PrinterName = ""  # Nombre de la impresora seleccionada
     
     def ShowDialog(self):
-        # Shows the simulated print dialog and returns the result.
+        """Muestra el diálogo de impresión simulado y devuelve el resultado."""
         from tkinter import messagebox
         
-        # Build message based on enabled options
+        # Construir mensaje basado en las opciones habilitadas
         options = []
         if self.AllowCurrentPage:
-            options.append("Current Page")
+            options.append("Página actual")
         if self.AllowSelection:
-            options.append("Selection")
+            options.append("Selección")
         if self.AllowSomePages:
-            options.append("Pages")
+            options.append("Páginas")
         if self.AllowPrintToFile:
-            options.append("Print to file")
-
-        message = "Available print options:\n" + "\n".join(options) if options else "Print document"
+            options.append("Imprimir a archivo")
+        
+        message = "Opciones de impresión disponibles:\n" + "\n".join(options) if options else "Imprimir documento"
         if self.ShowHelp:
-            message += "\n\nPress OK to print or Cancel to cancel."
+            message += "\n\nPresione OK para imprimir o Cancelar para cancelar."
         
         result = messagebox.askyesno("Print Dialog", message)
         
-        # Simulate configuration based on result
+        # Simular configuración basada en resultado
         if result:
             self.PrintToFile = self.AllowPrintToFile  # Simulado
             self.PrinterName = "Default Printer"  # Simulado
@@ -1163,7 +2310,7 @@ class PrintDialog:
 
 
 class PictureBox(ControlBase):
-    # Represents a PictureBox to display images with VB.NET properties.
+    """Representa un PictureBox para mostrar imágenes con propiedades VB.NET."""
     
     def __init__(self, master_form, Image=None, Left=10, Top=10, Width=100, Height=100, Name="", ImageLocation="", SizeMode="Normal", BorderStyle=None, Enabled=True, Visible=True, BackColor=None, ErrorImage=None, InitialImage=None, WaitOnLoad=False):
         super().__init__(master_form._root, Left, Top)
@@ -1176,24 +2323,24 @@ class PictureBox(ControlBase):
         self.SizeMode = SizeMode  # 'Normal', 'StretchImage', 'AutoSize', 'CenterImage', 'Zoom'
         self.BorderStyle = BorderStyle  # 'None', 'FixedSingle', 'Fixed3D'
         self.Enabled = Enabled
-        self.Visible = Visible
+        self._visible = Visible
         self.BackColor = BackColor
         self.ErrorImage = ErrorImage
         self.InitialImage = InitialImage
         self.WaitOnLoad = WaitOnLoad
         
-        # VB Events
+        # Eventos VB
         self.LoadCompleted = lambda sender, e: None
         self.LoadProgressChanged = lambda sender, e: None
         self.Error = lambda sender, e: None
         
-        # Create the Tkinter widget (Label with image)
+        # Crear el widget Tkinter (Label con imagen)
         self._tk_widget = tk.Label(self.master, image=self.Image)
         
-        # Apply properties
+        # Aplicar propiedades
         self._apply_properties()
         
-        # Load image from ImageLocation if specified
+        # Cargar imagen desde ImageLocation si especificada
         if self.ImageLocation:
             self._load_image_from_location()
         
@@ -1209,7 +2356,7 @@ class PictureBox(ControlBase):
         self._tk_widget.bind('<ButtonRelease>', self._on_mouse_up)
     
     def _apply_properties(self):
-        # Applies properties to the Tkinter widget.
+        """Aplica las propiedades al widget Tkinter."""
         config = {}
         if self.Image:
             config['image'] = self.Image
@@ -1242,7 +2389,7 @@ class PictureBox(ControlBase):
             pass
     
     def _load_image_from_location(self):
-        # Loads the image from ImageLocation.
+        """Carga la imagen desde ImageLocation."""
         try:
             # Try PIL first for better format support
             try:
@@ -1278,71 +2425,63 @@ class PictureBox(ControlBase):
             self.Error(self, e)
     
     def set_Image(self, image):
-        # Sets the image.
+        """Establece la imagen."""
         self.Image = image
         self._tk_widget.config(image=image)
         self._apply_properties()
     
     def set_ImageLocation(self, location):
-        # Sets the image location and loads it.
+        """Establece la ubicación de la imagen y la carga."""
         self.ImageLocation = location
         self._load_image_from_location()
     
     def set_SizeMode(self, mode):
-        # Sets the size mode.
+        """Establece el modo de tamaño."""
         self.SizeMode = mode
         self._apply_properties()
     
     def set_BorderStyle(self, style):
-        # Sets the border style.
+        """Establece el estilo del borde."""
         self.BorderStyle = style
         self._apply_properties()
     
     def set_Enabled(self, enabled):
-        # Sets whether it is enabled.
+        """Establece si está habilitado."""
         self.Enabled = enabled
         self._tk_widget.config(state='normal' if enabled else 'disabled')
     
-    def set_Visible(self, visible):
-        # Sets the visibility.
-        self.Visible = visible
-        if visible:
-            self._place_control(self.Width, self.Height)
-        else:
-            self._tk_widget.place_forget()
-    
     def _on_click(self, event):
-        # Handler for Click event.
+        """Handler for Click event."""
         self.Click()
     
     def _on_double_click(self, event):
-        # Handler for DoubleClick event.
+        """Handler for DoubleClick event."""
         self.DoubleClick()
     
     def _on_paint(self, event):
-        # Handler for Paint and Resize events.
+        """Handler for Paint and Resize events."""
         self.Paint()
         self.Resize()
 
 
 class ImageList:
-    # Represents an ImageList to manage images with VB.NET properties.
+    """Representa una ImageList para gestionar imágenes con propiedades VB.NET."""
     
     def __init__(self, Name="", ImageSize=(16, 16), ColorDepth=32, TransparentColor=None, ImageStream=None):
-        self.Name = Name  # Unique identifier
-        self.Images = {}  # Dictionary of images (key: index or name, value: PhotoImage)
-        self.ImageSize = ImageSize  # (width, height) in pixels
-        self.ColorDepth = ColorDepth  # Color depth (8, 16, 24, 32 bits)
-        self.TransparentColor = TransparentColor  # Transparent color
-        self.ImageStream = ImageStream  # For serialization (placeholder)
-        self._next_index = 0  # For automatic index assignment
+        self.Name = Name  # Identificador único
+        self.Images = {}  # Diccionario de imágenes (clave: índice o nombre, valor: PhotoImage)
+        self.ImageSize = ImageSize  # (ancho, alto) en píxeles
+        self.ColorDepth = ColorDepth  # Profundidad de color (8, 16, 24, 32 bits)
+        self.TransparentColor = TransparentColor  # Color transparente
+        self.ImageStream = ImageStream  # Para serialización (placeholder)
+        self._next_index = 0  # Para asignar índices automáticamente
         
-        # VB Events
+        # Eventos VB
         self.CollectionChanged = lambda: None
         self.Disposed = lambda sender, e: None
     
     def Add(self, image, key=None):
-        # Adds an image to the list. If key is None, uses a numeric index.
+        """Añade una imagen a la lista. Si key es None, usa un índice numérico."""
         if key is None:
             key = self._next_index
             self._next_index += 1
@@ -1350,32 +2489,32 @@ class ImageList:
         self.CollectionChanged()
     
     def GetImage(self, key):
-        # Gets an image by key (index or name).
+        """Obtiene una imagen por clave (índice o nombre)."""
         return self.Images.get(key, None)
     
     def Remove(self, key):
-        # Removes an image by key.
+        """Elimina una imagen por clave."""
         if key in self.Images:
             del self.Images[key]
             self.CollectionChanged()
     
     def Clear(self):
-        # Clears all images.
+        """Limpia todas las imágenes."""
         self.Images.clear()
         self._next_index = 0
         self.CollectionChanged()
     
     def Count(self):
-        # Returns the number of images.
+        """Devuelve el número de imágenes."""
         return len(self.Images)
     
     def Dispose(self):
-        # Releases the resources of the ImageList.
+        """Libera los recursos del ImageList."""
         self.Disposed(self, None)
 
 
 class DialogResult:
-    # Represents the return values of a dialog (DialogResult).
+    """Representa los valores de retorno de un diálogo (DialogResult)."""
     
     OK = "OK"
     Cancel = "Cancel"
@@ -1387,18 +2526,20 @@ class DialogResult:
 
 
 class MessageBox:
-    # Represents a MessageBox for messages with VB.NET parameters.
+    """Representa un MessageBox para mensajes con parámetros VB.NET."""
     
     @staticmethod
     def Show(text, caption="Message", buttons="OK", icon=None, defaultButton=None, options=None):
-        # Shows a message and returns the result.
-        # Parameters:
-        # - text: The main message.
-        # - caption: The title.
-        # - buttons: 'OK', 'OKCancel', 'YesNo', 'YesNoCancel', 'RetryCancel', 'AbortRetryIgnore'
-        # - icon: 'Information', 'Warning', 'Error', 'Question', 'None'
-        # - defaultButton: 'Button1', 'Button2', 'Button3' (not implemented in Tkinter)
-        # - options: 'RightAlign', 'RtlReading', etc. (partially supported)
+        """Muestra un mensaje y devuelve el resultado.
+        
+        Parámetros:
+        - text: El mensaje principal.
+        - caption: El título.
+        - buttons: 'OK', 'OKCancel', 'YesNo', 'YesNoCancel', 'RetryCancel', 'AbortRetryIgnore'
+        - icon: 'Information', 'Warning', 'Error', 'Question', 'None'
+        - defaultButton: 'Button1', 'Button2', 'Button3' (no implementado en Tkinter)
+        - options: 'RightAlign', 'RtlReading', etc. (parcialmente soportado)
+        """
         # Map icon to messagebox function
         icon_map = {
             'Information': 'info',
@@ -1456,41 +2597,43 @@ class MessageBox:
     
 
 class InputBox:
-    # Represents an InputBox for text input with VB.NET parameters.
+    """Representa un InputBox para entrada de texto con parámetros VB.NET."""
     
     @staticmethod
     def Show(prompt, title="Input", defaultResponse="", xpos=None, ypos=None):
-        # Shows an input dialog and returns the text.
-        # Parameters:
-        # - prompt: The main message.
-        # - title: The title.
-        # - defaultResponse: Default value in the text box.
-        # - xpos: X position (not implemented in Tkinter simpledialog).
-        # - ypos: Y position (not implemented in Tkinter simpledialog).
+        """Muestra un diálogo de entrada y devuelve el texto.
+        
+        Parámetros:
+        - prompt: El mensaje principal.
+        - title: El título.
+        - defaultResponse: Valor por defecto en el cuadro de texto.
+        - xpos: Posición X (no implementado en Tkinter simpledialog).
+        - ypos: Posición Y (no implementado en Tkinter simpledialog).
+        """
         from tkinter import simpledialog
         result = simpledialog.askstring(title, prompt, initialvalue=defaultResponse)
         return result if result is not None else ""
 
 
 class MaskedFormat:
-    # Class for formatting text with masks.
+    """Clase para formatear texto con máscaras."""
     
     @staticmethod
     def Format(value, mask):
-           # Applies a mask to the value (simple placeholder).
-        # Basic implementation, e.g., for numbers
+        """Aplica una máscara al valor (placeholder simple)."""
+        # Implementación básica, e.g., para números
         if mask == "9999":
             return str(value).zfill(4)
         return str(value)
 
 
 class MaskedTextBox(TextBox):
-    # Represents a MaskedTextBox with mask validation and VB.NET properties.
+    """Representa un MaskedTextBox con validación de máscara y propiedades VB.NET."""
     
     def __init__(self, master_form, Mask="", Text="", Left=10, Top=80, Width=200, Name="", PromptChar='_', HidePromptOnLeave=False, PasswordChar=None, UseSystemPasswordChar=False, BeepOnError=False, CutCopyMaskFormat='IncludeLiterals', InsertKeyMode='Insert', AllowPromptAsInput=False, FormatProvider=None):
         super().__init__(master_form, Text, Left, Top, Width, Name=Name)
         
-        # VB Properties
+        # Propiedades VB
         self.Mask = Mask
         self.PromptChar = PromptChar
         self.HidePromptOnLeave = HidePromptOnLeave
@@ -1502,17 +2645,17 @@ class MaskedTextBox(TextBox):
         self.AllowPromptAsInput = AllowPromptAsInput
         self.FormatProvider = FormatProvider  # Placeholder para cultura
         
-        # Specific events for MaskedTextBox
+        # Eventos específicos de MaskedTextBox
         self.MaskInputRejected = lambda sender, e: None
         self.TypeValidationCompleted = lambda sender, e: None
         
-        # Apply PasswordChar if specified
+        # Aplicar PasswordChar si especificado
         if self.PasswordChar:
             self._tk_widget.config(show=self.PasswordChar)
         elif self.UseSystemPasswordChar:
             self._tk_widget.config(show='*')
         
-        # Configure validation
+        # Configurar validación
         vcmd = (self.master.register(self._validate), '%P')
         self._tk_widget.config(validate='key', validatecommand=vcmd)
         
@@ -1524,7 +2667,7 @@ class MaskedTextBox(TextBox):
         self._update_display_text()
     
     def _validate(self, new_text):
-        # Validates the text according to the mask.
+        """Valida el texto según la máscara."""
         if not self.Mask:
             return True
         
@@ -1532,22 +2675,22 @@ class MaskedTextBox(TextBox):
         if self.AllowPromptAsInput and new_text == self.PromptChar:
             return True
         
-        # Basic mask validation implementation
-        # 9: optional digit, 0: required digit, L: required letter, ?: optional letter, A: required alphanumeric, etc.
+        # Implementación básica de validación de máscara
+        # 9: dígito opcional, 0: dígito requerido, L: letra requerida, ?: letra opcional, A: alfanumérico requerido, etc.
         # Simplificado para ejemplos comunes
         valid = False
-        if self.Mask == "9999":  # 4 optional digits
+        if self.Mask == "9999":  # 4 dígitos opcionales
             cleaned = new_text.replace(self.PromptChar, '')
             valid = cleaned.isdigit() and len(cleaned) <= 4
-        elif self.Mask == "(999) 999-9999":  # Phone
-            # Allow digits, parentheses, hyphens, spaces, and prompts
+        elif self.Mask == "(999) 999-9999":  # Teléfono
+            # Permitir dígitos, paréntesis, guiones, espacios y prompts
             cleaned = new_text.replace('(', '').replace(')', '').replace('-', '').replace(' ', '').replace(self.PromptChar, '')
             valid = cleaned.isdigit() and len(cleaned) <= 10
         elif self.Mask == "00/00/0000":  # Fecha
             cleaned = new_text.replace('/', '').replace(self.PromptChar, '')
             valid = cleaned.isdigit() and len(cleaned) <= 8
         else:
-            # General basic validation: length does not exceed mask
+            # Validación general básica: longitud no exceda la máscara
             valid = len(new_text) <= len(self.Mask)
         
         if not valid:
@@ -1558,12 +2701,12 @@ class MaskedTextBox(TextBox):
         return valid
     
     def _on_focus_in(self, event):
-        # Handles the focus-in event.
+        """Maneja el evento de foco entrante."""
         if self.HidePromptOnLeave:
             self._update_display_text()
     
     def _on_focus_out(self, event):
-        # Handles the focus-out event.
+        """Maneja el evento de foco saliente."""
         if self.HidePromptOnLeave:
             # Ocultar prompts
             current = self._tk_widget.get()
@@ -1575,7 +2718,7 @@ class MaskedTextBox(TextBox):
             self.TypeValidationCompleted(self, None)
     
     def _update_display_text(self):
-        # Updates the displayed text with prompts.
+        """Actualiza el texto mostrado con prompts."""
         if not self.Mask:
             return
         # Generar texto con prompts (simplificado)
@@ -1590,7 +2733,7 @@ class MaskedTextBox(TextBox):
     
     @property
     def MaskFull(self):
-        # Read-only property: True if all required and optional positions are filled.
+        """Propiedad de solo lectura: True si todas las posiciones requeridas y opcionales están llenas."""
         if not self.Mask:
             return True
         current = self._tk_widget.get()
@@ -1601,7 +2744,7 @@ class MaskedTextBox(TextBox):
     
     @property
     def MaskCompleted(self):
-        # Read-only property: True if all required positions are filled.
+        """Propiedad de solo lectura: True si todas las posiciones requeridas están llenas."""
         if not self.Mask:
             return True
         current = self._tk_widget.get()
@@ -1610,39 +2753,39 @@ class MaskedTextBox(TextBox):
         return filled_required == required_positions
     
     def get_Text(self):
-        # Gets the text without prompts.
+        """Obtiene el texto sin prompts."""
         text = self._tk_widget.get()
         return text.replace(self.PromptChar, '')
     
     def set_Text(self, new_text):
-        # Sets the text and updates the display.
-        self.Text = new_text
+        """Establece el texto y actualiza display."""
+        self._text_value = new_text
         self._tk_widget.delete(0, 'end')
         self._tk_widget.insert(0, new_text)
         self._update_display_text()
 
 
 class TabPage:
-    # Represents a tab page for TabControl with VB.NET properties.
+    """Representa una página de pestaña para TabControl con propiedades VB.NET."""
     
     def __init__(self, Text="TabPage", Name="", Enabled=True, Visible=True, ImageIndex=-1, ImageKey="", ToolTipText="", UseVisualStyleBackColor=True, Padding=(3,3)):
-        self.Name = Name or Text  # Use Text if Name is empty
-        self.Text = Text
+        self.Name = Name or Text  # Usar Text si Name vacío
+        self._text_value = Text  # Atributo interno para almacenar el texto
         self.Parent = None  # Asignado por TabControl
         self.Enabled = Enabled
-        self.Visible = Visible  # Placeholder, ttk.Notebook handles visibility automatically
+        self._visible = Visible  # Placeholder, ttk.Notebook maneja visibilidad automáticamente
         self.ImageIndex = ImageIndex
         self.ImageKey = ImageKey
         self.ToolTipText = ToolTipText  # Placeholder, Tkinter no tiene tooltips nativos
         self.UseVisualStyleBackColor = UseVisualStyleBackColor  # Placeholder
         self.Padding = Padding  # (padx, pady)
         
-        # Create the frame with padding
+        # Crear el frame con padding
         padx, pady = self.Padding
         self._frame = tk.Frame(padx=padx, pady=pady)
         self.Controls = []
 
-        # VB Events
+        # Eventos VB
         self.Enter = lambda: None
         self.Leave = lambda: None
         self.Paint = lambda: None
@@ -1656,32 +2799,89 @@ class TabPage:
         self._frame.bind('<FocusIn>', lambda e: self.ChangeUICues(self, e))
         self._frame.bind('<FocusOut>', lambda e: self.ChangeUICues(self, e))
 
+    def get_Parent(self):
+        """Obtiene el control padre del TabPage.
+        
+        El padre de un TabPage es el TabControl que lo contiene.
+        
+        Returns:
+            El TabControl padre si existe, None en caso contrario.
+        """
+        return getattr(self, 'Parent', None)
+    
     def AddControl(self, control):
-        # Adds a control to the TabPage.
+        """Añade un control a la TabPage con posiciones relativas.
+        
+        Implementa la jerarquía de visibilidad de Windows Forms:
+        - El control se añade al TabPage (se convierte en su padre)
+        - El control solo será visible si su propia propiedad Visible es True
+          Y el TabPage (y todos sus padres) también están visibles
+        """
         self.Controls.append(control)
         control.master = self._frame
-        control._place_control()
-        # Apply TabPage's Enabled to the control
+        
+        # Registrar este TabPage como wrapper del frame para la jerarquía de padres
+        if not hasattr(self._frame, '_control_wrapper'):
+            self._frame._control_wrapper = self
+        
+        # Heredar propiedades del contenedor
         if hasattr(control, 'Enabled'):
             control.Enabled = self.Enabled
             if hasattr(control, '_tk_widget'):
-                control._tk_widget.config(state='normal' if self.Enabled else 'disabled')
+                try:
+                    control._tk_widget.config(state='normal' if self.Enabled else 'disabled')
+                except tk.TclError:
+                    pass
+        
+        # Aplicar jerarquía de visibilidad:
+        # El control solo se muestra si su _visible es True Y el TabPage está visible
+        if hasattr(control, '_visible'):
+            # Calcular visibilidad efectiva del TabPage
+            tabpage_visible = getattr(self, '_visible', True)
+            if hasattr(self, 'Parent') and self.Parent:
+                # Si el TabPage tiene un Parent (TabControl), verificar su visibilidad
+                parent_visible = getattr(self.Parent, '_visible', True)
+                tabpage_visible = tabpage_visible and parent_visible
+            
+            control_should_be_visible = control._visible and tabpage_visible
+            if control_should_be_visible:
+                # Mostrar el control
+                control._place_control()
+            else:
+                # Ocultar el control
+                if hasattr(control, '_tk_widget') and control._tk_widget:
+                    control._tk_widget.place_forget()
+        else:
+            # Si el control no tiene _visible, usar comportamiento por defecto
+            control._place_control()
+        
         self.ControlAdded(control)
 
     def _on_configure(self, event):
-        # Handler for Paint and Resize events.
+        """Handler for Paint and Resize events."""
         self.Paint()
         self.Resize()
 
     def RemoveControl(self, control):
-        # Removes a control from the TabPage.
+        """Quita un control de la TabPage."""
         if control in self.Controls:
             self.Controls.remove(control)
             self.ControlRemoved(control)
+    
+    @property
+    def Text(self):
+        """Property getter para Text en TabPage."""
+        return self._text_value
+    
+    @Text.setter
+    def Text(self, value):
+        """Property setter para Text en TabPage."""
+        self._text_value = value
+        # TabPage text se actualiza vía TabControl.AddTab()
 
 
 class TabControl(ControlBase):
-    # Represents a TabControl with tabs.
+    """Representa un TabControl con pestañas."""
     
     def __init__(self, master_form, Left=10, Top=10, Width=300, Height=200, Name="", TabPages=None, SelectedIndex=0, ImageList=None, Appearance="Normal", Alignment="Top", Multiline=False, SizeMode="Normal", Enabled=True, Visible=True, Padding=(0,0), HotTrack=False):
         # Resolve master widget
@@ -1691,10 +2891,13 @@ class TabControl(ControlBase):
         self.Width = Width
         self.Height = Height
         
-        # VB Properties
+        # Store master_form for container access
+        self.master_form = master_form
+        
+        # Propiedades VB
         self.Name = Name
         self.Enabled = Enabled
-        self.Visible = Visible
+        self._visible = Visible
         self.TabPages = TabPages or []
         self.SelectedIndex = SelectedIndex
         self.ImageList = ImageList
@@ -1705,7 +2908,7 @@ class TabControl(ControlBase):
         self.Padding = Padding  # (padx, pady)
         self.HotTrack = HotTrack  # Placeholder
         
-        # VB Events
+        # Eventos VB
         self.SelectedIndexChanged = lambda: None
         self.Selecting = lambda sender, e: None
         self.Selected = lambda sender, e: None
@@ -1715,10 +2918,10 @@ class TabControl(ControlBase):
         self.ControlAdded = lambda control: None
         self.ControlRemoved = lambda control: None
         
-        # Create the Tkinter widget (Notebook)
+        # Crear el widget Tkinter (Notebook)
         self._tk_widget = ttk.Notebook(self.master)
         
-        # Apply configurations
+        # Aplicar configuraciones
         config = {}
         padx, pady = self.Padding
         config['padding'] = (padx, pady)
@@ -1731,7 +2934,7 @@ class TabControl(ControlBase):
         self._last_selected = self.SelectedIndex
         self._tk_widget.bind('<<NotebookTabChanged>>', self._on_tab_changed)
         
-        # Add initial TabPages if they exist
+        # Añadir TabPages iniciales si existen
         for tab in self.TabPages:
             self.AddTab(tab)
         
@@ -1740,18 +2943,19 @@ class TabControl(ControlBase):
             self._tk_widget.select(self.SelectedIndex)
 
     def AddTab(self, tab_page):
-        # Adds a TabPage to the TabControl.
+        """Añade una TabPage al TabControl."""
         self.TabPages.append(tab_page)
         tab_page.Parent = self  # Asignar Parent
+        tab_page._root = self.master_form._root  # Asignar _root para compatibilidad con controles hijos
         self._tk_widget.add(tab_page._frame, text=tab_page.Text)
-        # Apply image if ImageList and ImageIndex/ImageKey
+        # Aplicar imagen si ImageList y ImageIndex/ImageKey
         if self.ImageList and hasattr(tab_page, 'ImageIndex') and tab_page.ImageIndex >= 0:
-            # Placeholder: ttk.Notebook does not easily support images, use compound or custom
+            # Placeholder: ttk.Notebook no soporta imágenes fácilmente, usar compound o custom
             pass
         self.ControlAdded(tab_page)
 
     def RemoveTab(self, tab_page):
-        # Removes a TabPage from the TabControl.
+        """Quita una TabPage del TabControl."""
         if tab_page in self.TabPages:
             index = self.TabPages.index(tab_page)
             self.TabPages.remove(tab_page)
@@ -1766,14 +2970,14 @@ class TabControl(ControlBase):
 
     @property
     def SelectedTab(self):
-        # Gets the selected TabPage.
+        """Obtiene la TabPage seleccionada."""
         if self.TabPages and 0 <= self.SelectedIndex < len(self.TabPages):
             return self.TabPages[self.SelectedIndex]
         return None
 
     @SelectedTab.setter
     def SelectedTab(self, tab_page):
-            # Sets the selected TabPage.
+        """Establece la TabPage seleccionada."""
         if tab_page in self.TabPages:
             old_index = self.get_SelectedIndex()
             new_index = self.TabPages.index(tab_page)
@@ -1794,14 +2998,14 @@ class TabControl(ControlBase):
                 self._last_selected = new_index
 
     def get_SelectedIndex(self):
-            # Gets the index of the selected tab.
+        """Obtiene el índice de la pestaña seleccionada."""
         try:
             return self._tk_widget.index(self._tk_widget.select())
         except:
             return -1
 
     def set_SelectedIndex(self, index):
-            # Sets the index of the selected tab.
+        """Establece el índice de la pestaña seleccionada."""
         if 0 <= index < len(self.TabPages):
             old_index = self.get_SelectedIndex()
             if old_index != index:
@@ -1841,33 +3045,34 @@ class TabControl(ControlBase):
 
 
 class RadioButton(ControlBase):
-    # Represents a RadioButton.
+    """Representa un RadioButton."""
     
-    def __init__(self, master_form, Text="Radio", Group=None, Left=10, Top=140, Name="", Checked=False, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None, TextAlign="w", Appearance="Normal"):
+    def __init__(self, master_form, Text="Radio", Group=None, Left=10, Top=140, Width=100, Height=25, Name="", Checked=False, Enabled=True, Visible=True, Font=None, ForeColor=None, BackColor=None, TextAlign="w", Appearance="Normal", AutoSize=False):
         # Resolve master widget
         master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
         super().__init__(master_widget, Left, Top)
         
-        # VB Properties
+        # Propiedades VB
         self.Name = Name
         self.Enabled = Enabled
-        self.Visible = Visible
-        self.Text = Text
+        self._visible = Visible
+        self._text_value = Text  # Atributo interno para almacenar el texto
         self.Group = Group or tk.StringVar()
-        self.Checked = Checked
+        self._checked_value = Checked  # Atributo interno para Checked
         self.Font = Font
         self.ForeColor = ForeColor
         self.BackColor = BackColor
         self.TextAlign = TextAlign  # 'w' (left), 'e' (right), etc.
         self.Appearance = Appearance  # 'Normal', 'Button'
+        self.AutoSize = AutoSize
         
-        # VB Events
-        self.CheckedChanged = lambda: None
+        self.Width = Width
+        self.Height = Height
         
-        # Create the Tkinter widget
-        self._tk_widget = tk.Radiobutton(self.master, text=self.Text, variable=self.Group, value=self.Text)
+        # Crear el widget Tkinter
+        self._tk_widget = tk.Radiobutton(self.master, text=self._text_value, variable=self.Group, value=self._text_value)
         
-        # Apply configurations
+        # Aplicar configuraciones
         config = {}
         if self.Font:
             config['font'] = self.Font
@@ -1885,38 +3090,75 @@ class RadioButton(ControlBase):
         if config:
             self._tk_widget.config(**config)
         
-        self._place_control()
+        if self.AutoSize:
+            self._apply_autosize()
+            
+        self._place_control(self.Width, self.Height)
         
         # Bind common events
         self._bind_common_events()
         
         # Establecer Checked inicial
-        if self.Checked:
-            self.Group.set(self.Text)
+        if self._checked_value:
+            self.Group.set(self._text_value)
         
         # Bind CheckedChanged
         self.Group.trace('w', self._on_checked_changed)
 
     def get_Checked(self):
-        # Checks if it is selected.
-        return self.Group.get() == self.Text
+        """Verifica si está seleccionado."""
+        return self.Group.get() == self._text_value
 
     def set_Checked(self, value):
-        # Sets whether it is selected.
-        self.Checked = value
+        """Establece si está seleccionado."""
+        self._checked_value = value
         if value:
-            self.Group.set(self.Text)
+            self.Group.set(self._text_value)
 
     def _on_checked_changed(self, *args):
-        # Handler for CheckedChanged event.
-        old_checked = self.Checked
-        self.Checked = self.get_Checked()
-        if old_checked != self.Checked:
-            self.CheckedChanged()
+        """Handler for CheckedChanged event."""
+        old_checked = self._checked_value
+        self._checked_value = self.get_Checked()
+        if old_checked != self._checked_value:
+            # Solo llamar a CheckedChanged si está definido
+            if hasattr(self, 'CheckedChanged') and callable(self.CheckedChanged):
+                self.CheckedChanged()
+    
+    @property
+    def Checked(self):
+        """Property getter para Checked."""
+        return self.get_Checked()
+    
+    @Checked.setter
+    def Checked(self, value):
+        """Property setter para Checked."""
+        self.set_Checked(value)
+    
+    @property
+    def Text(self):
+        """Property getter para Text en RadioButton."""
+        return self._text_value
+    
+    @Text.setter
+    def Text(self, value):
+        """Property setter para Text en RadioButton."""
+        self._text_value = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.config(text=value)
+            # Actualizar el valor del radio button si es necesario
+            if hasattr(self, 'Group'):
+                self._tk_widget.config(value=value)
+            
+            # Aplicar AutoSize si está habilitado
+            if self.AutoSize:
+                self._apply_autosize()
+                # Reposicionar con nuevo tamaño
+                if self.Visible:
+                    self._place_control(self.Width, self.Height)
 
 
 class ProgressBar(ControlBase):
-    # Represents a ProgressBar.
+    """Representa una ProgressBar."""
     
     def __init__(self, master_form, Minimum=0, Maximum=100, Value=0, Left=10, Top=10, Width=200, Height=20, Style="Blocks"):
         super().__init__(master_form._root, Left, Top)
@@ -1924,16 +3166,18 @@ class ProgressBar(ControlBase):
         self.Minimum = Minimum
         self.Maximum = Maximum
         self.Value = Value
+        self.Width = Width
+        self.Height = Height
         self.Style = Style  # 'Blocks', 'Continuous', 'Marquee'
         
-        # VB Events
+        # Eventos VB
         self.ValueChanged = lambda: None
         self.StyleChanged = lambda: None
         
         # Determinar mode basado en Style
         mode = 'indeterminate' if self.Style == 'Marquee' else 'determinate'
         
-        # Create the Tkinter widget
+        # Crear el widget Tkinter
         self._tk_widget = ttk.Progressbar(self.master, orient='horizontal', length=Width, mode=mode)
         self._tk_widget['maximum'] = self.Maximum
         self._tk_widget['value'] = self.Value
@@ -1942,18 +3186,18 @@ class ProgressBar(ControlBase):
         # Bind common events
         self._bind_common_events()
         
-        # Start animation if Marquee
+        # Iniciar animación si Marquee
         if self.Style == 'Marquee':
             self._tk_widget.start()
 
     def set_Value(self, value):
-        # Sets the value of the bar.
+        """Establece el valor de la barra."""
         self.Value = value
         self._tk_widget['value'] = value
         self.ValueChanged()
 
     def set_Style(self, style):
-        # Sets the style of the bar.
+        """Establece el estilo de la barra."""
         self.Style = style
         mode = 'indeterminate' if style == 'Marquee' else 'determinate'
         self._tk_widget.config(mode=mode)
@@ -1965,18 +3209,18 @@ class ProgressBar(ControlBase):
 
 
 class ListViewItem:
-    # Represents an item in a ListView.
+    """Representa un elemento en un ListView."""
     
     def __init__(self, Text="", SubItems=None, ImageIndex=-1, ImageKey="", Tag=None):
         self.Text = Text
-        self.SubItems = SubItems or []  # List of subitems for additional columns
+        self.SubItems = SubItems or []  # Lista de subelementos para columnas adicionales
         self.ImageIndex = ImageIndex
         self.ImageKey = ImageKey
-        self.Tag = Tag  # Custom object
+        self.Tag = Tag  # Objeto personalizado
 
 
 class ColumnHeader:
-    # Represents a column header in a ListView.
+    """Representa un encabezado de columna en un ListView."""
     
     def __init__(self, Text="", Width=100, TextAlign="left", ImageIndex=-1):
         self.Text = Text
@@ -1986,7 +3230,7 @@ class ColumnHeader:
 
 
 class ListView(ControlBase):
-    # Represents a ListView with VB.NET properties.
+    """Representa un ListView con propiedades VB.NET."""
     
     def __init__(self, master_form, Columns=None, Left=10, Top=280, Width=300, Height=150, Name="", Items=None, View="Details", SmallImageList=None, LargeImageList=None, FullRowSelect=True, MultiSelect=True, CheckBoxes=False, GridLines=False, HeaderStyle="Clickable", Sorting="None", Enabled=True, Visible=True):
         super().__init__(master_form._root, Left, Top, Name=Name, Enabled=Enabled, Visible=Visible)
@@ -2005,7 +3249,7 @@ class ListView(ControlBase):
         self.HeaderStyle = HeaderStyle  # 'Clickable', 'Nonclickable', 'None'
         self.Sorting = Sorting  # 'Ascending', 'Descending', 'None'
         
-        # VB Events
+        # Eventos VB
         self.SelectedIndexChanged = lambda: None
         self.ItemSelectionChanged = lambda sender, e: None
         self.DoubleClick = lambda: None
@@ -2030,7 +3274,7 @@ class ListView(ControlBase):
             self._tk_widget.heading(i, text=col.Text)
             self._tk_widget.column(i, width=col.Width, anchor=col.TextAlign)
         
-        # Apply styles
+        # Aplicar estilos
         style = ttk.Style()
         if self.GridLines:
             style.configure("Treeview", rowheight=25)  # Placeholder for gridlines
@@ -2056,13 +3300,13 @@ class ListView(ControlBase):
             # Placeholder: Treeview doesn't have checkboxes, need custom implementation
             pass
         
-        # Add initial items
+        # Añadir items iniciales
         for item in self.Items:
             self.AddItem(item)
 
     @property
     def SelectedItems(self):
-            # Gets the collection of selected items.
+        """Obtiene la colección de elementos seleccionados."""
         selections = self._tk_widget.selection()
         selected_items = []
         for sel in selections:
@@ -2074,7 +3318,7 @@ class ListView(ControlBase):
         return selected_items
 
     def AddItem(self, item):
-            # Adds a ListViewItem to the ListView.
+        """Añade un ListViewItem al ListView."""
         if isinstance(item, ListViewItem):
             values = [item.Text] + item.SubItems
             self._tk_widget.insert('', 'end', text=item.Text, values=item.SubItems)
@@ -2083,7 +3327,7 @@ class ListView(ControlBase):
             raise TypeError("AddItem expects a ListViewItem object")
 
     def GetSelectedItem(self):
-            # Gets the first selected item.
+        """Obtiene el primer elemento seleccionado."""
         selection = self._tk_widget.selection()
         if selection:
             item_data = self._tk_widget.item(selection[0])
@@ -2091,14 +3335,14 @@ class ListView(ControlBase):
         return None
 
     def set_View(self, view):
-            # Sets the view of the ListView.
+        """Establece la vista del ListView."""
         self.View = view
         # Reconfigurar widget (placeholder: limited support)
         show = 'headings' if view == 'Details' else 'tree'
         self._tk_widget.config(show=show)
 
     def set_Sorting(self, sorting):
-            # Sets the sorting type.
+        """Establece el tipo de ordenación."""
         self.Sorting = sorting
         # Implement sorting logic (placeholder)
         if sorting != 'None':
@@ -2112,26 +3356,26 @@ class ListView(ControlBase):
                 self.AddItem(item)
 
     def _on_selection_changed(self, event):
-           # Handler for SelectedIndexChanged and ItemSelectionChanged.
+        """Handler for SelectedIndexChanged and ItemSelectionChanged."""
         self.SelectedIndexChanged()
         selected = self._tk_widget.selection()
         for item in selected:
             self.ItemSelectionChanged(self, {'Item': item, 'Selected': True})
 
     def _on_column_click(self, column):
-           # Handler for ColumnClick.
+        """Handler for ColumnClick."""
         self.ColumnClick(self, {'Column': column})
 
     def _on_key_down(self, event):
-           # Handler for KeyDown.
+        """Handler for KeyDown."""
         self.KeyDown(self, {'KeyCode': event.keysym, 'Modifiers': event.state})
 
     def _on_key_press(self, event):
-           # Handler for KeyPress.
+        """Handler for KeyPress."""
         self.KeyPress(self, {'KeyChar': event.char})
 
 class DataGridViewColumn:
-    # Represents a column in DataGridView.
+    """Representa una columna en DataGridView."""
     
     def __init__(self, Name="", HeaderText="", DataPropertyName="", Width=100, Visible=True, ReadOnly=False):
         self.Name = Name
@@ -2150,7 +3394,7 @@ class DataGridViewColumn:
 
 
 class DataGridView(ControlBase):
-    # Represents a DataGridView with VB.NET properties.
+    """Representa un DataGridView con propiedades VB.NET."""
     
     def __init__(self, master_form, Left=10, Top=10, Width=400, Height=200, Name="", DataSource=None, Columns=None, AllowUserToAddRows=False, AllowUserToDeleteRows=False, AllowUserToResizeColumns=True, ReadOnly=False, SelectionMode="FullRowSelect", DefaultCellStyle=None, AutoGenerateColumns=True, AlternatingRowsDefaultCellStyle=None, RowHeadersVisible=True, ColumnHeadersVisible=True, Dock=None, Anchor=None):
         super().__init__(master_form._root, Left, Top)
@@ -2159,7 +3403,7 @@ class DataGridView(ControlBase):
         self.Width = Width
         self.Height = Height
         self.DataSource = DataSource
-        # Convert columns if they are strings
+        # Convertir columnas si son strings
         self.Columns = []
         if Columns:
             for col in Columns:
@@ -2182,7 +3426,7 @@ class DataGridView(ControlBase):
         
         self.Rows = []
         
-        # VB Events
+        # Eventos VB
         self.ColumnHeaderMouseClick = lambda sender, e: None
         self.ColumnStateChanged = lambda sender, e: None
         self.ColumnWidthChanged = lambda sender, e: None
@@ -2193,19 +3437,19 @@ class DataGridView(ControlBase):
         selectmode = 'browse' if self.SelectionMode == 'FullRowSelect' else 'extended'
         self._tk_widget = ttk.Treeview(self.master, show=show, selectmode=selectmode, height=10)
         
-        # Configure columns
+        # Configurar columnas
         if self.DataSource and self.AutoGenerateColumns and not self.Columns:
             self._generate_columns_from_datasource()
         
         self._apply_columns()
         
-        # Populate from DataSource
+        # Poblar desde DataSource
         if self.DataSource:
             self._populate_from_datasource()
         
         self._place_control(self.Width, self.Height)
         
-        # Apply styles (placeholders)
+        # Aplicar estilos (placeholders)
         self._apply_styles()
         
         # Bind events
@@ -2214,7 +3458,7 @@ class DataGridView(ControlBase):
         # For other events, placeholders
     
     def _generate_columns_from_datasource(self):
-           # Automatically generates columns from DataSource.
+        """Genera columnas automáticamente desde DataSource."""
         if isinstance(self.DataSource, list) and self.DataSource:
             sample = self.DataSource[0]
             if isinstance(sample, dict):
@@ -2222,7 +3466,7 @@ class DataGridView(ControlBase):
                     self.Columns.append(DataGridViewColumn(Name=key, HeaderText=key, DataPropertyName=key))
     
     def _apply_columns(self):
-           # Applies columns to the Treeview.
+        """Aplica las columnas al Treeview."""
         col_ids = [col.Name for col in self.Columns if col.Visible]
         self._tk_widget.config(columns=col_ids)
         for col in self.Columns:
@@ -2231,7 +3475,7 @@ class DataGridView(ControlBase):
                 self._tk_widget.column(col.Name, width=col.Width)
     
     def _populate_from_datasource(self):
-           # Populates rows from DataSource.
+        """Pobla las filas desde DataSource."""
         for item in self.DataSource:
             if isinstance(item, dict):
                 values = [item.get(col.DataPropertyName, '') for col in self.Columns if col.Visible]
@@ -2239,12 +3483,12 @@ class DataGridView(ControlBase):
                 self.Rows.append(item)
     
     def _apply_styles(self):
-           # Applies styles (placeholder).
+        """Aplica estilos (placeholder)."""
         # Placeholder for DefaultCellStyle, AlternatingRowsDefaultCellStyle
         pass
     
     def AddRow(self, values):
-           # Adds a row to the DataGridView.
+        """Añade una fila al DataGridView."""
         if isinstance(values, dict):
             self._tk_widget.insert('', 'end', values=[values.get(col.DataPropertyName, '') for col in self.Columns if col.Visible])
             self.Rows.append(values)
@@ -2262,9 +3506,9 @@ class DataGridView(ControlBase):
             raise TypeError("AddRow expects a dict or list/tuple")
     
     def set_DataSource(self, datasource):
-           # Sets the data source and updates the view.
+        """Establece la fuente de datos y actualiza la vista."""
         self.DataSource = datasource
-        # Clear and repopulate
+        # Limpiar y repoblar
         for i in self._tk_widget.get_children():
             self._tk_widget.delete(i)
         self.Rows = []
@@ -2276,20 +3520,20 @@ class DataGridView(ControlBase):
 
 
 class TreeNode:
-    # Represents a node in a TreeView.
+    """Representa un nodo en un TreeView."""
     
     def __init__(self, Text="", ImageIndex=-1, SelectedImageIndex=-1, Tag=None, Nodes=None):
         self.Text = Text
         self.ImageIndex = ImageIndex
         self.SelectedImageIndex = SelectedImageIndex
         self.Tag = Tag
-        self.Nodes = Nodes or []  # List of child TreeNodes
-        self.Parent = None  # Assigned by TreeView
-        self.TreeView = None  # Reference to TreeView
+        self.Nodes = Nodes or []  # Lista de TreeNode hijos
+        self.Parent = None  # Asignado por TreeView
+        self.TreeView = None  # Referencia al TreeView
     
     @property
     def FullPath(self):
-        # Gets the full path of the node.
+        """Obtiene la ruta completa del nodo."""
         path = [self.Text]
         current = self.Parent
         while current:
@@ -2299,7 +3543,7 @@ class TreeNode:
 
 
 class TreeView(ControlBase):
-    # Represents a TreeView with VB.NET properties.
+    """Representa un TreeView con propiedades VB.NET."""
     
     def __init__(self, master_form, Left=10, Top=10, Width=200, Height=200, Name="", Nodes=None, ImageList=None, ImageIndex=-1, SelectedImageIndex=-1, FullRowSelect=False, CheckBoxes=False, ShowLines=True, ShowPlusMinus=True, ShowRootLines=True, PathSeparator="\\", LabelEdit=False, Font=None, ForeColor=None, BackColor=None):
         super().__init__(master_form._root, Left, Top)
@@ -2308,7 +3552,7 @@ class TreeView(ControlBase):
         
         self.Width = Width
         self.Height = Height
-        self.Nodes = Nodes or []  # List of root TreeNodes
+        self.Nodes = Nodes or []  # Lista de TreeNode raíz
         self.ImageList = ImageList
         self.ImageIndex = ImageIndex
         self.SelectedImageIndex = SelectedImageIndex
@@ -2323,7 +3567,7 @@ class TreeView(ControlBase):
         self.ForeColor = ForeColor
         self.BackColor = BackColor
         
-        # VB Events
+        # Eventos VB
         self.AfterSelect = lambda sender, e: None
         self.BeforeSelect = lambda sender, e: None
         self.AfterCheck = lambda sender, e: None
@@ -2337,10 +3581,10 @@ class TreeView(ControlBase):
         self.AfterLabelEdit = lambda sender, e: None
         self.BeforeLabelEdit = lambda sender, e: None
         
-        # Create the Tkinter widget (Treeview)
+        # Crear el widget Tkinter (Treeview)
         self._tk_widget = ttk.Treeview(self.master, show='tree')
         
-        # Apply configurations
+        # Aplicar configuraciones
         style = ttk.Style()
         if self.ShowLines:
             # Placeholder: ttk.Treeview shows lines by default
@@ -2372,13 +3616,13 @@ class TreeView(ControlBase):
         # For BeforeSelect, BeforeExpand, BeforeCollapse, BeforeCheck, BeforeLabelEdit: placeholders, Tkinter doesn't support before events directly
         # For AfterCheck, AfterLabelEdit: placeholders, Treeview doesn't have built-in checkboxes or label editing
         
-        # Add initial nodes
+        # Añadir nodos iniciales
         for node in self.Nodes:
             self.AddNode(node)
     
     @property
     def SelectedNode(self):
-        # Gets the selected node.
+        """Obtiene el nodo seleccionado."""
         selection = self._tk_widget.selection()
         if selection:
             # Map back to TreeNode (simplified)
@@ -2388,7 +3632,7 @@ class TreeView(ControlBase):
         return None
     
     def AddNode(self, node, parent=''):
-        # Adds a TreeNode to the TreeView.
+        """Añade un TreeNode al TreeView."""
         if isinstance(node, TreeNode):
             item_id = self._tk_widget.insert(parent, 'end', text=node.Text)
             node.TreeView = self
@@ -2407,48 +3651,48 @@ class TreeView(ControlBase):
             raise TypeError("AddNode expects a TreeNode object")
     
     def _on_after_select(self, event):
-           # Handler for AfterSelect event.
+        """Handler for AfterSelect event."""
         selected = self._tk_widget.selection()
         if selected:
             node = self._find_node_by_id(selected[0])
             self.AfterSelect(self, {'Node': node, 'Action': 'Unknown'})
     
     def _on_after_expand(self, event):
-           # Handler for AfterExpand event.
+        """Handler for AfterExpand event."""
         item = self._tk_widget.focus()
         if item:
             node = self._find_node_by_id(item)
             self.AfterExpand(self, {'Node': node})
     
     def _on_after_collapse(self, event):
-           # Handler for AfterCollapse event.
+        """Handler for AfterCollapse event."""
         item = self._tk_widget.focus()
         if item:
             node = self._find_node_by_id(item)
             self.AfterCollapse(self, {'Node': node})
     
     def _on_node_mouse_click(self, event):
-           # Handler for NodeMouseClick event.
+        """Handler for NodeMouseClick event."""
         item = self._tk_widget.identify_row(event.y)
         if item:
             node = self._find_node_by_id(item)
             self.NodeMouseClick(self, {'Node': node, 'Button': event.num, 'X': event.x, 'Y': event.y})
     
     def _on_node_mouse_double_click(self, event):
-           # Handler for NodeMouseDoubleClick event.
+        """Handler for NodeMouseDoubleClick event."""
         item = self._tk_widget.identify_row(event.y)
         if item:
             node = self._find_node_by_id(item)
             self.NodeMouseDoubleClick(self, {'Node': node, 'Button': event.num, 'X': event.x, 'Y': event.y})
     
     def _find_node_by_id(self, item_id):
-        # Finds the TreeNode by item_id (placeholder).
+        """Encuentra el TreeNode por item_id (placeholder)."""
         # Simplified: not implemented fully
         return None
 
 
 class MonthCalendar(ControlBase):
-    # Represents a MonthCalendar with VB.NET properties.
+    """Representa un MonthCalendar con propiedades VB.NET."""
     
     def __init__(self, master_form, Left=10, Top=10, Width=200, Height=200, Name="", SelectionRange=None, SelectionStart=None, SelectionEnd=None, MaxSelectionCount=7, MinDate=None, MaxDate=None, TodayDate=None, ShowToday=True, ShowTodayCircle=True, ShowWeekNumbers=False, CalendarDimensions=(1,1), FirstDayOfWeek="Sunday", BoldedDates=None, AnnuallyBoldedDates=None, MonthlyBoldedDates=None):
         super().__init__(master_form._root, Left, Top)
@@ -2473,7 +3717,7 @@ class MonthCalendar(ControlBase):
         self.AnnuallyBoldedDates = AnnuallyBoldedDates or []
         self.MonthlyBoldedDates = MonthlyBoldedDates or []
         
-        # VB Events
+        # Eventos VB
         self.DateChanged = lambda sender, e: None
         self.DateSelected = lambda sender, e: None
         self.DayHeaderClick = lambda sender, e: None
@@ -2500,22 +3744,22 @@ class MonthCalendar(ControlBase):
             # For DayHeaderClick, RightToLeftLayoutChanged, Paint, BoldedDatesChanged: placeholders
     
     def _on_date_changed(self, event):
-        # Handler for DateChanged and DateSelected events.
+        """Handler for DateChanged and DateSelected events."""
         selected_date = self._tk_widget.get_date()
         self.DateChanged(self, {'Start': selected_date, 'End': selected_date})
         self.DateSelected(self, {'Start': selected_date, 'End': selected_date})
     
     def _on_mouse_up(self, event):
-        # Handler for MouseUp event.
+        """Handler for MouseUp event."""
         self.MouseUp(self, {'Button': event.num, 'X': event.x, 'Y': event.y})
     
     def _on_double_click(self, event):
-        # Handler for DoubleClick event.
+        """Handler for DoubleClick event."""
         self.DoubleClick()
 
 
 class DateTimePicker(ControlBase):
-    # Represents a DateTimePicker with VB.NET properties.
+    """Representa un DateTimePicker con propiedades VB.NET."""
     
     def __init__(self, master_form, Left=10, Top=10, Width=150, Height=25, Name="", Value=None, Format="Long", CustomFormat="", MinDate=None, MaxDate=None, ShowUpDown=False, ShowCheckBox=False, CalendarForeColor=None, TitleBackColor=None):
         super().__init__(master_form._root, Left, Top)
@@ -2534,7 +3778,7 @@ class DateTimePicker(ControlBase):
         self.CalendarForeColor = CalendarForeColor
         self.TitleBackColor = TitleBackColor
         
-        # VB Events
+        # Eventos VB
         self.ValueChanged = lambda sender, e: None
         self.FormatChanged = lambda sender, e: None
         self.DropDown = lambda sender, e: None
@@ -2560,7 +3804,7 @@ class DateTimePicker(ControlBase):
         # For CheckedChanged, placeholder if ShowCheckBox
     
     def _update_display(self):
-        # Updates the display according to Format.
+        """Actualiza el display según Format."""
         if self._format == "Long":
             display = self._value.strftime("%A, %B %d, %Y")
         elif self._format == "Short":
@@ -2575,7 +3819,7 @@ class DateTimePicker(ControlBase):
         self._entry.insert(0, display)
     
     def _open_calendar(self):
-        # Opens a calendar to select a date (simple placeholder).
+        """Abre un calendario para seleccionar fecha (placeholder)."""
         # Placeholder: simple date selection
         from tkinter import simpledialog
         date_str = simpledialog.askstring("Select Date", "Enter date (YYYY-MM-DD):", initialvalue=self._value.strftime("%Y-%m-%d"))
@@ -2593,7 +3837,7 @@ class DateTimePicker(ControlBase):
             self.CloseUp(self, {})
     
     def _on_drop_down(self, event):
-           # Handler for DropDown event.
+        """Handler for DropDown event."""
         self.DropDown(self, {})
     
     @property
@@ -2634,7 +3878,7 @@ class DateTimePicker(ControlBase):
 
 
 class Rectangle:
-    # Represents a rectangle with coordinates and dimensions.
+    """Representa un rectángulo con coordenadas y dimensiones."""
     
     def __init__(self, x=0, y=0, width=0, height=0):
         self.X = x
@@ -2644,7 +3888,7 @@ class Rectangle:
 
 
 class classproperty:
-    # Descriptor for class properties.
+    """Descriptor for class properties."""
     
     def __init__(self, fget):
         self.fget = fget
@@ -2654,60 +3898,60 @@ class classproperty:
 
 
 class Screen:
-    # Represents the screen (Screen).
+    """Representa la pantalla (Screen)."""
     
     def __init__(self, root=None):
         self._root = root or tk.Tk()  # Create a dummy root if none provided
     
     @property
     def Width(self):
-        # Width of the screen.
+        """Ancho de la pantalla."""
         return self._root.winfo_screenwidth()
     
     @property
     def Height(self):
-        # Height of the screen.
+        """Alto de la pantalla."""
         return self._root.winfo_screenheight()
     
     @property
     def Bounds(self):
-        # Bounds of the screen.
+        """Límites de la pantalla."""
         return Rectangle(0, 0, self.Width, self.Height)
     
     @property
     def WorkingArea(self):
-        # Working area of the screen.
+        """Área de trabajo de la pantalla."""
         # Placeholder: assuming full screen for now
         return Rectangle(0, 0, self.Width, self.Height)
     
     @property
     def DeviceName(self):
-        # Device name of the screen.
+        """Nombre del dispositivo de la pantalla."""
         return "Primary Screen"
     
     @property
     def BitsPerPixel(self):
-        # Bits per pixel of the screen.
+        """Bits por píxel de la pantalla."""
         # Placeholder: assuming 32-bit
         return 32
     
     @classproperty
     def PrimaryScreen(cls):
-        # Primary screen.
+        """Pantalla primaria."""
         return Screen()
     
     @classproperty
     def AllScreens(cls):
-        # All screens.
+        """Todas las pantallas."""
         return [Screen()]
     
-    # System events (placeholders, since Tkinter does not directly support display configuration change events)
-    DisplaySettingsChanging = lambda sender, e: None  # Occurs before the display configuration changes
-    DisplaySettingsChanged = lambda sender, e: None   # Occurs after the display configuration has changed
+    # Eventos del sistema (placeholders, ya que Tkinter no soporta eventos de cambio de configuración de pantalla directamente)
+    DisplaySettingsChanging = lambda sender, e: None  # Se produce antes de que la configuración de la pantalla cambie
+    DisplaySettingsChanged = lambda sender, e: None   # Se produce después de que la configuración de la pantalla ha cambiado
 
 
 class Point:
-    # Represents a point with X and Y coordinates.
+    """Representa un punto con coordenadas X e Y."""
     
     def __init__(self, x=0, y=0):
         self.X = x
@@ -2715,7 +3959,7 @@ class Point:
 
 
 class Size:
-    # Represents a size with width and height.
+    """Representa un tamaño con ancho y alto."""
     
     def __init__(self, width=0, height=0):
         self.Width = width
@@ -2723,14 +3967,14 @@ class Size:
 
 
 class Form:
-    # Represents the main window (Form).
+    """Representa la ventana principal (Form)."""
     
-    def __init__(self, Title="WinFormPy Application", Width=500, Height=300, Name=""):
+    def __init__(self, Title="WinFormPy Application", Width=500, Height=300, Name="", AutoScroll=False):
         self._root = tk.Tk()
         
-        # Main VB Properties
+        # Propiedades VB principales
         self.Name = Name or "Form1"
-        self.Text = Title
+        self._text_value = Title
         self.Width = Width
         self.Height = Height
         self.Size = Size(Width, Height)
@@ -2751,27 +3995,99 @@ class Form:
         self.IsMdiContainer = False
         self.CancelButton = None
         self.AcceptButton = None
+        self.AutoScroll = AutoScroll
         
-        # Internal list to keep a reference to all controls
+        # Lista interna para mantener una referencia a todos los controles
         self.Controls = [] 
         
-        # Additional Properties
+        # Propiedades adicionales
         self.BackgroundImage = None
         self.Font = None
-        self.FontColor = None 
+        self.FontColor = None
         
-        # VB Events for forms (inspired by ControlBase)
-        self.Load = lambda: None  # Initialization, before showing the form
+        # Si AutoScroll está activado, crear estructura con Canvas y Scrollbars
+        if self.AutoScroll:
+            # Frame principal que contendrá el canvas y scrollbars
+            self._main_frame = tk.Frame(self._root)
+            self._main_frame.pack(fill='both', expand=True)
+            
+            # Canvas para contenido desplazable
+            self._canvas = tk.Canvas(
+                self._main_frame,
+                highlightthickness=0
+            )
+            
+            # Scrollbars
+            self._v_scrollbar = tk.Scrollbar(
+                self._main_frame,
+                orient='vertical',
+                command=self._canvas.yview
+            )
+            self._h_scrollbar = tk.Scrollbar(
+                self._main_frame,
+                orient='horizontal',
+                command=self._canvas.xview
+            )
+            
+            # Configurar canvas con scrollbars
+            self._canvas.configure(
+                yscrollcommand=self._v_scrollbar.set,
+                xscrollcommand=self._h_scrollbar.set
+            )
+            
+            # Frame interno que contendrá los controles
+            self._scroll_frame = tk.Frame(self._canvas)
+            self._canvas_window = self._canvas.create_window(
+                (0, 0),
+                window=self._scroll_frame,
+                anchor='nw'
+            )
+            
+            # Posicionar scrollbars y canvas
+            self._v_scrollbar.pack(side='right', fill='y')
+            self._h_scrollbar.pack(side='bottom', fill='x')
+            self._canvas.pack(side='left', fill='both', expand=True)
+            
+            # Actualizar región desplazable cuando cambia el tamaño
+            self._scroll_frame.bind('<Configure>', self._on_form_scroll_frame_configure)
+            self._canvas.bind('<Configure>', self._on_form_canvas_configure)
+            
+            # Soporte para rueda del ratón
+            self._canvas.bind('<Enter>', self._bind_form_mousewheel)
+            self._canvas.bind('<Leave>', self._unbind_form_mousewheel)
+            
+            # El contenedor para controles será el scroll_frame
+            self._container = self._scroll_frame
+        else:
+            # Sin AutoScroll, el contenedor es el root
+            self._container = self._root 
+        
+        # Eventos VB para formularios (inspirado en ControlBase)
+        self.Load = lambda: None  # Inicialización, antes de mostrar el formulario
         self.FormClosing = lambda sender, e: None  # Antes de cerrarse, permite cancelar
-        self.FormClosed = lambda: None  # After closing
+        self.FormClosed = lambda: None  # Después de cerrarse
         self.Activated = lambda: None  # Cuando el formulario se activa
         self.Deactivate = lambda: None  # Cuando el formulario pierde el foco
         self.Resize = lambda: None  # Al redimensionar
-        self.Move = lambda: None  # On move (placeholder)
+        self.Move = lambda: None  # Al mover (placeholder)
+        self.ControlAdded = lambda control: None  # Cuando se añade un control
+        self.ControlRemoved = lambda control: None  # Cuando se elimina un control 
+
+    @property
+    def Text(self):
+        """Obtiene el título del formulario."""
+        return self._text_value
+
+    @Text.setter
+    def Text(self, value):
+        """Establece el título del formulario."""
+        self._text_value = value
+        if hasattr(self, '_root') and self._root:
+            self._root.title(value)
 
     def Show(self):
-        # Starts the main loop.
-        # Apply VB properties
+        """Inicia el bucle principal."""
+        # Aplicar propiedades VB
         self._root.title(self.Text)
         
         # Size and Location
@@ -2847,7 +4163,7 @@ class Form:
         self._root.mainloop()
         
     def _close(self):
-        # Handles the closing of the form.
+        """Maneja el cierre del formulario."""
         e = {'Cancel': False}
         self.FormClosing(self, e)
         if not e['Cancel']:
@@ -2855,16 +4171,99 @@ class Form:
             self.FormClosed()
     
     def Close(self):
-        # Closes the form.
+        """Cierra el formulario."""
         self._close()
 
+    def get_Parent(self):
+        """Obtiene el control padre del Form.
+        
+        Para el Form principal, normalmente no hay padre (retorna None).
+        
+        Returns:
+            None para Form principal.
+        """
+        return None
+    
     def AddControl(self, control):
-        # Adds a control to the Form and positions it.
+        """Añade un control a la Form con posiciones relativas.
+        
+        Implementa la jerarquía de visibilidad de Windows Forms:
+        - El control se añade a la Form (se convierte en su padre)
+        - El control solo será visible si su propia propiedad Visible es True
+        """
         self.Controls.append(control)
-        control._place_control() # Posiciona el control base
+        
+        # Configurar el contenedor del control (usar _container si hay AutoScroll)
+        control.master = self._container if hasattr(self, '_container') else self._root
+        
+        # Registrar este Form como wrapper del contenedor para la jerarquía de padres
+        if not hasattr(control.master, '_control_wrapper'):
+            control.master._control_wrapper = self
+        
+        # Reposicionar el control en el nuevo contenedor
+        control._place_control()
+        
+        # Heredar propiedades del contenedor
+        if hasattr(control, 'Enabled') and hasattr(self, 'Enabled'):
+            control.Enabled = self.Enabled
+            if hasattr(control, '_tk_widget'):
+                try:
+                    control._tk_widget.config(state='normal' if self.Enabled else 'disabled')
+                except tk.TclError:
+                    pass
+        
+        # Actualizar región de scroll si AutoScroll está activado
+        if self.AutoScroll and hasattr(self, '_scroll_frame'):
+            self._scroll_frame.update_idletasks()
+            self._canvas.configure(scrollregion=self._canvas.bbox('all'))
+        
+        # Invocar evento ControlAdded
+        self.ControlAdded(control)
+    
+    def RemoveControl(self, control):
+        """Elimina un control de la Form."""
+        if control in self.Controls:
+            self.Controls.remove(control)
+            self.ControlRemoved(control)
+    
+    def _on_form_scroll_frame_configure(self, event):
+        """Actualiza la región de scroll cuando cambia el contenido del Form."""
+        if hasattr(self, '_canvas'):
+            self._canvas.configure(scrollregion=self._canvas.bbox('all'))
+    
+    def _on_form_canvas_configure(self, event):
+        """Ajusta el ancho del frame interno al ancho del canvas."""
+        if hasattr(self, '_canvas') and hasattr(self, '_canvas_window'):
+            canvas_width = event.width
+            self._canvas.itemconfig(self._canvas_window, width=canvas_width)
+    
+    def _bind_form_mousewheel(self, event):
+        """Habilita el scroll con la rueda del ratón en el Form."""
+        if hasattr(self, '_canvas'):
+            # Windows y MacOS
+            self._canvas.bind_all('<MouseWheel>', self._on_form_mousewheel)
+            # Linux
+            self._canvas.bind_all('<Button-4>', self._on_form_mousewheel)
+            self._canvas.bind_all('<Button-5>', self._on_form_mousewheel)
+    
+    def _unbind_form_mousewheel(self, event):
+        """Deshabilita el scroll con la rueda del ratón en el Form."""
+        if hasattr(self, '_canvas'):
+            self._canvas.unbind_all('<MouseWheel>')
+            self._canvas.unbind_all('<Button-4>')
+            self._canvas.unbind_all('<Button-5>')
+    
+    def _on_form_mousewheel(self, event):
+        """Maneja el scroll con la rueda del ratón en el Form."""
+        if hasattr(self, '_canvas'):
+            # Windows y MacOS
+            if event.num == 5 or event.delta < 0:
+                self._canvas.yview_scroll(1, 'units')
+            elif event.num == 4 or event.delta > 0:
+                self._canvas.yview_scroll(-1, 'units')
 
 class MDIParent(Form):
-    # Represents the MDI parent form.
+    """Representa el formulario padre MDI."""
     
     def __init__(self, Title="MDI Parent", Width=800, Height=600):
         super().__init__(Title, Width, Height)
@@ -2873,24 +4272,24 @@ class MDIParent(Form):
         self.MDIChildren = []
         self.MainMenuStrip = None  # Placeholder para MenuStrip principal
         
-        # Specific events for MDIParent
-        self.MdiChildActivate = lambda sender, e: None  # Occurs when an MDI child form gets or loses focus, or is maximized/minimized
-        self.ControlAdded = lambda control: None  # Occurs when a new control/child form is added
-        self.ControlRemoved = lambda control: None  # Occurs when a child form is closed or removed
+        # Eventos específicos de MDIParent
+        self.MdiChildActivate = lambda sender, e: None  # Se produce cuando un formulario hijo MDI obtiene o pierde el foco, o se maximiza/minimiza
+        self.ControlAdded = lambda control: None  # Se produce cuando se añade un nuevo control/formulario hijo
+        self.ControlRemoved = lambda control: None  # Se produce cuando se cierra o elimina un formulario hijo
     
     @property
     def ActiveMdiChild(self):
-        # Gets the active MDI child form.
-        # Placeholder: returns the last added or None
+        """Obtiene el formulario hijo MDI activo."""
+        # Placeholder: devuelve el último añadido o None
         return self.MDIChildren[-1] if self.MDIChildren else None
     
     @property
     def MdiChildren(self):
-        # Gets the array of MDI child forms.
+        """Obtiene la matriz de formularios hijos MDI."""
         return self.MDIChildren
     
     def AddMDIChild(self, child):
-        # Adds an MDI child.
+        """Añade un hijo MDI."""
         self.MDIChildren.append(child)
         child.MdiParent = self  # Asignar el MDIParent
         child._frame.pack(in_=self._root, fill='both', expand=True)
@@ -2900,46 +4299,374 @@ class MDIParent(Form):
         self.ControlAdded(child)
     
     def RemoveMDIChild(self, child):
-        # Removes an MDI child.
+        """Quita un hijo MDI."""
         if child in self.MDIChildren:
             self.MDIChildren.remove(child)
             child._frame.pack_forget()
             self.ControlRemoved(child)
     
     def LayoutMdi(self, layout):
-        # Arranges the MDI child forms.
-        # layout: 'Cascade', 'TileHorizontal', 'TileVertical', 'ArrangeIcons'
-        # Placeholder: basic implementation not available in Tkinter
+        """Organiza los formularios hijos MDI.
+        
+        layout: 'Cascade', 'TileHorizontal', 'TileVertical', 'ArrangeIcons'
+        """
+        # Placeholder: implementación básica no disponible en Tkinter
         # En VB.NET, organiza las ventanas hijas
         pass
 
 
+class StatusBarPanel:
+    """Representa un panel individual dentro de un StatusBar."""
+    
+    def __init__(self, Text="", Width=100, AutoSize="None", Icon=None, ToolTipText="", Bevel="Sunken", Style="Text"):
+        """Inicializa un panel de StatusBar.
+        
+        Args:
+            Text: Texto a mostrar en el panel
+            Width: Ancho del panel en píxeles
+            AutoSize: Modo de redimensionamiento automático ('None', 'Spring', 'Contents')
+            Icon: Icono a mostrar junto al texto
+            ToolTipText: Texto del tooltip
+            Bevel: Estilo del borde ('Raised', 'Sunken', 'None')
+            Style: Estilo del panel ('Text', 'OwnerDraw')
+        """
+        self._text = Text
+        self.Width = Width
+        self.AutoSize = AutoSize  # 'None', 'Spring', 'Contents'
+        self.Icon = Icon
+        self.ToolTipText = ToolTipText
+        self.Bevel = Bevel  # 'Raised', 'Sunken', 'None'
+        self.Style = Style  # 'Text', 'OwnerDraw'
+        self.MinWidth = 10
+        self.Alignment = "Left"  # 'Left', 'Center', 'Right'
+        self.BorderStyle = "Sunken"
+        
+        # Referencias internas
+        self._parent_statusbar = None
+        self._frame = None
+        self._label = None
+        self._icon_label = None
+        
+        # Eventos
+        self.Click = lambda: None
+        self.DoubleClick = lambda: None
+    
+    @property
+    def Text(self):
+        """Obtiene el texto del panel."""
+        return self._text
+    
+    @Text.setter
+    def Text(self, value):
+        """Establece el texto del panel."""
+        self._text = value
+        if self._label:
+            self._label.config(text=value)
+    
+    def _create_widget(self, parent_frame):
+        """Crea el widget tkinter para este panel."""
+        # Frame contenedor del panel
+        relief_map = {
+            'Raised': 'raised',
+            'Sunken': 'sunken',
+            'None': 'flat'
+        }
+        
+        self._frame = tk.Frame(
+            parent_frame,
+            relief=relief_map.get(self.Bevel, 'sunken'),
+            borderwidth=1,
+            width=self.Width
+        )
+        
+        # Label para el icono (si existe)
+        if self.Icon:
+            self._icon_label = tk.Label(self._frame, image=self.Icon)
+            self._icon_label.pack(side='left', padx=2)
+        
+        # Label para el texto
+        anchor_map = {
+            'Left': 'w',
+            'Center': 'center',
+            'Right': 'e'
+        }
+        
+        self._label = tk.Label(
+            self._frame,
+            text=self._text,
+            anchor=anchor_map.get(self.Alignment, 'w')
+        )
+        self._label.pack(side='left', fill='both', expand=True, padx=2)
+        
+        # Bind eventos
+        self._frame.bind('<Button-1>', lambda e: self.Click())
+        self._frame.bind('<Double-Button-1>', lambda e: self.DoubleClick())
+        self._label.bind('<Button-1>', lambda e: self.Click())
+        self._label.bind('<Double-Button-1>', lambda e: self.DoubleClick())
+        
+        # Tooltip
+        if self.ToolTipText:
+            self._create_tooltip(self._frame, self.ToolTipText)
+            self._create_tooltip(self._label, self.ToolTipText)
+        
+        return self._frame
+    
+    def _create_tooltip(self, widget, text):
+        """Crea un tooltip simple para el widget."""
+        def show_tooltip(event):
+            tooltip = tk.Toplevel()
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            label = tk.Label(tooltip, text=text, background="lightyellow", 
+                           relief="solid", borderwidth=1, padx=5, pady=2)
+            label.pack()
+            widget._tooltip = tooltip
+        
+        def hide_tooltip(event):
+            if hasattr(widget, '_tooltip'):
+                widget._tooltip.destroy()
+                delattr(widget, '_tooltip')
+        
+        widget.bind('<Enter>', show_tooltip)
+        widget.bind('<Leave>', hide_tooltip)
+
+
+class StatusBar(ControlBase):
+    """Control de barra de estado de Windows Forms."""
+    
+    def __init__(self, master_form, Text="Ready", Left=0, Top=570, Width=800, Height=25, 
+                 ShowPanels=False, SizingGrip=True, BorderStyle="Fixed3D", Name=""):
+        """Inicializa un StatusBar.
+        
+        Args:
+            master_form: Formulario padre
+            Text: Texto a mostrar cuando ShowPanels es False
+            Left, Top: Posición (usualmente se ancla al fondo)
+            Width, Height: Tamaño del StatusBar
+            ShowPanels: Si True, muestra los paneles; si False, solo muestra Text
+            SizingGrip: Si True, muestra el grip de redimensionamiento
+            BorderStyle: Estilo del borde
+            Name: Nombre del control
+        """
+        super().__init__(master_form._root, Left, Top)
+        
+        # Propiedades básicas
+        self.Name = Name
+        self._text = Text
+        self.Width = Width
+        self.Height = Height
+        self.ShowPanels = ShowPanels
+        self.SizingGrip = SizingGrip
+        self.BorderStyle = BorderStyle
+        self.BackColor = 'SystemButtonFace'
+        self.ForeColor = 'black'
+        self.Font = ('Segoe UI', 9)
+        
+        # Colección de paneles
+        self.Panels = []
+        
+        # Referencias internas
+        self._master_form = master_form
+        
+        # Eventos
+        self.PanelClick = lambda sender, panel: None
+        self.DrawItem = lambda sender, e: None
+        
+        # Crear widget principal
+        relief_map = {
+            'None': 'flat',
+            'Fixed3D': 'ridge',
+            'FixedSingle': 'solid'
+        }
+        
+        self._tk_widget = tk.Frame(
+            self.master,
+            relief=relief_map.get(BorderStyle, 'ridge'),
+            borderwidth=1 if BorderStyle != 'None' else 0,
+            bg=self.BackColor,
+            height=Height
+        )
+        
+        # Frame contenedor para paneles o texto simple
+        self._content_frame = tk.Frame(self._tk_widget, bg=self.BackColor)
+        self._content_frame.pack(side='left', fill='both', expand=True)
+        
+        # Label para texto simple (cuando ShowPanels = False)
+        self._text_label = tk.Label(
+            self._content_frame,
+            text=self._text,
+            bg=self.BackColor,
+            fg=self.ForeColor,
+            font=self.Font,
+            anchor='w',
+            padx=5
+        )
+        
+        # Grip de redimensionamiento
+        if self.SizingGrip:
+            self._grip_canvas = tk.Canvas(
+                self._tk_widget,
+                width=15,
+                height=Height,
+                bg=self.BackColor,
+                highlightthickness=0
+            )
+            self._grip_canvas.pack(side='right')
+            self._draw_sizing_grip()
+        
+        # Mostrar el contenido apropiado
+        self._update_display()
+        
+        # Posicionar el control
+        if hasattr(self, '_visible') and self._visible:
+            self._place_control(self.Width, self.Height)
+    
+    @property
+    def Text(self):
+        """Obtiene el texto de la barra de estado."""
+        return self._text
+    
+    @Text.setter
+    def Text(self, value):
+        """Establece el texto de la barra de estado."""
+        self._text = value
+        if self._text_label:
+            self._text_label.config(text=value)
+    
+    def AddPanel(self, panel):
+        """Añade un panel a la colección de paneles.
+        
+        Args:
+            panel: Objeto StatusBarPanel a añadir
+        """
+        self.Panels.append(panel)
+        panel._parent_statusbar = self
+        if self.ShowPanels:
+            self._update_display()
+    
+    def RemovePanel(self, panel):
+        """Elimina un panel de la colección.
+        
+        Args:
+            panel: Objeto StatusBarPanel a eliminar
+        """
+        if panel in self.Panels:
+            self.Panels.remove(panel)
+            if self.ShowPanels:
+                self._update_display()
+    
+    def _update_display(self):
+        """Actualiza la visualización según ShowPanels."""
+        # Limpiar contenido anterior
+        for widget in self._content_frame.winfo_children():
+            widget.destroy()
+        
+        if self.ShowPanels and self.Panels:
+            # Mostrar paneles
+            self._display_panels()
+        else:
+            # Mostrar texto simple
+            self._text_label = tk.Label(
+                self._content_frame,
+                text=self._text,
+                bg=self.BackColor,
+                fg=self.ForeColor,
+                font=self.Font,
+                anchor='w',
+                padx=5
+            )
+            self._text_label.pack(side='left', fill='both', expand=True)
+    
+    def _display_panels(self):
+        """Muestra los paneles en el StatusBar."""
+        total_width = self.Width - (15 if self.SizingGrip else 0)
+        
+        # Calcular anchos según AutoSize
+        spring_panels = [p for p in self.Panels if p.AutoSize == 'Spring']
+        fixed_panels = [p for p in self.Panels if p.AutoSize != 'Spring']
+        
+        # Ancho usado por paneles fijos
+        fixed_width = sum(p.Width for p in fixed_panels)
+        
+        # Ancho disponible para paneles Spring
+        available_width = total_width - fixed_width
+        spring_width = available_width // len(spring_panels) if spring_panels else 0
+        
+        for panel in self.Panels:
+            panel_widget = panel._create_widget(self._content_frame)
+            
+            # Configurar ancho según AutoSize
+            if panel.AutoSize == 'Spring':
+                panel_widget.config(width=spring_width)
+                panel_widget.pack(side='left', fill='both', expand=True)
+            elif panel.AutoSize == 'Contents':
+                panel_widget.pack(side='left', fill='y')
+            else:  # 'None'
+                panel_widget.config(width=panel.Width)
+                panel_widget.pack(side='left', fill='y')
+            
+            # Bind evento PanelClick
+            panel_widget.bind('<Button-1>', lambda e, p=panel: self._on_panel_click(p))
+    
+    def _on_panel_click(self, panel):
+        """Maneja el clic en un panel."""
+        self.PanelClick(self, panel)
+        panel.Click()
+    
+    def _draw_sizing_grip(self):
+        """Dibuja el grip de redimensionamiento."""
+        canvas = self._grip_canvas
+        h = self.Height
+        
+        # Dibujar líneas diagonales (estilo Windows)
+        for i in range(3):
+            x = 12 - i * 4
+            canvas.create_line(x, h-3, x+3, h-6, fill='gray', width=1)
+            canvas.create_line(x+1, h-3, x+4, h-6, fill='white', width=1)
+    
+    def Dock(self, side='bottom'):
+        """Ancla el StatusBar a un lado del formulario.
+        
+        Args:
+            side: 'bottom', 'top', 'left', 'right'
+        """
+        self._tk_widget.pack_forget()
+        if side == 'bottom':
+            self._tk_widget.pack(side='bottom', fill='x')
+        elif side == 'top':
+            self._tk_widget.pack(side='top', fill='x')
+        elif side == 'left':
+            self._tk_widget.pack(side='left', fill='y')
+        elif side == 'right':
+            self._tk_widget.pack(side='right', fill='y')
+
+
 class MDIChild:
-    # Represents an MDI child form.
+    """Representa un formulario hijo MDI."""
     
     def __init__(self, title="Child"):
         self.Title = title
-        self.Text = title  # Alias for Title
-        self.MdiParent = None  # Assign the MDIParent
-        self.IsMdiChild = True  # Indicates that it is an MDI child form
+        self._text_value = title  # Alias para Title
+        self.MdiParent = None  # Asignar el MDIParent
+        self.IsMdiChild = True  # Indica que es un formulario hijo MDI
         self.ControlBox = True
         self.MinimizeBox = True
         self.MaximizeBox = True
         self.ShowInTaskbar = False
         self.WindowState = "Normal"  # 'Normal', 'Minimized', 'Maximized'
-        self.MainMenuStrip = None  # Placeholder for MenuStrip
+        self.MainMenuStrip = None  # Placeholder para MenuStrip
         
         self._frame = tk.Frame()
         self.Controls = []
         
-        # Main events of MDIChild
-        self.Load = lambda: None  # Initialization, before being visible
-        self.FormClosing = lambda sender, e: None  # Before closing, allows cancel
-        self.FormClosed = lambda: None  # After closing
-        self.Activated = lambda: None  # When activated within the MDIParent
-        self.Deactivate = lambda: None  # When it loses focus
-        self.Resize = lambda: None  # On resize
-        self.Move = lambda: None  # On move (placeholder, no title bar in Tkinter)
+        # Eventos principales de MDIChild
+        self.Load = lambda: None  # Inicialización, antes de ser visible
+        self.FormClosing = lambda sender, e: None  # Antes de cerrarse, permite cancelar
+        self.FormClosed = lambda: None  # Después de cerrarse
+        self.Activated = lambda: None  # Cuando se activa dentro del MDIParent
+        self.Deactivate = lambda: None  # Cuando pierde el foco
+        self.Resize = lambda: None  # Al redimensionar
+        self.Move = lambda: None  # Al mover (placeholder, sin barra de título en Tkinter) 
 
         # Bind events
         self._frame.bind('<FocusIn>', lambda e: self.Activated())
@@ -2947,13 +4674,24 @@ class MDIChild:
         self._frame.bind('<Configure>', lambda e: self.Resize())
         # Move placeholder: no direct bind for move in Tkinter Frame
     
+    @property
+    def Text(self):
+        """Obtiene el título del formulario hijo MDI."""
+        return self._text_value
+
+    @Text.setter
+    def Text(self, value):
+        """Establece el título del formulario hijo MDI."""
+        self._text_value = value
+        self.Title = value  # Mantener sincronizado con Title
+    
     def Show(self):
-        # Shows the MDI child form (placeholder).
-        # In the current implementation, it is shown via AddMDIChild of the parent
+        """Muestra el formulario hijo MDI (placeholder)."""
+        # En la implementación actual, se muestra mediante AddMDIChild del padre
         self.Load()  # Trigger Load event
     
     def Close(self):
-        # Closes the MDI child form.
+        """Cierra el formulario hijo MDI."""
         # Trigger FormClosing, allow cancel
         e = {'Cancel': False}
         self.FormClosing(self, e)
@@ -2963,19 +4701,40 @@ class MDIChild:
                 self.MdiParent.RemoveMDIChild(self)
             self.FormClosed()  # Trigger FormClosed
     
+    def get_Parent(self):
+        """Obtiene el control padre del MdiChildForm.
+        
+        El padre de un MdiChildForm es el MdiParent (Form principal).
+        
+        Returns:
+            El MdiParent si existe, None en caso contrario.
+        """
+        return getattr(self, 'MdiParent', None)
+    
     def AddControl(self, control):
-        # Adds a control to the MDI child.
+        """Añade un control al hijo MDI.
+        
+        Implementa la jerarquía de visibilidad de Windows Forms:
+        - El control se añade al MdiChildForm (se convierte en su padre)
+        - El control solo será visible si su propia propiedad Visible es True
+          Y el MdiChildForm está visible
+        """
         self.Controls.append(control)
         control.master = self._frame
+        
+        # Registrar este MdiChildForm como wrapper del frame para la jerarquía de padres
+        if not hasattr(self._frame, '_control_wrapper'):
+            self._frame._control_wrapper = self
+        
         control._place_control()
 
 
 class SendKeys:
-    # Class to send keystrokes and key combinations to the active process.
+    """Clase para enviar pulsaciones de teclas y combinaciones de teclas al proceso activo."""
     
     @staticmethod
     def _parse_keys(keys):
-        # Parses the keys string to handle special codes.
+        """Parse the keys string to handle special codes."""
         parsed = []
         i = 0
         while i < len(keys):
@@ -3020,7 +4779,7 @@ class SendKeys:
     
     @staticmethod
     def Send(keys):
-        # Sends the keystrokes immediately.
+        """Envía las pulsaciones de teclas inmediatamente."""
         parsed_keys = SendKeys._parse_keys(keys)
         focused = tk.focus_get()
         if focused and hasattr(focused, 'insert'):
@@ -3028,13 +4787,13 @@ class SendKeys:
     
     @staticmethod
     def SendWait(keys):
-        # Sends the keystrokes and waits for them to be processed.
-        # In Tkinter, it is synchronous, so same as Send
+        """Envía las pulsaciones de teclas y espera a que se procesen."""
+        # En Tkinter, es sincrónico, así que igual que Send
         SendKeys.Send(keys)
 
 
 class Timer:
-    # Represents a Timer for timed events.
+    """Representa un Timer para eventos temporizados."""
     
     def __init__(self, root, interval=1000, Name="", Enabled=False, Tag=None, Modifiers="Private"):
         self._root = root
@@ -3042,12 +4801,12 @@ class Timer:
         self.Interval = interval
         self._enabled = False  # Initialize _enabled before property setter usage
         self.Enabled = Enabled
-        self.Tag = Tag  # Custom object
+        self.Tag = Tag  # Objeto personalizado
         self.Modifiers = Modifiers  # 'Public', 'Private', etc. (placeholder)
         self.Tick = lambda: None
         self._job = None
         
-        # Start if Enabled
+        # Iniciar si Enabled
         if self.Enabled:
             self.Start()
 
@@ -3064,19 +4823,19 @@ class Timer:
         self._enabled = value
 
     def Start(self):
-        # Starts the timer.
+        """Inicia el timer."""
         if not self._enabled:
             self._enabled = True
             self._schedule()
 
     def Stop(self):
-        # Stops the timer.
+        """Detiene el timer."""
         self._enabled = False
         if self._job:
             self._root.after_cancel(self._job)
 
     def _schedule(self):
-        # Schedules the next tick.
+        """Programa el siguiente tick."""
         if self._enabled:
             self.Tick()
             self._job = self._root.after(self.Interval, self._schedule)
