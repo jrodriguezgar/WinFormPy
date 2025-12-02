@@ -1,5 +1,5 @@
 """
-Example of using system fonts and colors functions in winform-py_tools
+Example of using system fonts and colors functions in winformpy_tools
 """
 
 import sys
@@ -8,16 +8,17 @@ import importlib.util
 
 # Add parent directory to path
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+lib_dir = os.path.join(parent_dir, "lib")
 sys.path.insert(0, parent_dir)
 
-# Import winform-py.py
-module_path = os.path.join(parent_dir, "winform-py.py")
+# Import winformpy.py
+module_path = os.path.join(lib_dir, "winformpy.py")
 spec = importlib.util.spec_from_file_location("winform_py", module_path)
 winform_py = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(winform_py)
 
-# Import winform-py_tools.py
-tools_path = os.path.join(parent_dir, "winform-py_tools.py")
+# Import winformpy_tools.py
+tools_path = os.path.join(lib_dir, "winformpy_tools.py")
 spec_tools = importlib.util.spec_from_file_location("winform_py_tools", tools_path)
 winform_py_tools = importlib.util.module_from_spec(spec_tools)
 spec_tools.loader.exec_module(winform_py_tools)

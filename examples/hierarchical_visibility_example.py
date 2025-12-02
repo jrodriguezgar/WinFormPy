@@ -4,9 +4,10 @@ import os
 import sys
 import importlib.util
 
-# Load winform-py.py from parent directory
+# Load winformpy.py from lib directory
 parent_dir = os.path.dirname(os.path.dirname(__file__))
-module_path = os.path.join(parent_dir, "winform-py.py")
+lib_dir = os.path.join(parent_dir, "lib")
+module_path = os.path.join(lib_dir, "winformpy.py")
 
 spec = importlib.util.spec_from_file_location("winform_py", module_path)
 winform_py = importlib.util.module_from_spec(spec)

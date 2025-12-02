@@ -12,16 +12,17 @@ import sys
 import os
 import importlib.util
 
-# Load winform-py.py from parent directory
+# Load winformpy.py from lib directory
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-module_path = os.path.join(parent_dir, "winform-py.py")
+lib_dir = os.path.join(parent_dir, "lib")
+module_path = os.path.join(lib_dir, "winformpy.py")
 
 spec = importlib.util.spec_from_file_location("winform_py", module_path)
 winform_py = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(winform_py)
 
 # Load winform_py_tools.py
-tools_path = os.path.join(parent_dir, "winform-py_tools.py")
+tools_path = os.path.join(lib_dir, "winformpy_tools.py")
 spec_tools = importlib.util.spec_from_file_location("winform_py_tools", tools_path)
 winform_py_tools = importlib.util.module_from_spec(spec_tools)
 spec_tools.loader.exec_module(winform_py_tools)

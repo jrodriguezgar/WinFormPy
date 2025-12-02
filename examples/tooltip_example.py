@@ -16,9 +16,9 @@ import os
 # Add module path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import from winform-py.py file
+# Import from winformpy.py file
 import importlib.util
-spec = importlib.util.spec_from_file_location("winform_py", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "winform-py.py"))
+spec = importlib.util.spec_from_file_location("winform_py", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "winformpy.py"))
 winform_py = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(winform_py)
 
