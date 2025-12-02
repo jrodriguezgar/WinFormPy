@@ -15,7 +15,7 @@ WinFormPy is a complete library designed to help developers familiar with Window
 - **Complete Windows Forms API mapping** - Controls, properties, and events that match VB.NET/VB6 syntax
 - **Comprehensive control library** including:
   - Basic controls: Button, Label, TextBox, CheckBox, ComboBox, ListBox
-  - Advanced controls: DataGridView, TreeView, TabControl, Panel, PictureBox, Line
+  - Advanced controls: DataGridView, TreeView, TabControl, Panel, GroupBox, PictureBox, Line
   - Dialogs: OpenFileDialog, SaveFileDialog, PrintDialog, MessageBox, InputBox
   - Specialized controls: MaskedTextBox, CheckedListBox, ProgressBar, TrackBar
 - **Flexible initialization** - Support for both traditional property assignment and dictionary-based setup
@@ -109,6 +109,7 @@ The `examples/` directory contains various demonstration scripts showing differe
 - `css_set_controls_example.py` - CSS styling examples
 - `hierarchical_visibility_example.py` - Control visibility management
 - `all_system_styles_example.py` - System styles demonstration
+- `groupbox_example.py` - GroupBox container control with RadioButtons and CheckBoxes
 
 To run any example:
 
@@ -248,6 +249,55 @@ class MainForm(Form):
         self.custom = CustomControl(self)
         self.custom.Location = (50, 50)
 ```
+
+### GroupBox
+
+GroupBox is a container control that provides a visual grouping for other controls with a titled border.
+
+```python
+# Create a GroupBox
+group = GroupBox(form, {
+    'Text': 'Options',
+    'Left': 10,
+    'Top': 10,
+    'Width': 200,
+    'Height': 150
+})
+form.AddControl(group)
+
+# Add controls to the GroupBox
+radio1 = RadioButton(group, {
+    'Text': 'Option 1',
+    'Left': 10,
+    'Top': 10,
+    'Checked': True
+})
+group.AddControl(radio1)
+
+radio2 = RadioButton(group, {
+    'Text': 'Option 2', 
+    'Left': 10,
+    'Top': 35
+})
+group.AddControl(radio2)
+
+checkbox = CheckBox(group, {
+    'Text': 'Enable feature',
+    'Left': 10,
+    'Top': 70
+})
+group.AddControl(checkbox)
+```
+
+**GroupBox Properties:**
+- `Text` - Title displayed on the border
+- `Padding` - Internal padding (left, top, right, bottom)
+- `BorderStyle` - Border appearance ('None', 'Fixed3D', 'FixedSingle')
+- All standard control properties (Location, Size, Enabled, Visible, etc.)
+
+**GroupBox Methods:**
+- `AddControl(control)` - Add a control to the GroupBox
+- `RemoveControl(control)` - Remove a control from the GroupBox
 
 ## API Reference
 

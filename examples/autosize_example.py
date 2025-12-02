@@ -15,10 +15,10 @@ import os
 # Add module path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import from winform-py.py file
+# Import from winformpy.py file
 import importlib.util
 spec = importlib.util.spec_from_file_location("winform_py", 
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "winform-py.py"))
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "winformpy.py"))
 winform_py = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(winform_py)
 
@@ -36,9 +36,12 @@ def main():
     # Create form
     form = Form()
     form.Text = "AutoSize - Complete Example"
-    form.Width = 700
-    form.Height = 600
-    form.StartPosition = "CenterScreen"
+    form.Width = 1200
+    form.Height = 1200
+    form.StartPosition = "Manual"
+    form.Left = 0
+    form.Top = 0
+    form.WindowState = "Maximized"
     
     # ===== TITLE =====
     title = Label(form, {
@@ -85,7 +88,8 @@ def main():
     btn_auto = Button(form, {
         'Text': "Click",
         'Left': 20, 'Top': 160,
-        'AutoSize': True
+        'AutoSize': True,
+        'BorderStyle': 'solid'
     })
     
     # Button size info
@@ -108,7 +112,8 @@ def main():
         'Text': 'Option',
         'Left': 20, 'Top': 240,
         'AutoSize': True,
-        'BackColor': 'lightblue'
+        'BackColor': 'lightblue',
+        'BorderStyle': 'solid'
     })
     
     # CheckBox size info
@@ -131,7 +136,8 @@ def main():
         'Text': "Choice",
         'Left': 20, 'Top': 320,
         'AutoSize': True,
-        'BackColor': 'lightgreen'
+        'BackColor': 'lightgreen',
+        'BorderStyle': 'solid'
     })
     
     # RadioButton size info
@@ -164,8 +170,8 @@ def main():
         # Force autosize recalculation by calling the setter
         if hasattr(control, '_apply_autosize'):
             control._apply_autosize()
-        # Update the widget
-        control._tk_widget.update_idletasks()
+        # Refresh pending GUI work without touching _root directly
+        form.ForceUpdate()
     
     def update_to_short():
         text = text_options[0]
