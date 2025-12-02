@@ -1,7 +1,7 @@
 [project]
 name = "winformpy"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.4"
+description = "Extended Layout Controls (FlowLayoutPanel, TableLayoutPanel), advanced tools and styling (CSSManager, FontManager, ColorManager, AutoLayoutManager), and enhanced layout capabilities for complex, responsive designs."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
