@@ -18,7 +18,10 @@ WinFormPy is a complete library designed to help developers familiar with Window
   - Advanced controls: DataGridView, TreeView, TabControl, Panel, GroupBox, PictureBox, Line
   - Dialogs: OpenFileDialog, SaveFileDialog, PrintDialog, MessageBox, InputBox
   - Specialized controls: MaskedTextBox, CheckedListBox, ProgressBar, TrackBar
-- **Flexible initialization** - Support for both traditional property assignment and dictionary-based setup
+- **New Modules**:
+  - **mauipy**: Create modern applications with MAUI-style architecture (Shell, Pages, Layouts).
+  - **mdipy**: Support for Multiple Document Interface (MDI) applications.
+- **Flexible initialization** - Support for both traditional property assignment and dictionary-based setup (`props`)
 - **Event-driven programming** with familiar VB-style event handlers
 - **Form management** with UserControl and Form base classes
 - **Built-in utilities**: ImageList, Timer, ToolTip, ContextMenuStrip, MenuStrip, StatusBar
@@ -57,44 +60,38 @@ pip install winformpy
 Here's a simple example showing how to create a form with a button:
 
 ```python
-import tkinter as tk
-from lib.winform_py import Form, Button, Label, MessageBox
+from winformpy import Form, Button, Label, MessageBox, Application
 
 class MyForm(Form):
     def __init__(self):
-        super().__init__(
-            Text="My First WinFormPy App",
-            Width=400,
-            Height=300,
-            StartPosition="CenterScreen"
-        )
-        
-        # Create a label
-        self.label = Label(
-            self,
-            Text="Hello, WinFormPy!",
-            Left=50,
-            Top=50,
-            Font=("Arial", 14)
-        )
-        
-        # Create a button
-        self.button = Button(
-            self,
-            Text="Click Me!",
-            Left=50,
-            Top=100,
-            Width=120,
-            Height=40
-        )
-        self.button.Click = self.button_click
+        super().__init__()
+        self.Text = "My First WinFormPy App"
+        self.Width = 400
+        self.Height = 300
+        self.StartPosition = "CenterScreen"
     
-    def button_click(self):
+        # Create a label
+        self.label = Label(self)
+        self.label.Text = "Hello, WinFormPy!"
+        self.label.Left = 50
+        self.label.Top = 50
+        self.label.Font = ("Arial", 14)
+    
+        # Create a button
+        self.button = Button(self)
+        self.button.Text = "Click Me!"
+        self.button.Left = 50
+        self.button.Top = 100
+        self.button.Width = 120
+        self.button.Height = 40
+        self.button.Click = self.button_click
+  
+    def button_click(self, sender, e):
         MessageBox.Show("Button was clicked!", "Info")
 
 if __name__ == "__main__":
     app = MyForm()
-    app.Show()
+    Application.Run(app)
 ```
 
 ## Examples
@@ -122,79 +119,77 @@ uv run examples/example_name.py
 ### Basic Controls
 
 #### Button
+
 ```python
-button = Button(
-    form,
-    Text="Submit",
-    Left=10,
-    Top=10,
-    Width=100,
-    Height=30,
-    Enabled=True,
-    Visible=True
-)
-button.Click = lambda: print("Button clicked!")
+button = Button(form)
+button.Text = "Submit"
+button.Left = 10
+button.Top = 10
+button.Width = 100
+button.Height = 30
+button.Enabled = True
+button.Visible = True
+
+button.Click = lambda sender, e: print("Button clicked!")
 ```
 
 #### TextBox
+
 ```python
-textbox = TextBox(
-    form,
-    Text="",
-    Left=10,
-    Top=50,
-    Width=200,
-    Height=25,
-    Multiline=False,
-    ReadOnly=False,
-    PasswordChar="*"  # For password fields
-)
-textbox.TextChanged = lambda: print(f"Text: {textbox.get_Text()}")
+textbox = TextBox(form)
+textbox.Text = ""
+textbox.Left = 10
+textbox.Top = 50
+textbox.Width = 200
+textbox.Height = 25
+textbox.Multiline = False
+textbox.ReadOnly = False
+textbox.PasswordChar = "*"  # For password fields
+
+textbox.TextChanged = lambda sender, e: print(f"Text: {textbox.Text}")
 ```
 
 #### ComboBox
+
 ```python
-combo = ComboBox(
-    form,
-    Items=["Option 1", "Option 2", "Option 3"],
-    Left=10,
-    Top=90,
-    Width=200,
-    SelectedIndex=0
-)
-combo.SelectedIndexChanged = lambda: print(f"Selected: {combo.get_SelectedItem()}")
+combo = ComboBox(form)
+combo.Items = ["Option 1", "Option 2", "Option 3"]
+combo.Left = 10
+combo.Top = 90
+combo.Width = 200
+combo.SelectedIndex = 0
+
+combo.SelectedIndexChanged = lambda sender, e: print(f"Selected: {combo.SelectedItem}")
 ```
 
 ### Advanced Controls
 
 #### DataGridView
+
 ```python
-dgv = DataGridView(
-    form,
-    Left=10,
-    Top=10,
-    Width=400,
-    Height=200,
-    Columns=["Name", "Age", "City"]
-)
+dgv = DataGridView(form)
+dgv.Left = 10
+dgv.Top = 10
+dgv.Width = 400
+dgv.Height = 200
+dgv.Columns = ["Name", "Age", "City"]
 
 # Add data
 data = [
     {"Name": "John", "Age": 30, "City": "New York"},
     {"Name": "Jane", "Age": 25, "City": "London"}
 ]
-dgv.set_DataSource(data)
+dgv.DataSource = data
 ```
 
 #### TreeView
+
 ```python
-tree = TreeView(
-    form,
-    Left=10,
-    Top=10,
-    Width=250,
-    Height=300
-)
+tree = TreeView(form)
+tree.Left = 10
+tree.Top = 10
+tree.Width = 250
+tree.Height = 300
 
 # Add nodes
 root = tree.AddNode("Root Node")
@@ -205,6 +200,7 @@ child2 = tree.AddNode("Child 2", parent=root)
 ### Dialogs
 
 #### OpenFileDialog
+
 ```python
 dialog = OpenFileDialog()
 dialog.Filter = "Text Files|*.txt|All Files|*.*"
@@ -215,6 +211,7 @@ if filename:
 ```
 
 #### MessageBox
+
 ```python
 result = MessageBox.Show(
     "Do you want to continue?",
@@ -231,20 +228,24 @@ if result == "Yes":
 ```python
 class CustomControl(UserControl):
     def __init__(self, parent):
-        super().__init__(
-            parent,
-            Width=300,
-            Height=200,
-            BackColor="lightgray"
-        )
-        
+        super().__init__(parent)
+        self.Width = 300
+        self.Height = 200
+        self.BackColor = "lightgray"
+    
         # Add controls to the UserControl
-        self.label = Label(self, Text="Custom Control", Left=10, Top=10)
+        self.label = Label(self)
+        self.label.Text = "Custom Control"
+        self.label.Left = 10
+        self.label.Top = 10
 
 class MainForm(Form):
     def __init__(self):
-        super().__init__(Text="Main Form", Width=500, Height=400)
-        
+        super().__init__()
+        self.Text = "Main Form"
+        self.Width = 500
+        self.Height = 400
+    
         # Add custom control
         self.custom = CustomControl(self)
         self.custom.Location = (50, 50)
@@ -290,18 +291,21 @@ group.AddControl(checkbox)
 ```
 
 **GroupBox Properties:**
+
 - `Text` - Title displayed on the border
 - `Padding` - Internal padding (left, top, right, bottom)
 - `BorderStyle` - Border appearance ('None', 'Fixed3D', 'FixedSingle')
 - All standard control properties (Location, Size, Enabled, Visible, etc.)
 
 **GroupBox Methods:**
+
 - `AddControl(control)` - Add a control to the GroupBox
 - `RemoveControl(control)` - Remove a control from the GroupBox
 
 ## API Reference
 
 ### Control Properties (Common)
+
 - `Name` - Control identifier
 - `Text` - Display text
 - `Left`, `Top` - Position
@@ -315,6 +319,7 @@ group.AddControl(checkbox)
 - `BorderStyle` - Border appearance
 
 ### Control Events (Common)
+
 - `Click` - Mouse click
 - `DoubleClick` - Mouse double-click
 - `MouseDown`, `MouseUp` - Mouse button events
@@ -336,11 +341,16 @@ WinFormPy is built on three main layers:
 
 ```
 WinFormPy/
-├── lib/
-│   └── winform_py.py       # Main library file
-├── examples/               # Example applications (coming soon)
+├── winformpy/
+│   ├── __init__.py         # Package initialization
+│   ├── winformpy.py        # Main library file
+│   ├── mauipy.py           # MAUI-style components
+│   └── mdipy.py            # MDI components
+├── examples/               # Example applications
+├── guides/                 # Documentation guides
+├── tests/                  # Unit tests
 ├── LICENSE                 # MIT License
-└── README.md              # This file
+└── README.md               # This file
 ```
 
 ## Requirements
@@ -355,11 +365,12 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## Roadmap
 
+- [x] Implement basic WinForms controls
+- [x] Add MAUI-style architecture support
+- [x] Add MDI support
+- [x] Unit tests
 - [ ] Add more examples and tutorials
-- [ ] Implement remaining WinForms controls
 - [ ] Enhanced styling and theming support
-- [ ] Better documentation with API reference
-- [ ] Unit tests
 - [ ] PyPI package distribution
 
 ## License
@@ -369,8 +380,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Author
 
 **DatamanEdge**
-- Version: 1.0.0
-- Date: 2025-11-29
+
+- Version: 1.0.6
 
 ## Acknowledgments
 
