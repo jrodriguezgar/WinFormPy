@@ -1,300 +1,169 @@
-# GroupBox - Control Contenedor de Windows Forms
+# GroupBox - Windows Forms Container Control
 
-## Descripción
+## Description
 
-El `GroupBox` es un control contenedor de Windows Forms implementado en winform-py que se utiliza para agrupar visual y lógicamente otros controles relacionados en la interfaz de usuario.
+The `GroupBox` is a Windows Forms container control implemented in winform-py that is used to visually and logically group related controls in the user interface.
 
-Proporciona un borde rectangular con un título opcional para delimitar visualmente una sección, mejorando la organización y usabilidad del formulario.
+It provides a rectangular border with an optional title to visually delimit a section, improving the organization and usability of the form.
 
-## Características Principales
+## Internal Implementation
 
-### Herencia
+In `winformpy`, the `GroupBox` is implemented using the native Tkinter widget `tk.LabelFrame`. This provides:
+- An integrated title in the top border.
+- Automatic management of internal margins (`padx`/`pady`) based on the `Padding` property.
+- An internal container (`tk.Frame`) where child controls are hosted, ensuring they respect the borders and title.
 
-`GroupBox` hereda de `ControlBase` y actúa como un contenedor para agrupar controles relacionados.
+## Main Features
 
-### Representación Visual
+### Inheritance
 
-- Marco rectangular con borde estilo `groove` (3D)
-- Área en la parte superior izquierda para el título (propiedad `Text`)
-- Padding interno configurable para espaciar los controles hijos
-- Color de fondo y fuente personalizables
+`GroupBox` inherits from `ControlBase` and acts as a container to group related controls.
 
-## Propiedades
+### Visual Representation
 
-### Propiedades Visuales
+- Rectangular frame with border (style dependent on `FlatStyle`).
+- Area at the top for the title (property `Text`).
+- Configurable internal padding to space child controls.
+- Customizable background color and font.
 
-| Propiedad     | Tipo      | Descripción                                              | Valor por Defecto    |
-| ------------- | --------- | --------------------------------------------------------- | -------------------- |
-| `Text`      | str       | Texto del título mostrado en la parte superior del marco | `'GroupBox'`       |
-| `Width`     | int       | Ancho del control en píxeles                             | `200`              |
-| `Height`    | int       | Alto del control en píxeles                              | `100`              |
-| `Left`      | int       | Posición X relativa al contenedor padre                  | `0`                |
-| `Top`       | int       | Posición Y relativa al contenedor padre                  | `0`                |
-| `BackColor` | str       | Color de fondo del área dentro del marco                 | `None` (sistema)   |
-| `ForeColor` | str       | Color del texto del título                               | `None` (sistema)   |
-| `Font`      | str/tuple | Fuente utilizada para el texto del título                | `None` (sistema)   |
-| `Padding`   | tuple     | Espaciado interno (left, top, right, bottom)              | `(10, 20, 10, 10)` |
+## Properties
 
-### Propiedades de Estado
+### Visual Properties
 
-| Propiedad   | Tipo | Descripción                                                            | Valor por Defecto |
-| ----------- | ---- | ----------------------------------------------------------------------- | ----------------- |
-| `Enabled` | bool | Determina si el GroupBox y todos sus controles hijos están habilitados | `True`          |
-| `Visible` | bool | Determina si el GroupBox y todos sus controles hijos son visibles       | `True`          |
-| `Name`    | str  | Nombre del control para identificación                                 | `''`            |
+| Property     | Type      | Description                                              | Default Value    |
+| ------------- | --------- | --------------------------------------------------------- | ---------------- |
+| `Text`      | str       | Title text displayed at the top of the frame             | `'GroupBox'`     |
+| `Width`     | int       | Width of the control in pixels                           | `200`            |
+| `Height`    | int       | Height of the control in pixels                          | `100`            |
+| `Left`      | int       | X position relative to the parent container              | `0`              |
+| `Top`       | int       | Y position relative to the parent container              | `0`              |
+| `BackColor` | str       | Background color of the area inside the frame            | `None` (system)  |
+| `ForeColor` | str       | Color of the title text                                  | `None` (system)  |
+| `Font`      | str/tuple | Font used for the title text                             | `None` (system)  |
+| `Padding`   | tuple     | Internal spacing (left, top, right, bottom)              | `(10, 20, 10, 10)` |
+| `FlatStyle` | Enum      | Visual style (`Standard`, `Flat`, `Popup`, `System`)     | `Standard`       |
 
-### Propiedades de Navegación
+### Automatic Layout Properties
 
-| Propiedad    | Tipo | Descripción                                               | Valor por Defecto |
-| ------------ | ---- | ---------------------------------------------------------- | ----------------- |
-| `TabStop`  | bool | Determina si el control puede recibir el foco mediante Tab | `False`         |
-| `TabIndex` | int  | Orden de tabulación del control                           | `0`             |
+| Property      | Type | Description                                                                 |
+| -------------- | ---- | --------------------------------------------------------------------------- |
+| `AutoSize`     | bool | If `True`, the control resizes to fit its content.                          |
+| `AutoSizeMode` | Enum | `GrowOnly` (grows but does not shrink) or `GrowAndShrink` (exact fit).      |
+| `MinimumSize`  | tuple| Guaranteed minimum size `(width, height)`.                                 |
+| `MaximumSize`  | tuple| Allowed maximum size `(width, height)`.                                    |
 
-### Colección de Controles
+#### AutoSize Behavior
 
-| Propiedad    | Tipo | Descripción                                                           |
+The `AutoSize` calculation in `GroupBox` is robust and considers:
+1. **Content:** The position and size of all child controls (`max_right`, `max_bottom`).
+2. **Title:** Measures the width and height of the title text using the current font to ensure it is not cut off.
+3. **Borders and Padding:** Adds the border thickness and configured padding.
+4. **Visual Correction:** Adds an extra safety margin to the right (30px) to compensate for the curvature of the `LabelFrame` border and prevent controls attached to the right edge from appearing clipped.
+5. **Anchor:** If the control grows and is anchored to the right (`Right`) or bottom (`Bottom`), it automatically adjusts its `Left` or `Top` position to keep the anchored edge fixed.
+
+### State Properties
+
+| Property   | Type | Description                                                            | Default Value |
+| ----------- | ---- | ----------------------------------------------------------------------- | ------------- |
+| `Enabled` | bool | Determines if the GroupBox and all its child controls are enabled      | `True`        |
+| `Visible` | bool | Determines if the GroupBox and all its child controls are visible      | `True`        |
+| `Name`    | str  | Name of the control for identification                                 | `''`          |
+
+### Navigation Properties
+
+| Property    | Type | Description                                               | Default Value |
+| ------------ | ---- | ---------------------------------------------------------- | ------------- |
+| `TabStop`  | bool | Determines if the control can receive focus via Tab       | `False`       |
+| `TabIndex` | int  | Tab order of the control                                   | `0`           |
+
+### Controls Collection
+
+| Property    | Type | Description                                                           |
 | ------------ | ---- | ---------------------------------------------------------------------- |
-| `Controls` | list | Lista que contiene todos los controles secundarios dentro del GroupBox |
+| `Controls` | list | List containing all secondary controls within the GroupBox            |
 
-## Eventos
+## Events
 
-### Eventos de Contenedor
+### Container Events
 
-| Evento             | Parámetros | Descripción                                                               |
+| Event             | Parameters | Description                                                               |
 | ------------------ | ----------- | -------------------------------------------------------------------------- |
-| `ControlAdded`   | `control` | Ocurre cuando se añade dinámicamente un control a la colección Controls |
-| `ControlRemoved` | `control` | Ocurre cuando se elimina un control de la colección Controls              |
+| `ControlAdded`   | `control` | Occurs when a control is dynamically added to the Controls collection    |
+| `ControlRemoved` | `control` | Occurs when a control is removed from the Controls collection             |
 
-### Eventos de Interacción
+### Interaction Events
 
-| Evento    | Parámetros | Descripción                                                        |
+| Event    | Parameters | Description                                                        |
 | --------- | ----------- | ------------------------------------------------------------------- |
-| `Enter` | -           | Ocurre cuando el usuario entra en el GroupBox (navegación con Tab) |
-| `Leave` | -           | Ocurre cuando el usuario sale del área del GroupBox                |
-| `Click` | -           | Ocurre cuando el usuario hace clic en el área del contenedor       |
+| `Enter` | -           | Occurs when the user enters the GroupBox (navigation with Tab)     |
+| `Leave` | -           | Occurs when the user leaves the GroupBox area                      |
+| `Click` | -           | Occurs when the user clicks on the container area                  |
 
-### Eventos de Renderizado
+### Rendering Events
 
-| Evento    | Parámetros | Descripción                                |
+| Event    | Parameters | Description                                |
 | --------- | ----------- | ------------------------------------------- |
-| `Paint` | -           | Ocurre cuando el control necesita dibujarse |
+| `Paint` | -           | Occurs when the control needs to be drawn  |
 
-## Métodos
+## Methods
 
-### Gestión de Controles
+### Control Management
 
 #### `AddControl(control)`
 
-Añade un control al GroupBox con posiciones relativas.
+Adds a control to the GroupBox with relative positions.
 
-**Comportamiento:**
+**Behavior:**
 
-- El control se añade al GroupBox (se convierte en su padre)
-- El control solo será visible si su propia propiedad `Visible` es `True` Y el GroupBox también está visible
-- Los controles heredan el estado `Enabled` del GroupBox
-
-```python
-group = GroupBox(form, {'Text': 'Opciones'})
-check = CheckBox(form, {'Text': 'Opción 1', 'Left': 20, 'Top': 10})
-group.AddControl(check)
-```
-
-#### `RemoveControl(control)`
-
-Elimina un control del GroupBox.
+- The control is added to the GroupBox (becomes its parent).
+- The control will only be visible if its own `Visible` property is `True` AND the GroupBox is also visible.
+- Controls inherit the `Enabled` state from the GroupBox.
+- **Recommendation:** It is more efficient to create the control by passing the GroupBox as parent in the constructor (`Button(groupbox, ...)`) than using `AddControl` afterwards, as the latter involves recreating the Tkinter widget internally.
 
 ```python
-group.RemoveControl(check)
+# Recommended way
+group = GroupBox(form, {'Text': 'Options', 'Left': 10, 'Top': 10})
+check = CheckBox(group, {'Text': 'Option 1', 'Left': 20, 'Top': 30})
+
+# Alternative way (less efficient)
+check2 = CheckBox(form, {'Text': 'Option 2'}) # Created on the form
+group.AddControl(check2) # Moved to group (internal recreation)
 ```
 
-### Métodos de Renderizado (heredados de ControlBase)
-
-#### `Invalidate()`
-
-Marca el control como no válido y solicita repintado (se agrega a la cola de mensajes).
-
-#### `Refresh()`
-
-Fuerza un repintado inmediato (equivalente a `Invalidate()` + `Update()`).
-
-## Ejemplos de Uso
-
-### Ejemplo 1: Uso Básico
+## Usage Example
 
 ```python
-from winformpy import Form, GroupBox, CheckBox
+from winformpy import Form, GroupBox, RadioButton, Application
 
-# Crear formulario
-form = Form({'Text': 'Ejemplo GroupBox', 'Width': 400, 'Height': 300})
+class MainForm(Form):
+    def __init__(self):
+        super().__init__()
+        self.Text = "GroupBox Example"
+        self.Width = 300
+        self.Height = 250
 
-# Crear GroupBox
-group = GroupBox(form, {
-    'Text': 'Opciones',
-    'Left': 20,
-    'Top': 20,
-    'Width': 350,
-    'Height': 150
-})
-form.AddControl(group)
+        # Create GroupBox
+        self.gb_options = GroupBox(self)
+        self.gb_options.Text = "Select an option"
+        self.gb_options.Left = 20
+        self.gb_options.Top = 20
+        self.gb_options.Width = 240
+        self.gb_options.Height = 150
+        self.gb_options.AutoSize = True # Automatic adjustment to content
+        self.gb_options.AutoSizeMode = "GrowAndShrink"
 
-# Añadir controles al grupo
-check1 = CheckBox(form, {'Text': 'Opción 1', 'Left': 20, 'Top': 20})
-group.AddControl(check1)
+        # Add options
+        self.rb_option1 = RadioButton(self.gb_options)
+        self.rb_option1.Text = "Option A"
+        self.rb_option1.Top = 30
+        self.rb_option1.Left = 20
 
-check2 = CheckBox(form, {'Text': 'Opción 2', 'Left': 20, 'Top': 60})
-group.AddControl(check2)
+        self.rb_option2 = RadioButton(self.gb_options)
+        self.rb_option2.Text = "Option B"
+        self.rb_option2.Top = 60
+        self.rb_option2.Left = 20
 
-form.Show()
-```
-
-### Ejemplo 2: RadioButtons Mutuamente Exclusivos
-
-```python
-# GroupBox para agrupar RadioButtons (comportamiento exclusivo)
-group_gender = GroupBox(form, {
-    'Text': 'Género',
-    'Left': 20,
-    'Top': 20,
-    'Width': 240,
-    'Height': 120
-})
-form.AddControl(group_gender)
-
-# Los RadioButtons dentro del mismo grupo son mutuamente exclusivos
-radio_male = RadioButton(form, {'Text': 'Masculino', 'Left': 20, 'Top': 10})
-group_gender.AddControl(radio_male)
-
-radio_female = RadioButton(form, {'Text': 'Femenino', 'Left': 20, 'Top': 40})
-group_gender.AddControl(radio_female)
-```
-
-### Ejemplo 3: Control de Visibilidad y Estado
-
-```python
-# Crear grupo con controles
-group = GroupBox(form, {'Text': 'Configuración', 'Left': 20, 'Top': 20})
-form.AddControl(group)
-
-# Botón para deshabilitar el grupo completo
-btn_toggle = Button(form, {'Text': 'Deshabilitar Grupo', 'Left': 20, 'Top': 200})
-form.AddControl(btn_toggle)
-
-def toggle_enabled():
-    group.Enabled = not group.Enabled
-    btn_toggle.Text = 'Habilitar Grupo' if not group.Enabled else 'Deshabilitar Grupo'
-
-btn_toggle.Click = toggle_enabled
-```
-
-### Ejemplo 4: Personalización Visual
-
-```python
-# GroupBox con estilo personalizado
-group = GroupBox(form, {
-    'Text': 'Información Personal',
-    'Left': 20,
-    'Top': 20,
-    'Width': 500,
-    'Height': 180,
-    'BackColor': '#f0f0f0',  # Fondo gris claro
-    'ForeColor': '#003366',   # Título azul oscuro
-    'Font': ('Arial', 10, 'bold'),
-    'Padding': (15, 25, 15, 15)  # Mayor espaciado
-})
-form.AddControl(group)
-```
-
-### Ejemplo 5: Eventos del GroupBox
-
-```python
-def on_control_added(control):
-    print(f"Control añadido: {control.Name}")
-
-def on_control_removed(control):
-    print(f"Control eliminado: {control.Name}")
-
-def on_enter():
-    print("Entrando en el GroupBox")
-
-def on_leave():
-    print("Saliendo del GroupBox")
-
-group.ControlAdded = on_control_added
-group.ControlRemoved = on_control_removed
-group.Enter = on_enter
-group.Leave = on_leave
-```
-
-## Jerarquía de Visibilidad
-
-El GroupBox implementa la jerarquía de visibilidad de Windows Forms:
-
-1. **Cuando el GroupBox se oculta (`Visible = False`):**
-
-   - Automáticamente oculta todos sus controles hijos
-   - No importa la propiedad `Visible` individual de cada control hijo
-2. **Cuando el GroupBox se hace visible (`Visible = True`):**
-
-   - Solo muestra los controles hijos cuya propiedad `Visible` individual sea `True`
-
-```python
-# Ocultar todo el grupo
-group.Visible = False  # Todos los controles hijos se ocultan
-
-# Mostrar el grupo
-group.Visible = True   # Solo los controles con Visible=True se muestran
-```
-
-## Estado Enabled
-
-De manera similar, cuando el GroupBox se deshabilita:
-
-```python
-# Deshabilitar todo el grupo
-group.Enabled = False  # Todos los controles hijos se deshabilitan
-
-# Habilitar el grupo
-group.Enabled = True   # Todos los controles hijos se habilitan
-```
-
-## Casos de Uso Comunes
-
-### 1. Agrupar RadioButtons
-
-Los RadioButtons dentro del mismo GroupBox funcionan como un grupo exclusivo.
-
-### 2. Secciones de Formularios
-
-Organizar campos de entrada relacionados (nombre, dirección, etc.)
-
-### 3. Opciones de Configuración
-
-Agrupar checkboxes de preferencias o configuraciones relacionadas.
-
-### 4. Deshabilitar Secciones Completas
-
-Habilitar/deshabilitar grupos de controles según el contexto de la aplicación.
-
-## Diferencias con Panel
-
-| Característica | GroupBox                                   | Panel                               |
-| --------------- | ------------------------------------------ | ----------------------------------- |
-| Borde visual    | Siempre visible con título                | Configurable (puede no tener borde) |
-| Título         | Sí, en la parte superior                  | Opcional (LabelFrame)               |
-| Uso principal   | Agrupar controles relacionados visualmente | Contenedor general flexible         |
-| AutoScroll      | No                                         | Sí (opcional)                      |
-| Estilo típico  | Borde 3D (groove)                          | Varios estilos disponibles          |
-
-## Notas Técnicas
-
-- El GroupBox utiliza `tk.LabelFrame` de Tkinter como widget subyacente
-- El padding predeterminado reserva espacio extra en la parte superior (20px) para el título
-- No soporta `AutoScroll` (usar Panel si se necesita scroll)
-- Los controles hijos usan posicionamiento relativo al GroupBox, no al formulario
-
-## Ver También
-
-- [Panel](README_Panel.md) - Contenedor general más flexible
-- [CheckBox](README_CheckBox.md) - Control de casilla de verificación
-- [RadioButton](README_RadioButton.md) - Botón de opción exclusiva
-- [ControlBase](README_ControlBase.md) - Clase base de todos los controles
+if __name__ == "__main__":
+    form = MainForm()
+    Application.Run(form)
+``` GroupBox - Control Contenedor de Windows Forms
