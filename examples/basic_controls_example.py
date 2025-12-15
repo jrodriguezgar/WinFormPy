@@ -1,5 +1,6 @@
 """
-Example demonstrating a countdown timer with progress bar and sequential control display
+Example demonstrating basic WinFormPy controls with countdown timer
+Controls: Line, Timer, ProgressBar, Button, Label, TextBox, RadioButton, ComboBox, CheckBox
 """
 
 import sys
@@ -8,7 +9,7 @@ import importlib.util
 
 # Add parent directory to path
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-lib_dir = os.path.join(parent_dir, "lib")
+lib_dir = os.path.join(parent_dir, "winformpy")
 sys.path.insert(0, parent_dir)
 
 # Import winformpy.py
@@ -25,175 +26,368 @@ TextBox = winform_py.TextBox
 CheckBox = winform_py.CheckBox
 RadioButton = winform_py.RadioButton
 ComboBox = winform_py.ComboBox
-ListBox = winform_py.ListBox
 ProgressBar = winform_py.ProgressBar
-Panel = winform_py.Panel
-GroupBox = winform_py.GroupBox
 Timer = winform_py.Timer
+Line = winform_py.Line
 
 
 def main():
     # Create main form
     form = Form()
-    form.Text = "Countdown Controls Demo"
-    form.Width = 550
-    form.Height = 500
+    form.Text = "Basic Controls Demo - WinFormPy"
+    form.Width = 720
+    form.Height = 620
     form.StartPosition = "CenterScreen"
-    form.WindowState = "Maximized"  # Maximize the window
+    form.BackColor = "white"
     
+    # ===== COUNTDOWN SECTION =====
     # Title label
     lbl_title = Label(form, {
-        'Text': 'Countdown Timer Demo',
+        'Text': 'WinFormPy Basic Controls Demo',
         'Left': 20,
         'Top': 20,
-        'Width': 300,
-        'Font': ('Segoe UI', 14, 'bold')
+        'Width': 660,
+        'Height': 30,
+        'Font': ('Segoe UI', 16, 'bold'),
+        'ForeColor': 'navy'
     })
     
-    # Countdown label
-    lbl_countdown = Label(form, {
-        'Text': 'Time remaining: 5 seconds',
+    # Horizontal line separator using Line control
+    line1 = Line(form, {
         'Left': 20,
-        'Top': 60,
-        'Width': 200
+        'Top': 55,
+        'Width': 660,
+        'Height': 5,
+        'BackColor': 'blue'
     })
     
-    # Progress bar
+    # Countdown label (Label control demonstration)
+    lbl_countdown = Label(form, {
+        'Text': 'Initializing... 5 seconds',
+        'Left': 20,
+        'Top': 70,
+        'Width': 400,
+        'Height': 25,
+        'Font': ('Segoe UI', 12, 'bold'),
+        'ForeColor': 'red',
+        'BackColor': 'lightyellow'
+    })
+    
+    # Progress bar (ProgressBar control demonstration)
     progress = ProgressBar(form, {
         'Left': 20,
-        'Top': 90,
-        'Width': 300,
-        'Height': 20,
+        'Top': 100,
+        'Width': 660,
+        'Height': 25,
         'Maximum': 5,
-        'Value': 0  # Start empty, will fill as countdown progresses
+        'Value': 0
     })
     
-    # Button to show controls (initially enabled to start countdown)
-    btn_show = Button(form, {
-        'Text': 'Start Countdown',
-        'Left': 350,
-        'Top': 85,
-        'Width': 150,
-        'Enabled': True
-    })
-    
-    # Timer for countdown
-    countdown_value = 5
+    # Timer for countdown (Timer control demonstration)
+    countdown_value = [5]  # Use list to modify in nested function
     timer = Timer(form._root)
     timer.Interval = 1000  # 1 second
-    countdown_started = False
     
-    def on_timer_tick():
-        nonlocal countdown_value
-        countdown_value -= 1
-        lbl_countdown.Text = f'Time remaining: {countdown_value} seconds'
-        progress.Value = 5 - countdown_value  # Fill the progress bar as countdown progresses
+    # Button initially disabled (Button control demonstration)
+    btn_continue = Button(form, {
+        'Text': 'Please wait...',
+        'Left': 20,
+        'Top': 135,
+        'Width': 150,
+        'Height': 35,
+        'Enabled': False,
+        'Font': ('Segoe UI', 10)
+    })
+    
+    # ===== CONTROLS DEMONSTRATION SECTION =====
+    # Section separator (default: black, 1px)
+    line2 = Line(form, {
+        'Left': 20,
+        'Top': 185,
+        'Width': 660
+    })
+    
+    lbl_section = Label(form, {
+        'Text': 'Control Examples',
+        'Left': 20,
+        'Top': 195,
+        'Width': 300,
+        'Font': ('Segoe UI', 12, 'bold'),
+        'ForeColor': 'black'
+    })
+    
+    # TextBox example
+    lbl_textbox = Label(form, {
+        'Text': '1. TextBox - Enter your name:',
+        'Left': 20,
+        'Top': 230,
+        'Width': 200,
+        'ForeColor': 'black'
+    })
+    
+    txt_name = TextBox(form, {
+        'Text': 'Enter your name here',
+        'Left': 230,
+        'Top': 227,
+        'Width': 250,
+        'Height': 25,
+        'SelectAllOnClick': True
+    })
+    
+    lbl_result = Label(form, {
+        'Text': 'Type something...',
+        'Left': 490,
+        'Top': 230,
+        'Width': 180,
+        'ForeColor': 'green'
+    })
+    
+    def on_textbox_changed(sender=None, e=None):
+        text = txt_name.Text
+        if text:
+            lbl_result.Text = f"Hello, {text}!"
+        else:
+            lbl_result.Text = "Type something..."
+    
+    txt_name.TextChanged = on_textbox_changed
+    
+    # CheckBox example
+    lbl_checkbox = Label(form, {
+        'Text': '2. CheckBox - Select options:',
+        'Left': 20,
+        'Top': 270,
+        'Width': 200,
+        'ForeColor': 'black'
+    })
+    
+    chk_option1 = CheckBox(form, {
+        'Text': 'Option A',
+        'Left': 230,
+        'Top': 268,
+        'Width': 100,
+        'Checked': False
+    })
+    
+    chk_option2 = CheckBox(form, {
+        'Text': 'Option B',
+        'Left': 340,
+        'Top': 268,
+        'Width': 100,
+        'Checked': True
+    })
+    
+    lbl_checkbox_result = Label(form, {
+        'Text': 'B selected',
+        'Left': 450,
+        'Top': 270,
+        'Width': 220,
+        'ForeColor': 'purple'
+    })
+    
+    def update_checkbox_result(sender=None, e=None):
+        selected = []
+        if chk_option1.Checked:
+            selected.append('A')
+        if chk_option2.Checked:
+            selected.append('B')
         
-        # Force GUI update
-        form._root.update_idletasks()
+        if selected:
+            lbl_checkbox_result.Text = f"Selected: {', '.join(selected)}"
+        else:
+            lbl_checkbox_result.Text = "None selected"
+    
+    chk_option1.CheckedChanged = update_checkbox_result
+    chk_option2.CheckedChanged = update_checkbox_result
+    
+    # RadioButton example
+    lbl_radio = Label(form, {
+        'Text': '3. RadioButton - Choose one:',
+        'Left': 20,
+        'Top': 310,
+        'Width': 200,
+        'ForeColor': 'black'
+    })
+    
+    radio1 = RadioButton(form, {
+        'Text': 'Red',
+        'Left': 230,
+        'Top': 308,
+        'Width': 80,
+        'Checked': True
+    })
+    
+    radio2 = RadioButton(form, {
+        'Text': 'Blue',
+        'Left': 320,
+        'Top': 308,
+        'Width': 80,
+        'Checked': False
+    })
+    
+    radio3 = RadioButton(form, {
+        'Text': 'Green',
+        'Left': 410,
+        'Top': 308,
+        'Width': 80,
+        'Checked': False
+    })
+    
+    lbl_radio_result = Label(form, {
+        'Text': 'Color: Red',
+        'Left': 500,
+        'Top': 310,
+        'Width': 170,
+        'ForeColor': 'red'
+    })
+    
+    def on_radio_changed(sender=None, e=None):
+        if radio1.Checked:
+            lbl_radio_result.Text = "Color: Red"
+            lbl_radio_result.ForeColor = "red"
+        elif radio2.Checked:
+            lbl_radio_result.Text = "Color: Blue"
+            lbl_radio_result.ForeColor = "blue"
+        elif radio3.Checked:
+            lbl_radio_result.Text = "Color: Green"
+            lbl_radio_result.ForeColor = "green"
+    
+    radio1.CheckedChanged = on_radio_changed
+    radio2.CheckedChanged = on_radio_changed
+    radio3.CheckedChanged = on_radio_changed
+    
+    # ComboBox example
+    lbl_combo = Label(form, {
+        'Text': '4. ComboBox - Select a city:',
+        'Left': 20,
+        'Top': 350,
+        'Width': 200,
+        'ForeColor': 'black'
+    })
+    
+    combo_cities = ComboBox(form, {
+        'Left': 230,
+        'Top': 347,
+        'Width': 200,
+        'Items': ['Madrid', 'Barcelona', 'Valencia', 'Sevilla', 'Bilbao']
+    })
+    combo_cities.SelectedIndex = 0
+    
+    lbl_combo_result = Label(form, {
+        'Text': 'Selected: Madrid',
+        'Left': 440,
+        'Top': 350,
+        'Width': 230,
+        'ForeColor': 'darkorange'
+    })
+    
+    def on_combo_changed(sender=None, e=None):
+        if combo_cities.SelectedItem:
+            lbl_combo_result.Text = f"Selected: {combo_cities.SelectedItem}"
+    
+    combo_cities.SelectedIndexChanged = on_combo_changed
+    
+    # Action Button example (different from countdown button)
+    lbl_button = Label(form, {
+        'Text': '5. Button - Click action:',
+        'Left': 20,
+        'Top': 390,
+        'Width': 200,
+        'ForeColor': 'black'
+    })
+    
+    click_count = [0]
+    
+    btn_action = Button(form, {
+        'Text': 'Click Me!',
+        'Left': 230,
+        'Top': 385,
+        'Width': 120,
+        'Height': 35
+    })
+    
+    lbl_button_result = Label(form, {
+        'Text': 'Clicks: 0',
+        'Left': 360,
+        'Top': 390,
+        'Width': 310,
+        'ForeColor': 'teal'
+    })
+    
+    def on_action_click(sender=None, e=None):
+        click_count[0] += 1
+        lbl_button_result.Text = f"Clicks: {click_count[0]} - Last clicked at {countdown_value[0]}s remaining"
+        btn_action.Text = f"Clicked {click_count[0]}x"
+    
+    btn_action.Click = on_action_click
+    
+    # Separator line
+    line3 = Line(form, {
+        'Left': 20,
+        'Top': 440,
+        'Width': 660,
+        'Height': 5,
+        'BackColor': 'gray'
+    })
+    
+    # Summary labels
+    lbl_summary_title = Label(form, {
+        'Text': 'Controls Demonstrated:',
+        'Left': 20,
+        'Top': 455,
+        'Width': 660,
+        'Font': ('Segoe UI', 10, 'bold'),
+        'ForeColor': 'black'
+    })
+    
+    lbl_summary = Label(form, {
+        'Text': '✓ Line (separators)  ✓ Timer (countdown)  ✓ ProgressBar (visual feedback)\n' +
+                '✓ Button (actions)  ✓ Label (text display)  ✓ TextBox (text input)\n' +
+                '✓ RadioButton (single choice)  ✓ ComboBox (dropdown)  ✓ CheckBox (multiple choice)',
+        'Left': 20,
+        'Top': 480,
+        'Width': 660,
+        'Height': 80,
+        'Font': ('Segoe UI', 9),
+        'ForeColor': 'black'
+    })
+    
+    # Timer tick event handler
+    def on_timer_tick(sender=None, e=None):
+        countdown_value[0] -= 1
+        lbl_countdown.Text = f'Loading controls... {countdown_value[0]} seconds'
+        progress.Value = 5 - countdown_value[0]
         
-        if countdown_value <= 0:
+        # Force visual update
+        lbl_countdown.Invalidate()
+        progress.Invalidate()
+        
+        if countdown_value[0] <= 0:
             timer.Stop()
-            btn_show.Enabled = True
-            btn_show.Text = 'Show Controls'
-            lbl_countdown.Text = 'Countdown complete! Click the button to see controls.'
+            btn_continue.Enabled = True
+            btn_continue.Text = 'Ready! ✓'
+            lbl_countdown.Text = 'All controls loaded!'
+            lbl_countdown.ForeColor = 'green'
+            lbl_countdown.BackColor = 'lightgreen'
+            progress.Value = 5
     
     timer.Tick = on_timer_tick
-    # Don't start timer yet
     
-    # List of controls to show
-    controls_to_show = [
-        ('Label', 'This is a Label'),
-        ('TextBox', 'TextBox example'),
-        ('Button', 'Sample Button'),
-        ('CheckBox', 'CheckBox example'),
-        ('RadioButton', 'RadioButton example'),
-        ('ComboBox', ['Item 1', 'Item 2', 'Item 3']),
-        ('ListBox', ['List Item 1', 'List Item 2', 'List Item 3']),
-        ('Panel', 'Panel with Border'),
-        ('GroupBox', 'GroupBox with controls')
-    ]
+    # Start timer automatically when form loads
+    def on_form_load(sender=None, e=None):
+        timer.Start()
     
-    current_control_index = 0
-    left_column_y = 140  # Posición Y para la columna izquierda
-    right_column_y = 140  # Posición Y para la columna derecha
+    form.Load = on_form_load
     
-    def on_button_click():
-        nonlocal current_control_index, left_column_y, right_column_y, countdown_started, countdown_value
-        if not countdown_started:
-            # Start the countdown
-            countdown_started = True
-            countdown_value = 5  # Reset countdown
-            progress.Value = 0
-            lbl_countdown.Text = 'Time remaining: 5 seconds'
-            btn_show.Enabled = False
-            btn_show.Text = 'Countdown in progress...'
-            timer.Start()
-            return
-        
-        # Show controls logic
-        if current_control_index < len(controls_to_show):
-            control_name, control_value = controls_to_show[current_control_index]
-            
-            # Determinar si va en columna izquierda o derecha
-            is_left_column = current_control_index % 2 == 0
-            x_position = 20 if is_left_column else 250  # Columna izquierda: 20, derecha: 250
-            y_position = left_column_y if is_left_column else right_column_y
-            
-            # Add a label above the control
-            info_label = Label(form, {
-                'Text': f'{current_control_index + 1}. {control_name}',
-                'Left': x_position,
-                'Top': y_position - 25,
-                'Width': 200,
-                'Font': ('Segoe UI', 10, 'bold')
-            })
-            
-            # Create the control based on type
-            if control_name == 'Label':
-                control = Label(form, {'Text': control_value, 'Left': x_position, 'Top': y_position, 'Width': 200})
-            elif control_name == 'TextBox':
-                control = TextBox(form, {'Text': control_value, 'Left': x_position, 'Top': y_position, 'Width': 200})
-            elif control_name == 'Button':
-                control = Button(form, {'Text': control_value, 'Left': x_position, 'Top': y_position, 'Width': 150})
-            elif control_name == 'CheckBox':
-                control = CheckBox(form, {'Text': control_value, 'Left': x_position, 'Top': y_position})
-            elif control_name == 'RadioButton':
-                control = RadioButton(form, {'Text': control_value, 'Left': x_position, 'Top': y_position})
-            elif control_name == 'ComboBox':
-                control = ComboBox(form, {'Left': x_position, 'Top': y_position, 'Width': 200, 'Items': control_value})
-            elif control_name == 'ListBox':
-                control = ListBox(form, {'Left': x_position, 'Top': y_position, 'Width': 200, 'Height': 80, 'Items': control_value})
-            elif control_name == 'Panel':
-                control = Panel(form, {'Left': x_position, 'Top': y_position, 'Width': 200, 'Height': 80, 'BackColor': 'lightblue', 'Text': control_value, 'BorderStyle': 'Fixed3D'})
-                # Add a RadioButton inside the panel
-                inner_radiobutton = RadioButton(control, {'Text': 'RadioButton inside Panel', 'Left': 10, 'Top': 10, 'Width': 180})
-                control.AddControl(inner_radiobutton)
-            elif control_name == 'GroupBox':
-                control = GroupBox(form, {'Left': x_position, 'Top': y_position, 'Width': 200, 'Height': 80, 'Text': control_value})
-                # Add controls inside the GroupBox
-                inner_checkbox = CheckBox(control, {'Text': 'Option inside GroupBox', 'Left': 10, 'Top': 10, 'Width': 180})
-                control.AddControl(inner_checkbox)
-                inner_radiobutton = RadioButton(control, {'Text': 'Radio inside GroupBox', 'Left': 10, 'Top': 35, 'Width': 180})
-                control.AddControl(inner_radiobutton)
-            
-            # Incrementar la posición Y de la columna correspondiente
-            if is_left_column:
-                left_column_y += 100  # Espacio para el siguiente control en columna izquierda
-            else:
-                right_column_y += 100  # Espacio para el siguiente control en columna derecha
-                
-            current_control_index += 1
-            
-            if current_control_index >= len(controls_to_show):
-                btn_show.Text = 'All controls shown!'
-                btn_show.Enabled = False
-        else:
-            btn_show.Enabled = False
+    # Continue button click (just for demonstration)
+    def on_continue_click(sender=None, e=None):
+        txt_name.Text = "Demo User"
+        combo_cities.SelectedIndex = 2  # Valencia
+        on_textbox_changed()
+        on_combo_changed()
     
-    btn_show.Click = on_button_click
+    btn_continue.Click = on_continue_click
     
-    form.ShowDialog()
+    form.Show()
 
 
 if __name__ == "__main__":

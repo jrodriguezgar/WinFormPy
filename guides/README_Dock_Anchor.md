@@ -1,103 +1,121 @@
-# Dock y Anchor en Windows Forms y winformpy
+# Dock and Anchor in Windows Forms and winformpy
 
-Este documento explica las propiedades `Dock` y `Anchor` de Windows Forms y cómo se implementan en la biblioteca `winformpy`, que permite desarrollar interfaces gráficas similares a VB.NET/WinForms en Python usando Tkinter.
+This document explains the `Dock` and `Anchor` properties of Windows Forms and how they are implemented in the `winformpy` library, which allows developing graphical interfaces similar to VB.NET/WinForms in Python using Tkinter.
 
-## Índice
+## Index
 
-1. [Introducción](#introducción)
-2. [Propiedad Dock](#propiedad-dock)
-3. [Propiedad Anchor](#propiedad-anchor)
-4. [Implementación en winformpy](#implementación-en-winformpy)
-5. [Ejemplos de Uso](#ejemplos-de-uso)
-6. [Mejores Prácticas](#mejores-prácticas)
-7. [Notas Técnicas](#notas-técnicas)
+1. [Introduction](#introduction)
+2. [Dock Property](#dock-property)
+3. [Anchor Property](#anchor-property)
+4. [Implementation in winformpy](#implementation-in-winformpy)
+5. [Usage Examples](#usage-examples)
+6. [Best Practices](#best-practices)
+7. [Technical Notes](#technical-notes)
 
-## Introducción
+## Introduction
 
-En Windows Forms (VB.NET/C#), las propiedades `Dock` y `Anchor` son fundamentales para crear interfaces responsive que se adaptan automáticamente al redimensionamiento de formularios y contenedores.
+In Windows Forms (VB.NET/C#), the `Dock` and `Anchor` properties are fundamental for creating responsive interfaces that automatically adapt to the resizing of forms and containers.
 
-- **Dock**: "Acopla" un control a un borde del contenedor, haciendo que ocupe todo el espacio disponible en esa dirección.
-- **Anchor**: "Ancla" un control a uno o más bordes del contenedor, manteniendo distancias fijas mientras permite redimensionamiento.
+- **Dock**: "Docks" a control to an edge of the container, making it occupy all available space in that direction.
+- **Anchor**: "Anchors" a control to one or more edges of the container, maintaining fixed distances while allowing resizing.
 
-Estas propiedades eliminan la necesidad de calcular manualmente posiciones y tamaños al redimensionar la ventana.
+These properties eliminate the need to manually calculate positions and sizes when resizing the window.
 
-## Propiedad Dock
+## Dock Property
 
-### Concepto en Windows Forms
+### Concept in Windows Forms
 
-La propiedad `Dock` especifica qué borde del contenedor padre debe "acoplarse" el control. Cuando un control está acoplado:
+The `Dock` property specifies which edge of the parent container the control should be "docked" to. When a control is docked:
 
-- Ocupa todo el espacio disponible en la dirección especificada
-- Se redimensiona automáticamente cuando cambia el tamaño del contenedor
-- Puede combinarse con otros controles acoplados para crear layouts complejos
+- It occupies all available space in the specified direction
+- It automatically resizes when the container's size changes
+- It can be combined with other docked controls to create complex layouts
 
-### Valores de Dock
+### Dock Values
 
-- **`None`** (predeterminado): Sin acoplamiento, posicionamiento absoluto
-- **`Top`**: Acoplado al borde superior, ocupa todo el ancho
-- **`Bottom`**: Acoplado al borde inferior, ocupa todo el ancho
-- **`Left`**: Acoplado al borde izquierdo, ocupa toda la altura
-- **`Right`**: Acoplado al borde derecho, ocupa toda la altura
-- **`Fill`**: Ocupa todo el espacio disponible del contenedor
+The `Dock` property accepts values from the `DockStyle` enum or their string representations:
 
-### Orden de Acoplamiento
+- **`DockStyle.None_`** (or `'None_'`): No docking, absolute positioning (default).
+- **`DockStyle.Top`** (or `'Top'`): Docked to the top edge.
+- **`DockStyle.Bottom`** (or `'Bottom'`): Docked to the bottom edge.
+- **`DockStyle.Left`** (or `'Left'`): Docked to the left edge.
+- **`DockStyle.Right`** (or `'Right'`): Docked to the right edge.
+- **`DockStyle.Fill`** (or `'Fill'`): Occupies all remaining space.
 
-Cuando múltiples controles están acoplados en el mismo contenedor, el orden importa:
+### Docking Order
 
-1. Controles `Top` se procesan primero (de arriba hacia abajo)
-2. Controles `Bottom` se procesan después (de abajo hacia arriba)
-3. Controles `Left` se procesan después (de izquierda a derecha)
-4. Controles `Right` se procesan después (de derecha a izquierda)
-5. Controles `Fill` ocupan el espacio restante
+When multiple controls are docked in the same container, the **Z-order** (stacking order) determines priority:
 
-## Propiedad Anchor
+1. Controls at the **bottom** of the Z-order (added first) are docked first and take the full edge.
+2. Subsequent controls are docked into the *remaining* space.
+3. A control with `Dock.Fill` occupies whatever space is left after all other docked controls are placed.
 
-### Concepto en Windows Forms
+To change the docking priority, use `BringToFront()` (moves to top of Z-order, docked last) or `SendToBack()` (moves to bottom of Z-order, docked first).
 
-La propiedad `Anchor` especifica qué bordes del contenedor padre deben mantenerse a distancia fija del control. Es útil para:
+## Anchor Property
 
-- Mantener márgenes constantes al redimensionar
-- Permitir que controles crezcan o se muevan con la ventana
-- Crear layouts donde algunos controles permanecen fijos mientras otros se ajustan
+### Concept in Windows Forms
 
-### Valores de Anchor
+The `Anchor` property specifies which edges of the parent container should maintain a fixed distance from the control. It is useful for:
 
-`Anchor` es una combinación de bordes (flags):
+- Maintaining constant margins when resizing
+- Allowing controls to grow or move with the window
+- Creating layouts where some controls remain fixed while others adjust
 
-- **`Top`**: Distancia fija al borde superior
-- **`Bottom`**: Distancia fija al borde inferior
-- **`Left`**: Distancia fija al borde izquierdo
-- **`Right`**: Distancia fija al borde derecho
+### Anchor Values
 
-**Combinaciones comunes:**
+`Anchor` accepts a combination of `AnchorStyles` flags or a comma-separated string:
 
-- **`Top, Left`** (predeterminado): Esquina superior izquierda fija, control no se redimensiona
-- **`Top, Bottom, Left`**: Altura variable, ancho fijo, esquina izquierda fija
-- **`Top, Left, Right`**: Ancho variable, altura fija, borde superior fijo
-- **`Top, Bottom, Left, Right`**: Control se redimensiona en ambas direcciones
+- **`AnchorStyles.Top`** (or `'Top'`): Fixed distance to the top edge.
+- **`AnchorStyles.Bottom`** (or `'Bottom'`): Fixed distance to the bottom edge.
+- **`AnchorStyles.Left`** (or `'Left'`): Fixed distance to the left edge.
+- **`AnchorStyles.Right`** (or `'Right'`): Fixed distance to the right edge.
+- **`AnchorStyles.None_`** (or `'None_'`): Not anchored to any edge (moves relatively).
 
-### Comportamiento
+**Common combinations:**
 
-- Si se ancla a lados opuestos (Left+Right), el control se estira horizontalmente
-- Si se ancla a lados opuestos (Top+Bottom), el control se estira verticalmente
-- Las distancias iniciales a los bordes se calculan cuando se muestra el control por primera vez
+- **`'Top, Left'`** (default): Top-left corner fixed, control does not resize.
+- **`'Top, Bottom, Left'`**: Variable height, fixed width, left edge fixed.
+- **`'Top, Left, Right'`**: Variable width, fixed height, top edge fixed.
+- **`'Top, Bottom, Left, Right'`**: Control resizes in both directions.
 
-## Implementación en winformpy
+### Behavior
 
-### Compatibilidad con Windows Forms
+- If anchored to opposite sides (Left+Right), the control stretches horizontally.
+- If anchored to opposite sides (Top+Bottom), the control stretches vertically.
+- Initial distances to edges are calculated when the control is first displayed or when the property is set.
 
-`winformpy` implementa `Dock` y `Anchor` con alta fidelidad a Windows Forms:
+## Implementation in winformpy
+
+### Compatibility with Windows Forms
+
+`winformpy` implements `Dock` and `Anchor` with high fidelity to Windows Forms. You can set these properties using the Enum or strings in the constructor (via `props`) or directly on the object.
 
 ```python
-from winformpy import Form, Button, Panel
+from winformpy import Form, Button, Panel, DockStyle, AnchorStyles
 
-# Crear formulario
-form = Form({'Text': 'Dock y Anchor Demo', 'Width': 600, 'Height': 400})
+# Create form
+form = Form({'Text': 'Dock and Anchor Demo', 'Width': 600, 'Height': 400})
 
-# Panel acoplado que ocupa toda la ventana
+# Panel docked to fill the entire window
+# Using string shortcut in props
 main_panel = Panel(form, {'Dock': 'Fill'})
 
-# Botón anclado a la esquina inferior derecha
+# Button anchored to the bottom-right corner
+# Using direct property assignment with string
+btn_close = Button(main_panel)
+btn_close.Text = "Close"
+btn_close.Left = 500
+btn_close.Top = 350
+btn_close.Anchor = "Bottom, Right"
+
+# Button docked to the top
+# Using Enum
+btn_top = Button(main_panel)
+btn_top.Text = "I am at the Top"
+btn_top.Height = 50
+btn_top.Dock = DockStyle.Top
+```
 button = Button(main_panel, {
     'Text': 'OK',
     'Anchor': ['Bottom', 'Right'],
@@ -106,88 +124,88 @@ button = Button(main_panel, {
 })
 ```
 
-### Propiedades Específicas
+### Specific Properties
 
 #### Dock
 
 ```python
-control.Dock = 'Fill'  # Ocupa todo el espacio disponible
-control.Dock = 'Top'   # Acoplado arriba
-control.Dock = 'None'  # Sin acoplamiento (predeterminado)
+control.Dock = 'Fill'  # Occupies all available space
+control.Dock = 'Top'   # Docked to top
+control.Dock = 'None'  # No docking (default)
 ```
 
 #### Anchor
 
 ```python
-control.Anchor = ['Top', 'Left']        # Predeterminado
-control.Anchor = ['Top', 'Bottom', 'Left', 'Right']  # Se estira en ambas direcciones
-control.Anchor = ['Bottom', 'Right']    # Esquina inferior derecha fija
+control.Anchor = ['Top', 'Left']        # Default
+control.Anchor = ['Top', 'Bottom', 'Left', 'Right']  # Stretches in both directions
+control.Anchor = ['Bottom', 'Right']    # Bottom-right corner fixed
 ```
 
-### Soporte para Margin
+### Margin Support
 
-Ambos sistemas respetan la propiedad `Margin` del control:
+Both systems respect the control's `Margin` property:
 
 ```python
 button = Button(panel, {
-    'Text': 'Botón con margen',
+    'Text': 'Button with margin',
     'Dock': 'Bottom',
-    'Margin': (10, 5, 10, 5)  # Izquierda, arriba, derecha, abajo
+    'Margin': (10, 5, 10, 5)  # Left, Top, Right, Bottom
 })
 ```
 
-### Eventos de Redimensionamiento
+### Resizing Events
 
-- `Dock` se actualiza automáticamente en eventos `<Configure>` del contenedor
-- `Anchor` calcula distancias iniciales en el primer evento `<Map>` o `<Configure>`
-- Los cambios se aplican en tiempo real sin intervención del programador
+- `Dock` updates automatically on container `<Configure>` events
+- `Anchor` calculates initial distances on the first `<Map>` or `<Configure>` event
+- Changes are applied in real-time without programmer intervention
 
-## Ejemplos de Uso
+## Usage Examples
 
-### Ejemplo 1: Layout Básico con Dock
+### Example 1: Basic Layout with Dock
 
 ```python
 from winformpy import Form, Panel, Button, TextBox
 
-form = Form({'Text': 'Layout con Dock', 'Width': 500, 'Height': 400})
+form = Form({'Text': 'Layout with Dock', 'Width': 500, 'Height': 400})
 
-# Barra de herramientas arriba
+# Toolbar at the top
 toolbar = Panel(form, {
     'Dock': 'Top',
     'Height': 50,
     'BackColor': 'LightBlue'
 })
 
-# Barra de estado abajo
+# Status bar at the bottom
 status_bar = Panel(form, {
     'Dock': 'Bottom',
     'Height': 30,
     'BackColor': 'LightGray'
 })
 
-# Panel principal que ocupa el espacio restante
+# Main panel occupying the remaining space
 main_panel = Panel(form, {
     'Dock': 'Fill',
     'BackColor': 'White'
 })
 
-# Contenido en el panel principal
+# Content in the main panel
 text_box = TextBox(main_panel, {
     'Dock': 'Fill',
     'Multiline': True
 })
 ```
 
-### Ejemplo 2: Formulario con Anchor
+### Example 2: Form with Anchor
 
 ```python
 from winformpy import Form, Label, TextBox, Button
 
-form = Form({'Text': 'Formulario con Anchor', 'Width': 400, 'Height': 300})
+form = Form({'Text': 'Form with Anchor', 'Width': 400, 'Height': 300})
 
-# Etiqueta que se estira horizontalmente
+# Label that stretches horizontally
 title_label = Label(form, {
-    'Text': 'Título del Formulario',
+    'Text': 'Form Title',
     'Anchor': ['Top', 'Left', 'Right'],
     'Top': 20,
     'Left': 20,
@@ -196,152 +214,153 @@ title_label = Label(form, {
     'TextAlign': 'center'
 })
 
-# Campo de texto que se estira
+# Text field that stretches
 name_textbox = TextBox(form, {
     'Anchor': ['Top', 'Left', 'Right'],
     'Top': 70,
     'Left': 20,
-    'Right': 20,
+    'Width': 360, # 400 (Form Width) - 20 (Left) - 20 (Right Margin)
     'Height': 25
 })
 
-# Botones anclados a la esquina inferior derecha
+# Buttons anchored to the bottom-right corner
+# Note: Initial position must be calculated correctly.
+# Form Width: 400, Height: 300
 ok_button = Button(form, {
     'Text': 'OK',
     'Anchor': ['Bottom', 'Right'],
     'Width': 80,
     'Height': 30,
-    'Bottom': 20,
-    'Right': 20
+    'Left': 300, # 400 - 80 - 20 (Margin)
+    'Top': 250   # 300 - 30 - 20 (Margin)
 })
 
 cancel_button = Button(form, {
-    'Text': 'Cancelar',
+    'Text': 'Cancel',
     'Anchor': ['Bottom', 'Right'],
     'Width': 80,
     'Height': 30,
-    'Bottom': 20,
-    'Right': 120
+    'Left': 200, # 400 - 80 - 120 (Margin)
+    'Top': 250   # 300 - 30 - 20 (Margin)
 })
 ```
 
-### Ejemplo 3: Layout Complejo Combinado
+### Example 3: Complex Combined Layout
 
 ```python
 from winformpy import Form, Panel, Button, ListBox, TextBox
 
-form = Form({'Text': 'Layout Complejo', 'Width': 800, 'Height': 600})
+form = Form({'Text': 'Complex Layout', 'Width': 800, 'Height': 600})
 
-# Panel izquierdo para navegación
+# Left panel for navigation
 nav_panel = Panel(form, {
     'Dock': 'Left',
     'Width': 200,
     'BackColor': 'LightGray'
 })
 
-# Lista de navegación
+# Navigation list
 nav_list = ListBox(nav_panel, {
     'Dock': 'Fill'
 })
 
-# Panel derecho que ocupa el resto
+# Right panel occupying the rest
 content_panel = Panel(form, {
     'Dock': 'Fill'
 })
 
-# Barra de herramientas en el contenido
+# Toolbar in the content
 toolbar = Panel(content_panel, {
     'Dock': 'Top',
     'Height': 40,
     'BackColor': 'WhiteSmoke'
 })
 
-# Área de contenido principal
+# Main content area
 main_area = Panel(content_panel, {
     'Dock': 'Fill'
 })
 
-# Botón flotante anclado abajo a la derecha
+# Floating button anchored bottom-right
+# Note: Coordinates must be calculated based on estimated container size
 action_button = Button(main_area, {
-    'Text': 'Acción',
+    'Text': 'Action',
     'Anchor': ['Bottom', 'Right'],
     'Width': 100,
     'Height': 35,
-    'Bottom': 20,
-    'Right': 20
+    'Left': 480, # Example: 600 (Approx Width) - 100 - 20
+    'Top': 505   # Example: 560 (Approx Height) - 35 - 20
 })
 ```
 
-## Mejores Prácticas
+## Best Practices
 
-### Elegir entre Dock y Anchor
+### Choosing between Dock and Anchor
 
-- **Usa Dock cuando:**
+- **Use Dock when:**
 
-  - Quieres que un control ocupe todo el espacio disponible en una dirección
-  - Creas layouts con secciones distintas (header, sidebar, footer, content)
-  - El control debe redimensionarse proporcionalmente con el contenedor
-- **Usa Anchor cuando:**
+  - You want a control to occupy all available space in one direction
+  - Creating layouts with distinct sections (header, sidebar, footer, content)
+  - The control should resize proportionally with the container
+- **Use Anchor when:**
 
-  - Quieres mantener márgenes fijos alrededor de un control
-  - Algunos controles deben permanecer en posiciones fijas mientras otros se ajustan
-  - Creas diálogos o formularios con elementos que no deben estirarse
+  - You want to maintain fixed margins around a control
+  - Some controls should remain in fixed positions while others adjust
+  - Creating dialogs or forms with elements that should not stretch
 
-### Consejos de Diseño
+### Design Tips
 
-1. **Orden de creación**: Crea controles Dock en orden lógico (Top, luego Bottom, luego Left, Right, Fill)
-2. **Evita conflictos**: No uses Dock y Anchor en el mismo control
-3. **Prueba redimensionamiento**: Siempre prueba cómo se comporta la interfaz al redimensionar
-4. **Usa paneles contenedores**: Agrupa controles relacionados en Paneles para layouts más complejos
-5. **Considera MinimumSize**: Establece tamaños mínimos para evitar que los controles se hagan demasiado pequeños
+1. **Creation order**: Create Dock controls in logical order (Top, then Bottom, then Left, Right, Fill).
+2. **Exclusivity**: **Do not use Dock and Anchor on the same control**. Setting one property automatically overrides the other.
+3. **Test resizing**: Always test how the interface behaves when resizing.
+4. **Use container panels**: Group related controls in Panels for more complex layouts.
+5. **Consider MinimumSize**: Set minimum sizes to prevent controls from becoming too small.
+6. **Consider MinimumSize**: Set minimum sizes to prevent controls from becoming too small.
 
-### Rendimiento
+### Performance
 
-- Dock y Anchor se actualizan automáticamente en eventos de redimensionamiento
-- Para interfaces complejas, considera usar Paneles anidados para reducir cálculos
-- Evita crear demasiados controles con Anchor en contenedores muy dinámicos
+- Dock and Anchor update automatically on resize events
+- For complex interfaces, consider using nested Panels to reduce calculations
+- Avoid creating too many Anchor controls in highly dynamic containers
 
-## Notas Técnicas
+## Technical Notes
 
-### Implementación Interna
+### Internal Implementation
 
-`winformpy` implementa Dock y Anchor mediante:
+`winformpy` implements Dock and Anchor through:
 
-- **Eventos Tkinter**: Vincula `<Configure>` para detectar cambios de tamaño
-- **Cálculos de geometría**: Mantiene distancias relativas y absolutas
-- **Layout automático**: Reorganiza controles cuando cambian las propiedades
-- **Jerarquía de contenedores**: Respeta la estructura padre-hijo de controles
+- **Tkinter Events**: Binds `<Configure>` to detect size changes
+- **Geometry Calculations**: Maintains relative and absolute distances
+- **Automatic Layout**: Reorganizes controls when properties change
+- **Container Hierarchy**: Respects the parent-child structure of controls
+- **Z-Order**: Respects the standard Windows Forms Z-Order (back controls have priority for outer docking).
 
-### Limitaciones vs Windows Forms
+### Limitations vs Windows Forms
 
-- **Subpixel positioning**: Tkinter puede tener ligeras diferencias en posicionamiento
-- **Complex layouts**: Para layouts muy complejos, considera usar `TableLayoutPanel` o `FlowLayoutPanel`
-- **Animation**: Los cambios son inmediatos
+- **Subpixel positioning**: Tkinter may have slight differences in positioning
+- **Complex layouts**: For very complex layouts, consider using `TableLayoutPanel` or `FlowLayoutPanel`
+- **Animation**: Changes are immediate
 
-### Compatibilidad
+### Compatibility
 
-- ✅ Funciona con todos los controles de `winformpy`
-- ✅ Compatible con `AutoSize` y otras propiedades de layout
-- ✅ Respeta `Margin` y `Padding`
+- ✅ Works with all `winformpy` controls
+- ✅ Compatible with `AutoSize` and other layout properties
+- ✅ Respects `Margin` and `Padding`
 
-### Depuración
+### Debugging
 
-Para depurar problemas de layout:
+To debug layout issues:
 
 ```python
-# Ver propiedades actuales
+# View current properties
 print(f"Dock: {control.Dock}")
 print(f"Anchor: {control.Anchor}")
 print(f"Size: {control.Size}")
 print(f"Location: {control.Location}")
 
-# Forzar actualización manual
+# Force manual update
 control.Invalidate()
 control.Refresh()
 ```
 
 ---
-
-**Autor**: Vibe coding by DatamanEdge
-**Versión**: 1.0.4
-**Licencia**: MIT

@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import from winformpy.py file
 import importlib.util
-spec = importlib.util.spec_from_file_location("winform_py", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "winformpy.py"))
+spec = importlib.util.spec_from_file_location("winform_py", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "winformpy", "winformpy.py"))
 winform_py = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(winform_py)
 
@@ -35,8 +35,8 @@ def main():
     # Create form
     form = Form()
     form.Text = "ToolTip - Complete Example"
-    form.Width = 700
-    form.Height = 620
+    form.Width = 1024
+    form.Height = 768
     form.StartPosition = "CenterScreen"
     
     # Variables

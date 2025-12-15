@@ -1,27 +1,29 @@
-# Patrón Recomendado: Crear Controles con el Contenedor como Padre
+# Recommended Pattern: Create Controls with the Container as Parent
 
-## Resumen
+## Summary
 
-Al usar contenedores en winform-py (Form, Panel, GroupBox, TabPage, MdiChildForm), siempre es **mejor rendimiento** crear los controles directamente con el contenedor como padre, en lugar de crearlos con el Form y luego añadirlos al contenedor.
+When using containers in winform-py (Form, Panel, GroupBox, TabPage, MdiChildForm), it is always **better performance** to create controls directly with the container as the parent, instead of creating them with the Form and then adding them to the container.
 
-## Contenedores Soportados
+## Supported Containers
 
-Todos estos contenedores soportan el patrón recomendado:
+All these containers support the recommended pattern:
 
-- **Form** - Formulario principal
-- **Panel** - Contenedor genérico
-- **GroupBox** - Contenedor con borde y título
-- **TabPage** - Página de un TabControl
-- **MdiChildForm** - Formulario hijo MDI
+- **Form** - Main form
+- **Panel** - Generic container
+- **GroupBox** - Container with border and title
+- **FlowLayoutPanel** - Panel with automatic flow layout
+- **TableLayoutPanel** - Panel with table/grid layout
+- **TabPage** - Page of a TabControl
+- **MdiChildForm** - MDI child form
 
-## ✅ Patrón RECOMENDADO
+## ✅ RECOMMENDED PATTERN
 
 ### Form
 ```python
-form = Form({'Text': 'Mi Aplicación'})
+form = Form({'Text': 'My Application'})
 
-# Crear controles CON EL FORM como padre
-button = Button(form, {'Text': 'Aceptar', 'Left': 10, 'Top': 10})
+# Create controls WITH THE FORM as parent
+button = Button(form, {'Text': 'Accept', 'Left': 10, 'Top': 10})
 form.AddControl(button)
 ```
 
@@ -30,7 +32,7 @@ form.AddControl(button)
 panel = Panel(form, {'Left': 10, 'Top': 10, 'Width': 300, 'Height': 200})
 form.AddControl(panel)
 
-# Crear controles CON EL PANEL como padre
+# Create controls WITH THE PANEL as parent
 button = Button(panel, {'Text': 'OK', 'Left': 10, 'Top': 10})
 panel.AddControl(button)
 ```
@@ -38,20 +40,34 @@ panel.AddControl(button)
 ### GroupBox
 ```python
 group = GroupBox(form, {
-    'Text': 'Opciones',
-    'Left': 10,
-    'Top': 10,
-    'Width': 300,
-    'Height': 150
+   'Text': 'Options',
+   'Left': 10,
+   'Top': 10,
+   'Width': 300,
+   'Height': 150
 })
 form.AddControl(group)
 
-# Crear controles CON EL GROUPBOX como padre
-radio1 = RadioButton(group, {'Text': 'Opción 1', 'Left': 10, 'Top': 10})
+# Create controls WITH THE GROUPBOX as parent
+radio1 = RadioButton(group, {'Text': 'Option 1', 'Left': 10, 'Top': 10})
 group.AddControl(radio1)
 
-radio2 = RadioButton(group, {'Text': 'Opción 2', 'Left': 10, 'Top': 40})
+radio2 = RadioButton(group, {'Text': 'Option 2', 'Left': 10, 'Top': 40})
 group.AddControl(radio2)
+```
+
+### FlowLayoutPanel / TableLayoutPanel
+```python
+flow = FlowLayoutPanel(form, {'Left': 10, 'Top': 200, 'Width': 300, 'Height': 100})
+form.AddControl(flow)
+
+# Create controls WITH THE FLOWLAYOUTPANEL as parent
+# Note: Left/Top are ignored by automatic layout, but the parent is crucial
+btn1 = Button(flow, {'Text': 'Button 1', 'Width': 80})
+flow.AddControl(btn1)
+
+btn2 = Button(flow, {'Text': 'Button 2', 'Width': 80})
+flow.AddControl(btn2)
 ```
 
 ### TabPage
@@ -59,10 +75,10 @@ group.AddControl(radio2)
 tab_control = TabControl(form, {'Left': 10, 'Top': 10})
 form.AddControl(tab_control)
 
-tab_page = TabPage({'Text': 'Página 1'})
+tab_page = TabPage({'Text': 'Page 1'})
 tab_control.AddTab(tab_page)
 
-# Crear controles CON EL TABPAGE como padre
+# Create controls WITH THE TABPAGE as parent
 button = Button(tab_page, {'Text': 'OK', 'Left': 10, 'Top': 10})
 tab_page.AddControl(button)
 ```
@@ -71,197 +87,202 @@ tab_page.AddControl(button)
 ```python
 parent = Form({'IsMdiContainer': True})
 
-child = MdiChildForm(parent, {'Text': 'Documento 1'})
+child = MdiChildForm(parent, {'Text': 'Document 1'})
 parent.AddMDIChild(child)
 
-# Crear controles CON EL MDICHILD como padre
-button = Button(child, {'Text': 'Guardar', 'Left': 10, 'Top': 10})
+# Create controls WITH THE MDICHILD as parent
+button = Button(child, {'Text': 'Save', 'Left': 10, 'Top': 10})
 child.AddControl(button)
 ```
 
-## ⚠️ Patrón ALTERNATIVO (menos eficiente)
+## ⚠️ ALTERNATIVE PATTERN (less efficient)
 
 ```python
-# GroupBox ejemplo - FUNCIONA pero NO ES ÓPTIMO
-group = GroupBox(form, {'Text': 'Opciones'})
+# GroupBox example - WORKS but NOT OPTIMAL
+group = GroupBox(form, {'Text': 'Options'})
 form.AddControl(group)
 
-# Crear control con FORM como padre
-radio1 = RadioButton(form, {'Text': 'Opción 1'})  # ← Se crea con 'form'
-group.AddControl(radio1)  # ← Se destruye y recrea internamente
+# Create control with FORM as parent
+radio1 = RadioButton(form, {'Text': 'Option 1'})  # ← Created with 'form'
+group.AddControl(radio1)  # ← Internally destroyed and recreated
 ```
 
-## ¿Por qué es mejor el patrón recomendado?
+## Why is the recommended pattern better?
 
-### Ventajas del patrón recomendado:
+### Advantages of the recommended pattern:
 
-1. **✅ Mejor rendimiento**
-   - No necesita destruir y recrear widgets de Tkinter
-   - Menos overhead de memoria y CPU
+1. **✅ Better performance**
+   - No need to destroy and recreate Tkinter widgets
+   - Less memory and CPU overhead
 
-2. **✅ Código más limpio**
-   - Expresa claramente la jerarquía de controles
-   - Fácil de leer y mantener
+2. **✅ Cleaner code**
+   - Clearly expresses the control hierarchy
+   - Easy to read and maintain
 
-3. **✅ Sin problemas de Tkinter**
-   - Los widgets se crean con el master correcto desde el inicio
-   - No hay problemas de reparenting
+3. **✅ No Tkinter issues**
+   - Widgets are created with the correct master from the start
+   - No reparenting problems
 
-4. **✅ Compatible con Windows Forms**
-   - Mismo patrón que en .NET
-   - Facilita la migración de código
+4. **✅ Compatible with Windows Forms**
+   - Same pattern as in .NET
+   - Facilitates code migration
 
-### Problemas del patrón alternativo:
+### Problems with the alternative pattern:
 
-1. **⚠️ Overhead de rendimiento**
-   - El widget de Tkinter se destruye completamente
-   - Se recrea un nuevo widget con el master correcto
-   - Se restaura toda la configuración
+1. **⚠️ Performance overhead**
+   - The Tkinter widget is completely destroyed
+   - A new widget is recreated with the correct master
+   - All configuration is restored
 
-2. **⚠️ Pérdida de bindings personalizados**
-   - Event bindings personalizados pueden perderse
-   - Solo se restauran bindings comunes automáticamente
+2. **⚠️ Loss of custom bindings**
+   - Custom event bindings may be lost
+   - Only common bindings are automatically restored
 
-3. **⚠️ Menos claro**
-   - No es obvio que el control terminará en otro contenedor
-   - Puede confundir al leer el código
+3. **⚠️ Less clear**
+   - Not obvious that the control will end up in another container
+   - Can confuse when reading the code
 
-## Proceso de Recreación (Patrón Alternativo)
+## Recreation Process (Alternative Pattern)
 
-Cuando se usa el patrón alternativo, `AddControl()` realiza estos pasos en contenedores como GroupBox:
+When using the alternative pattern, `AddControl()` performs these steps in containers like GroupBox:
 
 ```python
-# 1. Usuario crea control con form como padre
+# 1. User creates control with form as parent
 button = Button(form, {'Text': 'OK', 'Left': 10, 'Top': 10})
 
-# 2. Usuario añade al GroupBox
+# 2. User adds to GroupBox
 group.AddControl(button)
 
-# 3. Internamente, AddControl() detecta que button.master != group._container
-# 4. Guarda toda la configuración del widget viejo
+# 3. Internally, AddControl() detects that button.master != group._container
+# 4. Saves all configuration of the old widget
 old_config = {key: button._tk_widget.cget(key) for key in button._tk_widget.keys()}
 
-# 5. Destruye el widget viejo
+# 5. Destroys the old widget
 button._tk_widget.destroy()
 
-# 6. Cambia el master
+# 6. Changes the master
 button.master = group._container
 
-# 7. Recrea el widget con el nuevo master
+# 7. Recreates the widget with the new master
 button._tk_widget = tk.Button(group._container)
 
-# 8. Restaura la configuración
+# 8. Restores the configuration
 for key, value in old_config.items():
-    button._tk_widget.config(**{key: value})
+   button._tk_widget.config(**{key: value})
 
-# 9. Restaura bindings comunes
+# 9. Restores common bindings
 button._bind_common_events()
 ```
 
-## Diferencias entre Contenedores
+## Differences Between Containers
 
 ### Panel
-- **Tiene `_container`**: Sí (Frame interno para controles)
-- **Recrea widgets**: No necesita - solo cambia `control.master`
-- **Enfoque recomendado**: Crear con Panel como padre
+- **Has `_container`**: Yes (internal Frame for controls)
+- **Recreates widgets**: No need - only changes `control.master`
+- **Recommended approach**: Create with Panel as parent
 
 ### GroupBox
-- **Tiene `_container`**: Sí (Frame interno para controles)
-- **Recrea widgets**: Sí, si `control.master != self._container`
-- **Enfoque recomendado**: Crear con GroupBox como padre
+- **Has `_container`**: Yes (internal Frame for controls)
+- **Recreates widgets**: Yes, if `control.master != self._container`
+- **Recommended approach**: Create with GroupBox as parent
+
+### FlowLayoutPanel / TableLayoutPanel
+- **Has `_container`**: Yes (inherit from Panel)
+- **Recreates widgets**: No need - only changes `control.master` (but better to avoid)
+- **Recommended approach**: Create with the Panel as parent to ensure correct registration
 
 ### TabPage
-- **Tiene `_container`**: Usa `_frame` como contenedor
-- **Recrea widgets**: No necesita - solo cambia `control.master`
-- **Enfoque recomendado**: Crear con TabPage como padre
+- **Has `_container`**: Uses `_frame` as container
+- **Recreates widgets**: No need - only changes `control.master`
+- **Recommended approach**: Create with TabPage as parent
 
 ### Form / MdiChildForm
-- **Tiene `_container`**: Usa `_root` o `_container` si tiene AutoScroll
-- **Recrea widgets**: No necesita - solo cambia `control.master`
-- **Enfoque recomendado**: Crear con Form como padre
+- **Has `_container`**: Uses `_root` or `_container` if has AutoScroll
+- **Recreates widgets**: No need - only changes `control.master`
+- **Recommended approach**: Create with Form as parent
 
-## Sistema de Coordenadas
+## Coordinate System
 
-En **todos** los contenedores, las coordenadas `Left` y `Top` de los controles son **relativas al contenedor**:
+In **all** containers, the `Left` and `Top` coordinates of controls are **relative to the container**:
 
 ```
-Contenedor (Left=100, Top=100 en el Form)
+Container (Left=100, Top=100 in the Form)
 ┌─────────────────────────────────┐
-│ (0,0) ← Esquina del contenedor  │
+│ (0,0) ← Container's corner      │
 │                                  │
-│   Control (Left=10, Top=10)     │ ← 10px desde la esquina del contenedor
-│   ↑ Posición relativa            │    NO desde la esquina del Form
+│   Control (Left=10, Top=10)     │ ← 10px from container's corner
+│   ↑ Relative position            │    NOT from Form's corner
 │                                  │
 └──────────────────────────────────┘
 ```
 
-- **(0, 0)** = Esquina superior izquierda del área de contenido del contenedor
-- Las coordenadas son **iguales que en Windows Forms** (.NET)
-- No se ven afectadas por la posición del contenedor en el Form
+- **(0, 0)** = Top-left corner of the container's content area
+- Coordinates are **same as in Windows Forms** (.NET)
+- Not affected by the container's position in the Form
 
-## Jerarquía de Controles
+## Control Hierarchy
 
 ```python
 Form
 ├── Panel (Left=10, Top=10)
-│   ├── Button (Left=5, Top=5)    # Está en (15, 15) absoluto del Form
-│   └── Label (Left=5, Top=35)    # Está en (15, 45) absoluto del Form
+│   ├── Button (Left=5, Top=5)    # At (15, 15) absolute in Form
+│   └── Label (Left=5, Top=35)    # At (15, 45) absolute in Form
 │
 └── GroupBox (Left=200, Top=10)
-    ├── RadioButton (Left=10, Top=10)  # Está en (210, 20) absoluto del Form
-    └── RadioButton (Left=10, Top=40)  # Está en (210, 50) absoluto del Form
+   ├── RadioButton (Left=10, Top=10)  # At (210, 20) absolute in Form
+   └── RadioButton (Left=10, Top=40)  # At (210, 50) absolute in Form
 ```
 
-## Ejemplos Completos
+## Complete Examples
 
-Ver archivos de ejemplo:
-- `groupbox_recommended.py` - GroupBox con patrón recomendado
-- `groupbox_example.py` - Ejemplo completo actualizado
-- Cualquier GUI en `pentano/gui/winform-py/ad_tool/` - Patrones en uso
+See example files:
+- `groupbox_recommended.py` - GroupBox with recommended pattern
+- `groupbox_example.py` - Updated complete example
+- Any GUI in `pentano/gui/winform-py/ad_tool/` - Patterns in use
 
-## Migración de Código Existente
+## Migrating Existing Code
 
-Si tienes código existente que usa el patrón alternativo:
+If you have existing code that uses the alternative pattern:
 
 ```python
-# ANTES (patrón alternativo)
-group = GroupBox(form, {'Text': 'Opciones'})
+# BEFORE (alternative pattern)
+group = GroupBox(form, {'Text': 'Options'})
 form.AddControl(group)
 
-radio1 = RadioButton(form, {'Text': 'Opción 1', 'Left': 10, 'Top': 10})
+radio1 = RadioButton(form, {'Text': 'Option 1', 'Left': 10, 'Top': 10})
 group.AddControl(radio1)
 ```
 
-Cambia a:
+Change to:
 
 ```python
-# DESPUÉS (patrón recomendado)
-group = GroupBox(form, {'Text': 'Opciones'})
+# AFTER (recommended pattern)
+group = GroupBox(form, {'Text': 'Options'})
 form.AddControl(group)
 
-radio1 = RadioButton(group, {'Text': 'Opción 1', 'Left': 10, 'Top': 10})
-#                     ↑ Cambiar 'form' por 'group'
+radio1 = RadioButton(group, {'Text': 'Option 1', 'Left': 10, 'Top': 10})
+#                     ↑ Change 'form' to 'group'
 group.AddControl(radio1)
 ```
 
-**Nota**: El código viejo seguirá funcionando (compatibilidad hacia atrás), pero será menos eficiente.
+**Note**: Old code will continue to work (backward compatibility), but will be less efficient.
 
-## Conclusión
+## Conclusion
 
-**Siempre usa el patrón recomendado**:
+**Always use the recommended pattern**:
 ```python
-control = TipoControl(contenedor, {...})
-contenedor.AddControl(control)
+control = ControlType(container, {...})
+container.AddControl(control)
 ```
 
-En lugar de:
+Instead of:
 ```python
-control = TipoControl(form, {...})  # ← Evitar
-contenedor.AddControl(control)
+control = ControlType(form, {...})  # ← Avoid
+container.AddControl(control)
 ```
 
-Esto garantiza:
-- ✅ Mejor rendimiento
-- ✅ Código más claro
-- ✅ Sin problemas de Tkinter
-- ✅ Compatible con Windows Forms
+This ensures:
+- ✅ Better performance
+- ✅ Clearer code
+- ✅ No Tkinter issues
+- ✅ Compatible with Windows Forms

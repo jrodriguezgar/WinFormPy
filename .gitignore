@@ -201,6 +201,5 @@ project_structure.txt
 pyproject.toml
 tests/
 docs/
-examples/
 notebooks/
 ToDo/
