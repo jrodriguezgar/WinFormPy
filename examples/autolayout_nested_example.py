@@ -13,14 +13,14 @@ import tkinter as tk
 
 # Load winformpy.py from lib directory
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-winform_py_path = os.path.join(parent_dir, "lib", "winformpy.py")
+winform_py_path = os.path.join(parent_dir, "winformpy", "winformpy.py")
 
 spec = importlib.util.spec_from_file_location("winform_py", winform_py_path)
 winform_py = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(winform_py)
 
 # Load winformpy_tools.py
-winform_py_tools_path = os.path.join(parent_dir, "lib", "winformpy_tools.py")
+winform_py_tools_path = os.path.join(parent_dir, "winformpy", "winformpy_tools.py")
 
 spec_tools = importlib.util.spec_from_file_location("winform_py_tools", winform_py_tools_path)
 winform_py_tools = importlib.util.module_from_spec(spec_tools)
