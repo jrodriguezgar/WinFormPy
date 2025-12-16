@@ -443,89 +443,196 @@ def apply_css_to_winform_control(control, css_string: str) -> None:
     CSSManager.apply_css_to_winform_control(control, css_string)
 
 
-class AutoLayoutManager:
+from enum import Enum, auto
+
+class LayoutManager:
     """
     Class for automatically distributing controls in a container (like a Panel).
     
-    Supports vertical (top to bottom) and horizontal (left to right) layouts.
-    Starts positioning from the top-left corner (0, 0).
-    Considers the width and height of previous controls to position the next one.
+    Supports vertical (top to bottom), horizontal (left to right), and flow layouts.
+    Starts positioning from the top-left corner (0, 0) or padding offset.
     """
     
-    def __init__(self, container, spacing: int = 0):
+    class StartPosition(Enum):
+        TopLeft = 0
+
+    class Distribution(Enum):
+        UpDown = 0    # Vertical Top to Bottom
+        LeftRight = 2 # Horizontal Left to Right
+
+    class Alignment(Enum):
+        Up = 0
+        Down = 1
+        Left = 2
+        Right = 3
+        Center = 4
+
+    class LayoutType(Enum):
+        FlowLayout = 0
+        Autosize = 1
+        Dock = 2
+        Anchor = 3
+        TableLayout = 4
+
+    def __init__(self, container, margin: int = 0, padding: int = 0, autosize_container: bool = False, wrap_count: int = None):
         """
-        Initialize the AutoLayoutManager.
+        Initialize the LayoutManager.
         
         Args:
             container: The container control (e.g., Panel) where controls will be placed.
-            spacing: Space between controls in pixels (default 0).
+            margin: Space between controls in pixels (default 0).
+            padding: Space from container borders (default 0).
+            autosize_container: If True, the container will automatically resize to fit controls.
+            wrap_count: Number of items per row/column before wrapping. If None, wraps based on container size (Automatic).
         """
         self.container = container
-        self.spacing = spacing
+        self.margin = margin
+        self.padding = padding
+        self.wrap_count = wrap_count
+        self.start_position = self.StartPosition.TopLeft
+        self.distribution = self.Distribution.UpDown
+        self.alignment = self.Alignment.Left
+        self.layout_type = self.LayoutType.FlowLayout
+        
+        # Enable AutoSize on container if requested
+        if autosize_container and hasattr(self.container, 'AutoSize'):
+            self.container.AutoSize = True
+        
         self.max_width = 0
         self.max_height = 0
         self.controls = []  # Track managed controls
+        self.current_row_height = 0  # Track max height in current row for flow layout
+        self.current_col_width = 0   # Track max width in current column for flow layout
         self.reset()
     
-    def add_control(self, control, direction: str = 'vertical'):
+    def add_control(self, control):
         """
         Add a control to the container and position it automatically.
         
         Args:
             control: The control to add and position.
-            direction: Layout direction - 'vertical' (top to bottom) or 'horizontal' (left to right).
         """
-        direction = direction.lower()
-        if direction not in ['vertical', 'horizontal']:
-            raise ValueError("Direction must be 'vertical' or 'horizontal'")
-
-        # Track the control and its direction
-        self.controls.append({'control': control, 'direction': direction})
+        # Track the control
+        self.controls.append(control)
         
         # Only position if visible
         if hasattr(control, 'Visible') and not control.Visible:
             return
 
+        # Ignore controls with Dock or Anchor set (if not None/Default)
+        # WinFormPy controls usually have Dock='None' (or DockStyle.None_) by default.
+        if hasattr(control, 'Dock'):
+            dock = control.Dock
+            # Check if Dock is effectively "None"
+            is_docked = False
+            if dock:
+                # If it's an Enum member (truthy), check if it's None_ (value 0)
+                if hasattr(dock, 'value') and dock.value == 0:
+                    is_docked = False
+                elif str(dock) == 'None':
+                    is_docked = False
+                else:
+                    is_docked = True
+            
+            if is_docked:
+                return
+        
+        # Calculate position
+        self._position_control(control)
+        
+        # Apply AutoSize if enabled
+        self._apply_autosize()
+    
+    def _position_control(self, control):
         # Ensure integer coordinates
         x = int(self.current_x)
         y = int(self.current_y)
         
+        container_width = self.container.Width
+        container_height = self.container.Height
+        
+        # Handle Flow Layout Wrapping
+        if self.layout_type == self.LayoutType.FlowLayout:
+            should_wrap = False
+            
+            # Check wrap based on count (Fixed)
+            if self.wrap_count is not None and self.wrap_count > 0:
+                if self.current_line_item_count >= self.wrap_count:
+                    should_wrap = True
+            else:
+                # Check wrap based on size (Automatic)
+                if self.distribution == self.Distribution.LeftRight:
+                    if x + control.Width > container_width - self.padding and x > self.start_x:
+                        should_wrap = True
+                elif self.distribution == self.Distribution.UpDown:
+                    if y + control.Height > container_height - self.padding and y > self.start_y:
+                        should_wrap = True
+
+            if should_wrap:
+                if self.distribution == self.Distribution.LeftRight:
+                    # Wrap to next line
+                    x = self.start_x
+                    y += self.current_row_height + self.margin
+                    self.current_x = x
+                    self.current_y = y
+                    self.current_row_height = 0 # Reset row height for new row
+                    self.current_col_width = 0 # Reset col width for new column (if needed)
+                    self.current_line_item_count = 0
+                elif self.distribution == self.Distribution.UpDown:
+                    # Wrap to next column
+                    y = self.start_y
+                    x += self.current_col_width + self.margin
+                    self.current_x = x
+                    self.current_y = y
+                    self.current_col_width = 0 # Reset col width for new column
+                    self.current_row_height = 0 # Reset row height for new row
+                    self.current_line_item_count = 0
+
         # Set the position of the control
-        control.Left = x
-        control.Top = y
+        final_x = x
+        final_y = y
+        
+        control.Left = final_x
+        control.Top = final_y
         
         # Track maximum dimensions for AutoSize
-        control_right = x + control.Width
-        control_bottom = y + control.Height
-        
+        control_right = final_x + control.Width
+        control_bottom = final_y + control.Height
+        self.current_col_width = max(self.current_col_width, control.Width)
+            
         if control_right > self.max_width:
             self.max_width = control_right
         if control_bottom > self.max_height:
             self.max_height = control_bottom
         
-        # Update the current position based on direction
-        if direction == 'vertical':
-            self.current_y += control.Height + self.spacing
-        elif direction == 'horizontal':
-            self.current_x += control.Width + self.spacing
+        # Update the current position based on distribution
+        if self.distribution == self.Distribution.UpDown:
+            self.current_y += control.Height + self.margin
+            # Alignment handling (Cross-axis)
+            if self.alignment == self.Alignment.Right:
+                 control.Left = container_width - self.padding - control.Width
+            elif self.alignment == self.Alignment.Center:
+                 control.Left = (container_width - control.Width) // 2
+            # Default Left: already set
+            
+        elif self.distribution == self.Distribution.LeftRight:
+            self.current_x += control.Width + self.margin
+            self.current_row_height = max(self.current_row_height, control.Height)
+            # Alignment handling (Cross-axis - Vertical)
+            # This is tricky for FlowLayout as it depends on row height.
+            # For simple LeftRight without flow (single row), we can align.
+            if self.alignment == self.Alignment.Down:
+                 # Align to bottom of container? Or bottom of row?
+                 # Let's assume bottom of container for now if not flow?
+                 pass
         
-        # Apply AutoSize if enabled
-        self._apply_autosize()
-    
+        self.current_line_item_count += 1
+
     def _apply_autosize(self):
         """Apply AutoSize to container if enabled."""
         if hasattr(self.container, 'AutoSize') and self.container.AutoSize:
-            # Add padding to dimensions
-            padding_x = 0
-            padding_y = 0
-            if hasattr(self.container, 'Padding'):
-                padding = self.container.Padding
-                if isinstance(padding, (tuple, list)) and len(padding) >= 2:
-                    padding_x = padding[0] * 2  # Left + Right
-                    padding_y = padding[1] * 2  # Top + Bottom
-            
-            new_width = self.max_width + padding_x
-            new_height = self.max_height + padding_y
+            new_width = self.max_width + self.padding
+            new_height = self.max_height + self.padding
             
             # Apply size constraints if defined
             if hasattr(self.container, 'MinimumSize') and self.container.MinimumSize:
@@ -548,70 +655,53 @@ class AutoLayoutManager:
     
     def reset(self):
         """
-        Reset the layout position to the top-left corner (0, 0) or padding offset.
+        Reset the layout position based on StartPosition.
         """
-        self.current_x = 0
-        self.current_y = 0
         self.max_width = 0
         self.max_height = 0
+        self.current_col_width = 0
+        self.current_row_height = 0
+        self.current_line_item_count = 0
         
-        # Check if container has Padding property
-        if hasattr(self.container, 'Padding'):
-            padding = self.container.Padding
-            if isinstance(padding, (tuple, list)) and len(padding) >= 2:
-                self.current_x = padding[0]
-                self.current_y = padding[1]
+        w = self.container.Width
+        h = self.container.Height
+        p = self.padding
+        
+        # Determine start coordinates
+        if self.start_position == self.StartPosition.TopLeft:
+            self.current_x = p
+            self.current_y = p
+            
+        self.start_x = self.current_x 
+        self.start_y = self.current_y
     
-    def arrange_all(self, controls, direction: str = 'vertical'):
+    def arrange_all(self, controls=None):
         """
         Arrange all controls in the list automatically.
         
         Args:
-            controls: List of controls to arrange.
-            direction: Layout direction - 'vertical' (top to bottom) or 'horizontal' (left to right).
+            controls: Optional list of controls to arrange. If None, uses internal list.
         """
+        if controls:
+            self.controls = controls
+            
         self.reset()
-        for control in controls:
-            self.add_control(control, direction)
+        # We need to clear controls list if we are re-adding them via add_control logic
+        # But add_control appends. So we should iterate and call _position_control directly?
+        # Or just reset controls list and re-add?
+        
+        # Better: iterate existing controls and re-position
+        controls_to_arrange = list(self.controls)
+        self.controls = [] # Clear to avoid duplication when calling add_control
+        
+        for control in controls_to_arrange:
+            self.add_control(control)
     
     def recalculate_layout(self):
         """
-        Recalculate the layout for all managed controls based on their current visibility.
-        This is useful when control visibility changes after initial layout.
+        Recalculate the layout for all managed controls.
         """
-        self.reset()
-        for item in self.controls:
-            control = item['control']
-            direction = item['direction']
-            
-            # Move hidden controls far off-screen to avoid overlap
-            if hasattr(control, 'Visible') and not control.Visible:
-                control.Left = -10000
-                control.Top = -10000
-                continue
-            
-            # Ensure integer coordinates
-            x = int(self.current_x)
-            y = int(self.current_y)
-            
-            # Set the position of the control
-            control.Left = x
-            control.Top = y
-            
-            # Track maximum dimensions for AutoSize
-            control_right = x + control.Width
-            control_bottom = y + control.Height
-            
-            if control_right > self.max_width:
-                self.max_width = control_right
-            if control_bottom > self.max_height:
-                self.max_height = control_bottom
-            
-            # Update the current position based on direction
-            if direction == 'vertical':
-                self.current_y += control.Height + self.spacing
-            elif direction == 'horizontal':
-                self.current_x += control.Width + self.spacing
-        
-        # Apply AutoSize if enabled
-        self._apply_autosize()
+        self.arrange_all()
+
+# Alias for backward compatibility
+AutoLayoutManager = LayoutManager

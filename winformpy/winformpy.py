@@ -3267,6 +3267,9 @@ class ControlBase:
     
     def _initialize_anchor_dock(self):
         """Initializes Anchor or Dock after the container is ready."""
+        if not self.master.winfo_exists():
+            return
+
         if self._dock != DockStyle.None_:
             # Apply Dock
             self._apply_dock()
@@ -3282,6 +3285,14 @@ class ControlBase:
     
     def _calculate_initial_distances(self):
         """Calculates the initial distances of the control to the container edges."""
+        try:
+            if not self.master or not self.master.winfo_exists():
+                return
+            if not self._tk_widget or not self._tk_widget.winfo_exists():
+                return
+        except Exception:
+            return
+
         self.master.update_idletasks()
         container_width = self.master.winfo_width()
         container_height = self.master.winfo_height()
@@ -4493,6 +4504,23 @@ class Form(ScrollableControlMixin):
     """
     
     def __init__(self, props=None, parent=None):
+        # Intelligent argument handling to support Form(parent, props) and Form(props)
+        if props is not None and not isinstance(props, dict):
+            # First argument is not a dict, assume it's a parent
+            if parent is None:
+                # Form(parent)
+                parent = props
+                props = None
+            elif isinstance(parent, dict):
+                # Form(parent, props)
+                real_parent = props
+                props = parent
+                parent = real_parent
+        elif props is None and isinstance(parent, dict):
+             # Form(None, props) - User passed None as first arg and dict as second
+             props = parent
+             parent = None
+
         defaults = {
             'Title': "WinFormPy Application",
             'Width': 500,
@@ -11681,6 +11709,714 @@ class Line:
             self._tk_widget.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
 
 
+class FlowLayoutPanel(Panel):
+    """
+    El control FlowLayoutPanel organiza su contenido en una dirección de flujo horizontal o vertical.
+    Su contenido puede ajustarse desde una fila a la siguiente o desde una columna a la siguiente.
+    Como alternativa, su contenido se puede recortar en lugar de encapsularse.
+
+    Puede especificar la dirección de flujo estableciendo el valor de la propiedad FlowDirection.
+    El FlowLayoutPanel control invierte correctamente su dirección de flujo en diseños de derecha a izquierda (RTL).
+    También puede especificar si el contenido del FlowLayoutPanel control se ajusta o recorta estableciendo el valor de la WrapContents propiedad.
+
+    Cualquier control Windows Forms, incluidas otras instancias de FlowLayoutPanel, puede ser un elemento secundario del FlowLayoutPanel control.
+    Con esta funcionalidad, puede construir diseños sofisticados que se adapten a las dimensiones del formulario en tiempo de ejecución.
+
+    Los comportamientos de acoplamiento y delimitación de los controles secundarios difieren de los comportamientos de otros controles contenedor.
+    El acoplamiento y la delimitación están relacionados con el control mayor en la dirección del flujo.
+    """
+    
+    def __init__(self, master_form, props=None):
+        """Inicializa un FlowLayoutPanel.
+        
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto específicos de FlowLayoutPanel
+        defaults = {
+            'Left': 10,
+            'Top': 10,
+            'Width': 400,
+            'Height': 300,
+            'Name': '',
+            'Text': '',
+            'FlowDirection': FlowDirection.LeftToRight,  # 'LeftToRight', 'RightToLeft', 'TopDown', 'BottomUp'
+            'WrapContents': True,
+            'Padding': (0, 0, 0, 0),  # left, top, right, bottom
+            'AutoScroll': False,
+            'BorderStyle': BorderStyle.FixedSingle,
+            'BackColor': 'SystemButtonFace',
+            'Enabled': True,
+            'Visible': True
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        # Inicializar como Panel
+        super().__init__(master_form, defaults)
+        
+        # Propiedades específicas de FlowLayoutPanel
+        self.FlowDirection = defaults['FlowDirection']
+        self.WrapContents = defaults['WrapContents']
+        
+        # Override AddControl para aplicar el layout automático
+        self._original_add_control = super().AddControl
+
+        # Override Resize event to update layout
+        self.Resize = self._on_resize_internal
+        
+    def _on_resize_internal(self):
+        """Internal handler for resize event."""
+        self._apply_flow_layout()
+
+    def AddControl(self, control):
+        """Añade un control al FlowLayoutPanel y aplica el layout automático.
+        
+        Args:
+            control: Control a añadir
+        """
+        # Añadir usando el método del padre
+        self._original_add_control(control)
+        
+        # Aplicar layout automático
+        self._apply_flow_layout()
+    
+    def RemoveControl(self, control):
+        """Quita un control del FlowLayoutPanel y reorganiza el layout.
+        
+        Args:
+            control: Control a quitar
+        """
+        super().RemoveControl(control)
+        self._apply_flow_layout()
+    
+    def _apply_flow_layout(self):
+        """Aplica el layout automático según FlowDirection y WrapContents."""
+        if not self.Controls:
+            return
+        
+        # Obtener padding
+        padding = self.Padding
+        if isinstance(padding, tuple) and len(padding) == 4:
+            pad_left, pad_top, pad_right, pad_bottom = padding
+        elif isinstance(padding, tuple) and len(padding) == 2:
+            pad_left = pad_right = padding[0]
+            pad_top = pad_bottom = padding[1]
+        else:
+            pad_left = pad_right = pad_top = pad_bottom = 0
+        
+        # Área disponible
+        available_width = self.Width - pad_left - pad_right
+        available_height = self.Height - pad_top - pad_bottom
+        
+        # Posición inicial
+        current_x = pad_left
+        current_y = pad_top
+        if self.FlowDirection == 'RightToLeft':
+             current_x = self.Width - pad_right
+        elif self.FlowDirection == 'BottomUp':
+             current_y = self.Height - pad_bottom
+             
+        max_row_height = 0
+        max_col_width = 0
+        
+        for control in self.Controls:
+            if not hasattr(control, 'Width') or not hasattr(control, 'Height'):
+                continue
+            
+            if not hasattr(control, '_visible') or control._visible:
+                control_width = control.Width
+                control_height = control.Height
+                
+                # Get margins
+                margin = getattr(control, 'Margin', (3, 3, 3, 3))
+                if isinstance(margin, int): margin = (margin, margin, margin, margin)
+                m_left, m_top, m_right, m_bottom = margin
+                
+                full_width = m_left + control_width + m_right
+                full_height = m_top + control_height + m_bottom
+                
+                if self.FlowDirection == 'LeftToRight':
+                    # Flujo horizontal (izquierda a derecha)
+                    
+                    # Check wrap
+                    if self.WrapContents and current_x + full_width > available_width + pad_left and current_x > pad_left:
+                         current_x = pad_left
+                         current_y += max_row_height
+                         max_row_height = 0
+
+                    control.Left = current_x + m_left
+                    control.Top = current_y + m_top
+                    control._place_control(control_width, control_height)
+                    
+                    current_x += full_width
+                    max_row_height = max(max_row_height, full_height)
+                    
+                    if getattr(control, '_flow_break', False):
+                        current_x = pad_left
+                        current_y += max_row_height
+                        max_row_height = 0
+                
+                elif self.FlowDirection == 'RightToLeft':
+                    # Flujo horizontal (derecha a izquierda)
+                    if self.WrapContents and current_x - full_width < pad_left:
+                        # Nueva fila
+                        current_x = self.Width - pad_right
+                        current_y += max_row_height
+                        max_row_height = 0
+                    
+                    control.Left = current_x - m_right - control_width
+                    control.Top = current_y + m_top
+                    control._place_control(control_width, control_height)
+                    
+                    current_x -= full_width
+                    max_row_height = max(max_row_height, full_height)
+
+                    if getattr(control, '_flow_break', False):
+                        current_x = self.Width - pad_right
+                        current_y += max_row_height
+                        max_row_height = 0
+                
+                elif self.FlowDirection == 'TopDown':
+                    # Flujo vertical (arriba a abajo)
+                    if self.WrapContents and current_y + full_height > available_height + pad_top:
+                        # Nueva columna
+                        current_y = pad_top
+                        current_x += max_col_width
+                        max_col_width = 0
+                    
+                    control.Left = current_x + m_left
+                    control.Top = current_y + m_top
+                    control._place_control(control_width, control_height)
+                    
+                    current_y += full_height
+                    max_col_width = max(max_col_width, full_width)
+
+                    if getattr(control, '_flow_break', False):
+                        current_y = pad_top
+                        current_x += max_col_width
+                        max_col_width = 0
+                
+                elif self.FlowDirection == 'BottomUp':
+                    # Flujo vertical (abajo a arriba)
+                    if self.WrapContents and current_y - full_height < pad_top:
+                        # Nueva columna
+                        current_y = self.Height - pad_bottom
+                        current_x += max_col_width
+                        max_col_width = 0
+                    
+                    control.Left = current_x + m_left
+                    control.Top = current_y - m_bottom - control_height
+                    control._place_control(control_width, control_height)
+                    
+                    current_y -= full_height
+                    max_col_width = max(max_col_width, full_width)
+
+                    if getattr(control, '_flow_break', False):
+                        current_y = self.Height - pad_bottom
+                        current_x += max_col_width
+                        max_col_width = 0
+
+        # Update scroll region if AutoScroll is enabled
+        if self.AutoScroll and hasattr(self, '_update_scroll_region'):
+            self._update_scroll_region()
+    
+    def set_FlowDirection(self, direction):
+        """Establece la dirección del flujo y reorganiza los controles.
+        
+        Args:
+            direction: 'LeftToRight', 'RightToLeft', 'TopDown', o 'BottomUp'
+        """
+        self.FlowDirection = direction
+        self._apply_flow_layout()
+    
+    def set_WrapContents(self, wrap):
+        """Establece si los controles deben ajustarse a nuevas líneas/columnas.
+        
+        Args:
+            wrap: True para ajustar, False para recortar
+        """
+        self.WrapContents = wrap
+        self._apply_flow_layout()
+
+    def SetFlowBreak(self, control, value):
+        """Sets the value of the flow-break setting for the control."""
+        control._flow_break = value
+        self._apply_flow_layout()
+
+    def GetFlowBreak(self, control):
+        """Returns the value of the flow-break setting for the control."""
+        return getattr(control, '_flow_break', False)
+
+
+class TableLayoutPanel(Panel):
+    """
+    El control TableLayoutPanel organiza su contenido en una cuadrícula. Como el diseño se realiza en tiempo de diseño y en tiempo de ejecución, puede cambiar dinámicamente cuando cambie el entorno de la aplicación. Esto proporciona a los controles del panel la capacidad de ajustar el tamaño proporcionalmente para poder responder a cambios como el ajuste de tamaño del control primario o el cambio de longitud del texto debido a la localización.
+
+    Cualquier control de Windows Forms puede ser un control secundario del control TableLayoutPanel, incluidas otras instancias de TableLayoutPanel. Esto le permite construir diseños sofisticados que se adapten a los cambios en tiempo de ejecución.
+
+    El control TableLayoutPanel puede expandirse para acomodar nuevos controles cuando se agreguen, dependiendo del valor de las propiedades RowCount, ColumnCount y GrowStyle. Establecer las propiedades RowCount o ColumnCount en un valor de 0 especifica que el TableLayoutPanel se desenlazará en la dirección correspondiente.
+
+    También puede controlar la dirección de expansión (horizontal o vertical) cuando el control TableLayoutPanel se llene de controles secundarios. De forma predeterminada, el control TableLayoutPanel se expande hacia abajo agregando filas.
+
+    Si quiere que el comportamiento de las filas y columnas sea diferente del predeterminado, puede controlar las propiedades de las filas y columnas mediante las propiedades RowStyles y ColumnStyles. Puede establecer las propiedades de las filas o columnas individualmente.
+
+    El control TableLayoutPanel agrega las siguientes propiedades a sus controles secundarios: Cell, Column, Row, ColumnSpan y RowSpan.
+
+    Puede combinar las celdas del control TableLayoutPanel estableciendo las propiedades ColumnSpan o RowSpan de un control secundario.
+
+    Nota:
+    Para establecer las Cellpropiedades , Column, Row, ColumnSpany RowSpan en tiempo de ejecución, use los SetCellPositionmétodos , SetColumnSetRow, , SetColumnSpany SetRowSpan .
+    Para leer las Cellpropiedades , Column, Row, ColumnSpany RowSpan en tiempo de ejecución, use los GetCellPositionmétodos , GetColumnGetRow, , GetColumnSpany GetRowSpan .
+
+    El comportamiento de anclaje de los controles secundarios de TableLayoutPanel difiere del de otros controles de contenedor. Si el valor de la propiedad del Anchor control secundario se establece Left en o Right, el control se colocará en el borde izquierdo o derecho de la celda, a una distancia que sea la suma de la propiedad del Margin control y la propiedad del Padding panel.
+    """
+    
+    def __init__(self, master_form, props=None):
+        """Inicializa un TableLayoutPanel.
+        
+        Args:
+            master_form: El formulario o contenedor padre
+            props: Diccionario opcional con propiedades iniciales
+        """
+        # Valores por defecto específicos de TableLayoutPanel
+        defaults = {
+            'Left': 10,
+            'Top': 10,
+            'Width': 600,
+            'Height': 400,
+            'Name': '',
+            'Text': '',
+            'RowCount': 2,
+            'ColumnCount': 2,
+            'RowStyles': None,  # Lista de tuplas (SizeType, Value)
+            'ColumnStyles': None,  # Lista de tuplas (SizeType, Value)
+            'CellBorderStyle': TableLayoutPanelCellBorderStyle.Single,
+            'Padding': (0, 0, 0, 0),
+            'BorderStyle': BorderStyle.FixedSingle,
+            'BackColor': 'SystemButtonFace',
+            'GrowStyle': TableLayoutPanelGrowStyle.AddRows,
+            'Enabled': True,
+            'Visible': True
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        # Inicializar como Panel
+        super().__init__(master_form, defaults)
+        
+        # Propiedades específicas de TableLayoutPanel
+        self.RowCount = defaults['RowCount']
+        self.ColumnCount = defaults['ColumnCount']
+        self.GrowStyle = defaults['GrowStyle']
+        self.CellBorderStyle = defaults['CellBorderStyle']
+        
+        # Estilos por defecto (porcentajes iguales)
+        if defaults['RowStyles']:
+            self.RowStyles = defaults['RowStyles']
+        else:
+            percent = 100.0 / max(1, self.RowCount)
+            self.RowStyles = [(SizeType.Percent, percent) for _ in range(self.RowCount)]
+        
+        if defaults['ColumnStyles']:
+            self.ColumnStyles = defaults['ColumnStyles']
+        else:
+            percent = 100.0 / max(1, self.ColumnCount)
+            self.ColumnStyles = [(SizeType.Percent, percent) for _ in range(self.ColumnCount)]
+        
+        # Matriz de celdas (row, col) -> control
+        self._cell_controls = {}
+        
+        # Override AddControl para posicionar en celdas
+        self._original_add_control = super().AddControl
+        self._next_cell = (0, 0)  # Próxima celda disponible
+
+        # Override Resize event to update layout
+        self.Resize = self._on_resize_internal
+        
+    def _on_resize_internal(self):
+        """Internal handler for resize event."""
+        self._apply_table_layout()
+    
+    def AddControl(self, control, column=None, row=None):
+        """Añade un control al TableLayoutPanel en la celda especificada.
+        
+        Args:
+            control: Control a añadir
+            column: Columna donde colocar el control (None para siguiente disponible)
+            row: Fila donde colocar el control (None para siguiente disponible)
+        """
+        # Disable standard ControlBase layout logic for this child
+        # We want TableLayoutPanel to fully control the positioning
+        control._on_container_resize = lambda e=None: None
+        control._initialize_anchor_dock = lambda: None
+        # Redirect _apply_dock to our layout engine
+        control._apply_dock = self._apply_table_layout
+        
+        # Determinar celda
+        if column is None or row is None:
+            row, column = self._next_cell
+            self._advance_next_cell()
+        
+        # Validar celda
+        if row >= self.RowCount or column >= self.ColumnCount:
+            if self.GrowStyle == 'AddRows':
+                self.RowCount = row + 1
+                percent = 100.0 / self.RowCount
+                self.RowStyles = [('Percent', percent) for _ in range(self.RowCount)]
+            elif self.GrowStyle == 'AddColumns':
+                self.ColumnCount = column + 1
+                percent = 100.0 / self.ColumnCount
+                self.ColumnStyles = [('Percent', percent) for _ in range(self.ColumnCount)]
+            else:  # FixedSize
+                # If fixed size, we might need to expand anyway if user explicitly asks for it?
+                # For now, raise error or just expand if it's out of bounds
+                pass
+        
+        # Remove from any existing cell (to avoid duplicates if added multiple times)
+        for cell, ctrl in list(self._cell_controls.items()):
+            if ctrl == control:
+                del self._cell_controls[cell]
+                break
+
+        # Añadir usando el método del padre
+        self._original_add_control(control)
+        
+        # Guardar en la matriz de celdas
+        self._cell_controls[(row, column)] = control
+        
+        # Aplicar layout automático
+        self._apply_table_layout()
+    
+    def RemoveControl(self, control):
+        """Quita un control del TableLayoutPanel y reorganiza el layout.
+        
+        Args:
+            control: Control a quitar
+        """
+        # Eliminar de la matriz de celdas
+        for cell, ctrl in list(self._cell_controls.items()):
+            if ctrl == control:
+                del self._cell_controls[cell]
+                break
+        
+        super().RemoveControl(control)
+        self._apply_table_layout()
+    
+    def SetCellPosition(self, control, column, row):
+        """Establece la posición de un control en una celda específica.
+        
+        Args:
+            control: Control a posicionar
+            column: Columna destino
+            row: Fila destino
+        """
+        # Eliminar de celda anterior
+        for cell, ctrl in list(self._cell_controls.items()):
+            if ctrl == control:
+                del self._cell_controls[cell]
+                break
+        
+        # Añadir a nueva celda
+        self._cell_controls[(row, column)] = control
+        self._apply_table_layout()
+    
+    def GetCellPosition(self, control):
+        """Obtiene la posición de celda de un control.
+        
+        Args:
+            control: Control a buscar
+            
+        Returns:
+            Tupla (row, column) o None si no se encuentra
+        """
+        for cell, ctrl in self._cell_controls.items():
+            if ctrl == control:
+                return cell
+        return None
+
+    def SetColumn(self, control, column):
+        """Sets the column position of the specified child control."""
+        pos = self.GetCellPosition(control)
+        if pos:
+            self.SetCellPosition(control, column, pos[0])
+        else:
+            # If not in grid yet, assume row 0 or find next?
+            # For now, assume row 0 if not found
+            self.SetCellPosition(control, column, 0)
+
+    def GetColumn(self, control):
+        """Returns the column position of the specified child control."""
+        pos = self.GetCellPosition(control)
+        return pos[1] if pos else -1
+
+    def SetRow(self, control, row):
+        """Sets the row position of the specified child control."""
+        pos = self.GetCellPosition(control)
+        if pos:
+            self.SetCellPosition(control, pos[1], row)
+        else:
+            self.SetCellPosition(control, 0, row)
+
+    def GetRow(self, control):
+        """Returns the row position of the specified child control."""
+        pos = self.GetCellPosition(control)
+        return pos[0] if pos else -1
+
+    def SetRowSpan(self, control, value):
+        """Sets the number of rows that the control spans."""
+        control._row_span = value
+        self._apply_table_layout()
+
+    def GetRowSpan(self, control):
+        return getattr(control, '_row_span', 1)
+
+    def SetColumnSpan(self, control, value):
+        """Sets the number of columns that the control spans."""
+        control._column_span = value
+        self._apply_table_layout()
+
+    def GetColumnSpan(self, control):
+        return getattr(control, '_column_span', 1)
+    
+    def _advance_next_cell(self):
+        """Avanza la próxima celda disponible."""
+        row, col = self._next_cell
+        col += 1
+        if col >= self.ColumnCount:
+            col = 0
+            row += 1
+        self._next_cell = (row, col)
+    
+    def _apply_table_layout(self):
+        """Aplica el layout automático según las filas y columnas definidas."""
+        if not self._cell_controls:
+            return
+        
+        # Obtener padding
+        padding = self.Padding
+        if isinstance(padding, tuple) and len(padding) == 4:
+            pad_left, pad_top, pad_right, pad_bottom = padding
+        elif isinstance(padding, tuple) and len(padding) == 2:
+            pad_left = pad_right = padding[0]
+            pad_top = pad_bottom = padding[1]
+        else:
+            pad_left = pad_right = pad_top = pad_bottom = 0
+        
+        # Área disponible
+        available_width = self.Width - pad_left - pad_right
+        available_height = self.Height - pad_top - pad_bottom
+        
+        # Calcular tamaños de columnas
+        column_widths = self._calculate_sizes(self.ColumnStyles, available_width, 'width')
+        
+        # Calcular tamaños de filas
+        row_heights = self._calculate_sizes(self.RowStyles, available_height, 'height')
+        
+        # Calcular posiciones de inicio de cada columna y fila
+        column_positions = [pad_left]
+        for width in column_widths[:-1]:
+            column_positions.append(column_positions[-1] + width)
+        
+        row_positions = [pad_top]
+        for height in row_heights[:-1]:
+            row_positions.append(row_positions[-1] + height)
+        
+        # Posicionar controles en sus celdas
+        for (row, col), control in self._cell_controls.items():
+            if row >= len(row_heights) or col >= len(column_widths):
+                continue
+            
+            # Skip if control is not visible
+            if not getattr(control, '_visible', True):
+                continue
+
+            row_span = getattr(control, '_row_span', 1)
+            col_span = getattr(control, '_column_span', 1)
+            
+            cell_x = column_positions[col]
+            cell_y = row_positions[row]
+            
+            # Calculate total width/height including spans
+            cell_width = 0
+            for i in range(col_span):
+                if col + i < len(column_widths):
+                    cell_width += column_widths[col + i]
+            
+            cell_height = 0
+            for i in range(row_span):
+                if row + i < len(row_heights):
+                    cell_height += row_heights[row + i]
+            
+            # Aplicar márgenes de celda usando control.Margin
+            margin = getattr(control, 'Margin', (3, 3, 3, 3))
+            if isinstance(margin, int): margin = (margin, margin, margin, margin)
+            m_left, m_top, m_right, m_bottom = margin
+            
+            # Determine final position and size based on Dock and Anchor
+            final_x = cell_x + m_left
+            final_y = cell_y + m_top
+            final_w = cell_width - (m_left + m_right)
+            final_h = cell_height - (m_top + m_bottom)
+            
+            dock = getattr(control, 'Dock', 'None')
+            anchor = getattr(control, 'Anchor', ['Top', 'Left'])
+            
+            if dock == 'Fill':
+                # Fill the cell (minus margins)
+                pass # final_x, final_y, final_w, final_h are already correct for Fill
+            elif dock == 'None':
+                # Handle Anchor
+                # Default size is control.Width/Height unless anchored to stretch
+                
+                ctrl_w = getattr(control, 'Width', 0)
+                ctrl_h = getattr(control, 'Height', 0)
+                
+                # Horizontal Anchor
+                if 'Left' in anchor and 'Right' in anchor:
+                    # Stretch horizontally
+                    pass # final_w is already stretched
+                elif 'Left' in anchor:
+                    # Align Left
+                    final_w = ctrl_w
+                elif 'Right' in anchor:
+                    # Align Right
+                    final_x = cell_x + cell_width - m_right - ctrl_w
+                    final_w = ctrl_w
+                else:
+                    # Center Horizontally (None or Top/Bottom only)
+                    final_x = cell_x + (cell_width - ctrl_w) // 2
+                    final_w = ctrl_w
+                
+                # Vertical Anchor
+                if 'Top' in anchor and 'Bottom' in anchor:
+                    # Stretch vertically
+                    pass # final_h is already stretched
+                elif 'Top' in anchor:
+                    # Align Top
+                    final_h = ctrl_h
+                elif 'Bottom' in anchor:
+                    # Align Bottom
+                    final_y = cell_y + cell_height - m_bottom - ctrl_h
+                    final_h = ctrl_h
+                else:
+                    # Center Vertically
+                    final_y = cell_y + (cell_height - ctrl_h) // 2
+                    final_h = ctrl_h
+
+            # Update control properties
+            control.Left = int(final_x)
+            control.Top = int(final_y)
+            control.Width = int(max(0, final_w))
+            control.Height = int(max(0, final_h))
+            
+            # Reposicionar el control
+            if hasattr(control, '_place_control'):
+                control._place_control(control.Width, control.Height)
+    
+    def _calculate_sizes(self, styles, available_space, dimension):
+        """Calcula los tamaños según los estilos definidos.
+        
+        Args:
+            styles: Lista de tuplas (SizeType, Value)
+            available_space: Espacio total disponible
+            dimension: 'width' o 'height'
+            
+        Returns:
+            Lista de tamaños calculados
+        """
+        count = len(styles)
+        sizes = [0] * count
+        remaining_space = available_space
+        remaining_percent = 100.0
+        autosize_indices = []
+        
+        # Primera pasada: tamaños absolutos y porcentajes
+        for i, (size_type, value) in enumerate(styles):
+            if size_type == 'Absolute':
+                sizes[i] = value
+                remaining_space -= value
+            elif size_type == 'Percent':
+                # Calculamos después
+                pass
+            elif size_type == 'AutoSize':
+                autosize_indices.append(i)
+        
+        # Segunda pasada: AutoSize (buscar contenido más grande)
+        for i in autosize_indices:
+            max_size = 0
+            for (row, col), control in self._cell_controls.items():
+                if (dimension == 'width' and col == i) or (dimension == 'height' and row == i):
+                    if hasattr(control, 'Width' if dimension == 'width' else 'Height'):
+                        # Use preferred size if available, else current size
+                        # For AutoSize, we ideally want the "natural" size of the control
+                        # But here we use Width/Height as a proxy
+                        size = control.Width if dimension == 'width' else control.Height
+                        
+                        # Add margins
+                        margin = getattr(control, 'Margin', (3, 3, 3, 3))
+                        if isinstance(margin, int): margin = (margin, margin, margin, margin)
+                        m_left, m_top, m_right, m_bottom = margin
+                        
+                        if dimension == 'width':
+                            size += m_left + m_right
+                        else:
+                            size += m_top + m_bottom
+                            
+                        max_size = max(max_size, size)
+            
+            sizes[i] = max_size
+            remaining_space -= sizes[i]
+        
+        # Tercera pasada: porcentajes del espacio restante
+        # Normalize percentages if they exceed 100? Or just use as weights?
+        # .NET treats them as weights if total > 100, or absolute % if < 100.
+        # Simplified: treat as weights of remaining space
+        
+        total_percent = sum(val for type, val in styles if type == 'Percent')
+        
+        if total_percent > 0:
+            for i, (size_type, value) in enumerate(styles):
+                if size_type == 'Percent':
+                    # Distribute remaining space proportionally
+                    sizes[i] = (value / total_percent) * max(0, remaining_space)
+        
+        return sizes
+    
+    def set_RowCount(self, count):
+        """Establece el número de filas y reorganiza el layout.
+        
+        Args:
+            count: Número de filas
+        """
+        self.RowCount = count
+        percent = 100.0 / max(1, count)
+        self.RowStyles = [('Percent', percent) for _ in range(count)]
+        self._apply_table_layout()
+    
+    def set_ColumnCount(self, count):
+        """Establece el número de columnas y reorganiza el layout.
+        
+        Args:
+            count: Número de columnas
+        """
+        self.ColumnCount = count
+        percent = 100.0 / max(1, count)
+        self.ColumnStyles = [('Percent', percent) for _ in range(count)]
+        self._apply_table_layout()
+    
+    def set_RowStyles(self, styles):
+        """Establece los estilos de las filas y reorganiza el layout.
+        
+        Args:
+            styles: Lista de tuplas (SizeType, Value)
+        """
+        self.RowStyles = styles
+        self._apply_table_layout()
+    
 
 class TabPage(ControlBase, ScrollableControlMixin):
     """
@@ -13558,715 +14294,6 @@ class CheckedListBox(ControlBase):
         if value == SelectionMode.None_:
             self.SelectedIndex = -1
 
-
-class FlowLayoutPanel(Panel):
-    """
-    El control FlowLayoutPanel organiza su contenido en una dirección de flujo horizontal o vertical.
-    Su contenido puede ajustarse desde una fila a la siguiente o desde una columna a la siguiente.
-    Como alternativa, su contenido se puede recortar en lugar de encapsularse.
-
-    Puede especificar la dirección de flujo estableciendo el valor de la propiedad FlowDirection.
-    El FlowLayoutPanel control invierte correctamente su dirección de flujo en diseños de derecha a izquierda (RTL).
-    También puede especificar si el contenido del FlowLayoutPanel control se ajusta o recorta estableciendo el valor de la WrapContents propiedad.
-
-    Cualquier control Windows Forms, incluidas otras instancias de FlowLayoutPanel, puede ser un elemento secundario del FlowLayoutPanel control.
-    Con esta funcionalidad, puede construir diseños sofisticados que se adapten a las dimensiones del formulario en tiempo de ejecución.
-
-    Los comportamientos de acoplamiento y delimitación de los controles secundarios difieren de los comportamientos de otros controles contenedor.
-    El acoplamiento y la delimitación están relacionados con el control mayor en la dirección del flujo.
-    """
-    
-    def __init__(self, master_form, props=None):
-        """Inicializa un FlowLayoutPanel.
-        
-        Args:
-            master_form: El formulario o contenedor padre
-            props: Diccionario opcional con propiedades iniciales
-        """
-        # Valores por defecto específicos de FlowLayoutPanel
-        defaults = {
-            'Left': 10,
-            'Top': 10,
-            'Width': 400,
-            'Height': 300,
-            'Name': '',
-            'Text': '',
-            'FlowDirection': FlowDirection.LeftToRight,  # 'LeftToRight', 'RightToLeft', 'TopDown', 'BottomUp'
-            'WrapContents': True,
-            'Padding': (0, 0, 0, 0),  # left, top, right, bottom
-            'AutoScroll': False,
-            'BorderStyle': BorderStyle.FixedSingle,
-            'BackColor': 'SystemButtonFace',
-            'Enabled': True,
-            'Visible': True
-        }
-        
-        if props:
-            defaults.update(props)
-        
-        # Inicializar como Panel
-        super().__init__(master_form, defaults)
-        
-        # Propiedades específicas de FlowLayoutPanel
-        self.FlowDirection = defaults['FlowDirection']
-        self.WrapContents = defaults['WrapContents']
-        
-        # Override AddControl para aplicar el layout automático
-        self._original_add_control = super().AddControl
-
-        # Override Resize event to update layout
-        self.Resize = self._on_resize_internal
-        
-    def _on_resize_internal(self):
-        """Internal handler for resize event."""
-        self._apply_flow_layout()
-
-    def AddControl(self, control):
-        """Añade un control al FlowLayoutPanel y aplica el layout automático.
-        
-        Args:
-            control: Control a añadir
-        """
-        # Añadir usando el método del padre
-        self._original_add_control(control)
-        
-        # Aplicar layout automático
-        self._apply_flow_layout()
-    
-    def RemoveControl(self, control):
-        """Quita un control del FlowLayoutPanel y reorganiza el layout.
-        
-        Args:
-            control: Control a quitar
-        """
-        super().RemoveControl(control)
-        self._apply_flow_layout()
-    
-    def _apply_flow_layout(self):
-        """Aplica el layout automático según FlowDirection y WrapContents."""
-        if not self.Controls:
-            return
-        
-        # Obtener padding
-        padding = self.Padding
-        if isinstance(padding, tuple) and len(padding) == 4:
-            pad_left, pad_top, pad_right, pad_bottom = padding
-        elif isinstance(padding, tuple) and len(padding) == 2:
-            pad_left = pad_right = padding[0]
-            pad_top = pad_bottom = padding[1]
-        else:
-            pad_left = pad_right = pad_top = pad_bottom = 0
-        
-        # Área disponible
-        available_width = self.Width - pad_left - pad_right
-        available_height = self.Height - pad_top - pad_bottom
-        
-        # Posición inicial
-        current_x = pad_left
-        current_y = pad_top
-        if self.FlowDirection == 'RightToLeft':
-             current_x = self.Width - pad_right
-        elif self.FlowDirection == 'BottomUp':
-             current_y = self.Height - pad_bottom
-             
-        max_row_height = 0
-        max_col_width = 0
-        
-        for control in self.Controls:
-            if not hasattr(control, 'Width') or not hasattr(control, 'Height'):
-                continue
-            
-            if not hasattr(control, '_visible') or control._visible:
-                control_width = control.Width
-                control_height = control.Height
-                
-                # Get margins
-                margin = getattr(control, 'Margin', (3, 3, 3, 3))
-                if isinstance(margin, int): margin = (margin, margin, margin, margin)
-                m_left, m_top, m_right, m_bottom = margin
-                
-                full_width = m_left + control_width + m_right
-                full_height = m_top + control_height + m_bottom
-                
-                if self.FlowDirection == 'LeftToRight':
-                    # Flujo horizontal (izquierda a derecha)
-                    
-                    # Check wrap
-                    if self.WrapContents and current_x + full_width > available_width + pad_left and current_x > pad_left:
-                         current_x = pad_left
-                         current_y += max_row_height
-                         max_row_height = 0
-
-                    control.Left = current_x + m_left
-                    control.Top = current_y + m_top
-                    control._place_control(control_width, control_height)
-                    
-                    current_x += full_width
-                    max_row_height = max(max_row_height, full_height)
-                    
-                    if getattr(control, '_flow_break', False):
-                        current_x = pad_left
-                        current_y += max_row_height
-                        max_row_height = 0
-                
-                elif self.FlowDirection == 'RightToLeft':
-                    # Flujo horizontal (derecha a izquierda)
-                    if self.WrapContents and current_x - full_width < pad_left:
-                        # Nueva fila
-                        current_x = self.Width - pad_right
-                        current_y += max_row_height
-                        max_row_height = 0
-                    
-                    control.Left = current_x - m_right - control_width
-                    control.Top = current_y + m_top
-                    control._place_control(control_width, control_height)
-                    
-                    current_x -= full_width
-                    max_row_height = max(max_row_height, full_height)
-
-                    if getattr(control, '_flow_break', False):
-                        current_x = self.Width - pad_right
-                        current_y += max_row_height
-                        max_row_height = 0
-                
-                elif self.FlowDirection == 'TopDown':
-                    # Flujo vertical (arriba a abajo)
-                    if self.WrapContents and current_y + full_height > available_height + pad_top:
-                        # Nueva columna
-                        current_y = pad_top
-                        current_x += max_col_width
-                        max_col_width = 0
-                    
-                    control.Left = current_x + m_left
-                    control.Top = current_y + m_top
-                    control._place_control(control_width, control_height)
-                    
-                    current_y += full_height
-                    max_col_width = max(max_col_width, full_width)
-
-                    if getattr(control, '_flow_break', False):
-                        current_y = pad_top
-                        current_x += max_col_width
-                        max_col_width = 0
-                
-                elif self.FlowDirection == 'BottomUp':
-                    # Flujo vertical (abajo a arriba)
-                    if self.WrapContents and current_y - full_height < pad_top:
-                        # Nueva columna
-                        current_y = self.Height - pad_bottom
-                        current_x += max_col_width
-                        max_col_width = 0
-                    
-                    control.Left = current_x + m_left
-                    control.Top = current_y - m_bottom - control_height
-                    control._place_control(control_width, control_height)
-                    
-                    current_y -= full_height
-                    max_col_width = max(max_col_width, full_width)
-
-                    if getattr(control, '_flow_break', False):
-                        current_y = self.Height - pad_bottom
-                        current_x += max_col_width
-                        max_col_width = 0
-
-        # Update scroll region if AutoScroll is enabled
-        if self.AutoScroll and hasattr(self, '_update_scroll_region'):
-            self._update_scroll_region()
-    
-    def set_FlowDirection(self, direction):
-        """Establece la dirección del flujo y reorganiza los controles.
-        
-        Args:
-            direction: 'LeftToRight', 'RightToLeft', 'TopDown', o 'BottomUp'
-        """
-        self.FlowDirection = direction
-        self._apply_flow_layout()
-    
-    def set_WrapContents(self, wrap):
-        """Establece si los controles deben ajustarse a nuevas líneas/columnas.
-        
-        Args:
-            wrap: True para ajustar, False para recortar
-        """
-        self.WrapContents = wrap
-        self._apply_flow_layout()
-
-    def SetFlowBreak(self, control, value):
-        """Sets the value of the flow-break setting for the control."""
-        control._flow_break = value
-        self._apply_flow_layout()
-
-    def GetFlowBreak(self, control):
-        """Returns the value of the flow-break setting for the control."""
-        return getattr(control, '_flow_break', False)
-
-
-class TableLayoutPanel(Panel):
-    """
-    El control TableLayoutPanel organiza su contenido en una cuadrícula. Como el diseño se realiza en tiempo de diseño y en tiempo de ejecución, puede cambiar dinámicamente cuando cambie el entorno de la aplicación. Esto proporciona a los controles del panel la capacidad de ajustar el tamaño proporcionalmente para poder responder a cambios como el ajuste de tamaño del control primario o el cambio de longitud del texto debido a la localización.
-
-    Cualquier control de Windows Forms puede ser un control secundario del control TableLayoutPanel, incluidas otras instancias de TableLayoutPanel. Esto le permite construir diseños sofisticados que se adapten a los cambios en tiempo de ejecución.
-
-    El control TableLayoutPanel puede expandirse para acomodar nuevos controles cuando se agreguen, dependiendo del valor de las propiedades RowCount, ColumnCount y GrowStyle. Establecer las propiedades RowCount o ColumnCount en un valor de 0 especifica que el TableLayoutPanel se desenlazará en la dirección correspondiente.
-
-    También puede controlar la dirección de expansión (horizontal o vertical) cuando el control TableLayoutPanel se llene de controles secundarios. De forma predeterminada, el control TableLayoutPanel se expande hacia abajo agregando filas.
-
-    Si quiere que el comportamiento de las filas y columnas sea diferente del predeterminado, puede controlar las propiedades de las filas y columnas mediante las propiedades RowStyles y ColumnStyles. Puede establecer las propiedades de las filas o columnas individualmente.
-
-    El control TableLayoutPanel agrega las siguientes propiedades a sus controles secundarios: Cell, Column, Row, ColumnSpan y RowSpan.
-
-    Puede combinar las celdas del control TableLayoutPanel estableciendo las propiedades ColumnSpan o RowSpan de un control secundario.
-
-    Nota:
-    Para establecer las Cellpropiedades , Column, Row, ColumnSpany RowSpan en tiempo de ejecución, use los SetCellPositionmétodos , SetColumnSetRow, , SetColumnSpany SetRowSpan .
-    Para leer las Cellpropiedades , Column, Row, ColumnSpany RowSpan en tiempo de ejecución, use los GetCellPositionmétodos , GetColumnGetRow, , GetColumnSpany GetRowSpan .
-
-    El comportamiento de anclaje de los controles secundarios de TableLayoutPanel difiere del de otros controles de contenedor. Si el valor de la propiedad del Anchor control secundario se establece Left en o Right, el control se colocará en el borde izquierdo o derecho de la celda, a una distancia que sea la suma de la propiedad del Margin control y la propiedad del Padding panel.
-    """
-    
-    def __init__(self, master_form, props=None):
-        """Inicializa un TableLayoutPanel.
-        
-        Args:
-            master_form: El formulario o contenedor padre
-            props: Diccionario opcional con propiedades iniciales
-        """
-        # Valores por defecto específicos de TableLayoutPanel
-        defaults = {
-            'Left': 10,
-            'Top': 10,
-            'Width': 600,
-            'Height': 400,
-            'Name': '',
-            'Text': '',
-            'RowCount': 2,
-            'ColumnCount': 2,
-            'RowStyles': None,  # Lista de tuplas (SizeType, Value)
-            'ColumnStyles': None,  # Lista de tuplas (SizeType, Value)
-            'CellBorderStyle': TableLayoutPanelCellBorderStyle.Single,
-            'Padding': (0, 0, 0, 0),
-            'BorderStyle': BorderStyle.FixedSingle,
-            'BackColor': 'SystemButtonFace',
-            'GrowStyle': TableLayoutPanelGrowStyle.AddRows,
-            'Enabled': True,
-            'Visible': True
-        }
-        
-        if props:
-            defaults.update(props)
-        
-        # Inicializar como Panel
-        super().__init__(master_form, defaults)
-        
-        # Propiedades específicas de TableLayoutPanel
-        self.RowCount = defaults['RowCount']
-        self.ColumnCount = defaults['ColumnCount']
-        self.GrowStyle = defaults['GrowStyle']
-        self.CellBorderStyle = defaults['CellBorderStyle']
-        
-        # Estilos por defecto (porcentajes iguales)
-        if defaults['RowStyles']:
-            self.RowStyles = defaults['RowStyles']
-        else:
-            percent = 100.0 / max(1, self.RowCount)
-            self.RowStyles = [(SizeType.Percent, percent) for _ in range(self.RowCount)]
-        
-        if defaults['ColumnStyles']:
-            self.ColumnStyles = defaults['ColumnStyles']
-        else:
-            percent = 100.0 / max(1, self.ColumnCount)
-            self.ColumnStyles = [(SizeType.Percent, percent) for _ in range(self.ColumnCount)]
-        
-        # Matriz de celdas (row, col) -> control
-        self._cell_controls = {}
-        
-        # Override AddControl para posicionar en celdas
-        self._original_add_control = super().AddControl
-        self._next_cell = (0, 0)  # Próxima celda disponible
-
-        # Override Resize event to update layout
-        self.Resize = self._on_resize_internal
-        
-    def _on_resize_internal(self):
-        """Internal handler for resize event."""
-        self._apply_table_layout()
-    
-    def AddControl(self, control, column=None, row=None):
-        """Añade un control al TableLayoutPanel en la celda especificada.
-        
-        Args:
-            control: Control a añadir
-            column: Columna donde colocar el control (None para siguiente disponible)
-            row: Fila donde colocar el control (None para siguiente disponible)
-        """
-        # Disable standard ControlBase layout logic for this child
-        # We want TableLayoutPanel to fully control the positioning
-        control._on_container_resize = lambda e=None: None
-        control._initialize_anchor_dock = lambda: None
-        # Redirect _apply_dock to our layout engine
-        control._apply_dock = self._apply_table_layout
-        
-        # Determinar celda
-        if column is None or row is None:
-            row, column = self._next_cell
-            self._advance_next_cell()
-        
-        # Validar celda
-        if row >= self.RowCount or column >= self.ColumnCount:
-            if self.GrowStyle == 'AddRows':
-                self.RowCount = row + 1
-                percent = 100.0 / self.RowCount
-                self.RowStyles = [('Percent', percent) for _ in range(self.RowCount)]
-            elif self.GrowStyle == 'AddColumns':
-                self.ColumnCount = column + 1
-                percent = 100.0 / self.ColumnCount
-                self.ColumnStyles = [('Percent', percent) for _ in range(self.ColumnCount)]
-            else:  # FixedSize
-                # If fixed size, we might need to expand anyway if user explicitly asks for it?
-                # For now, raise error or just expand if it's out of bounds
-                pass
-        
-        # Remove from any existing cell (to avoid duplicates if added multiple times)
-        for cell, ctrl in list(self._cell_controls.items()):
-            if ctrl == control:
-                del self._cell_controls[cell]
-                break
-
-        # Añadir usando el método del padre
-        self._original_add_control(control)
-        
-        # Guardar en la matriz de celdas
-        self._cell_controls[(row, column)] = control
-        
-        # Aplicar layout automático
-        self._apply_table_layout()
-    
-    def RemoveControl(self, control):
-        """Quita un control del TableLayoutPanel y reorganiza el layout.
-        
-        Args:
-            control: Control a quitar
-        """
-        # Eliminar de la matriz de celdas
-        for cell, ctrl in list(self._cell_controls.items()):
-            if ctrl == control:
-                del self._cell_controls[cell]
-                break
-        
-        super().RemoveControl(control)
-        self._apply_table_layout()
-    
-    def SetCellPosition(self, control, column, row):
-        """Establece la posición de un control en una celda específica.
-        
-        Args:
-            control: Control a posicionar
-            column: Columna destino
-            row: Fila destino
-        """
-        # Eliminar de celda anterior
-        for cell, ctrl in list(self._cell_controls.items()):
-            if ctrl == control:
-                del self._cell_controls[cell]
-                break
-        
-        # Añadir a nueva celda
-        self._cell_controls[(row, column)] = control
-        self._apply_table_layout()
-    
-    def GetCellPosition(self, control):
-        """Obtiene la posición de celda de un control.
-        
-        Args:
-            control: Control a buscar
-            
-        Returns:
-            Tupla (row, column) o None si no se encuentra
-        """
-        for cell, ctrl in self._cell_controls.items():
-            if ctrl == control:
-                return cell
-        return None
-
-    def SetColumn(self, control, column):
-        """Sets the column position of the specified child control."""
-        pos = self.GetCellPosition(control)
-        if pos:
-            self.SetCellPosition(control, column, pos[0])
-        else:
-            # If not in grid yet, assume row 0 or find next?
-            # For now, assume row 0 if not found
-            self.SetCellPosition(control, column, 0)
-
-    def GetColumn(self, control):
-        """Returns the column position of the specified child control."""
-        pos = self.GetCellPosition(control)
-        return pos[1] if pos else -1
-
-    def SetRow(self, control, row):
-        """Sets the row position of the specified child control."""
-        pos = self.GetCellPosition(control)
-        if pos:
-            self.SetCellPosition(control, pos[1], row)
-        else:
-            self.SetCellPosition(control, 0, row)
-
-    def GetRow(self, control):
-        """Returns the row position of the specified child control."""
-        pos = self.GetCellPosition(control)
-        return pos[0] if pos else -1
-
-    def SetRowSpan(self, control, value):
-        """Sets the number of rows that the control spans."""
-        control._row_span = value
-        self._apply_table_layout()
-
-    def GetRowSpan(self, control):
-        return getattr(control, '_row_span', 1)
-
-    def SetColumnSpan(self, control, value):
-        """Sets the number of columns that the control spans."""
-        control._column_span = value
-        self._apply_table_layout()
-
-    def GetColumnSpan(self, control):
-        return getattr(control, '_column_span', 1)
-    
-    def _advance_next_cell(self):
-        """Avanza la próxima celda disponible."""
-        row, col = self._next_cell
-        col += 1
-        if col >= self.ColumnCount:
-            col = 0
-            row += 1
-        self._next_cell = (row, col)
-    
-    def _apply_table_layout(self):
-        """Aplica el layout automático según las filas y columnas definidas."""
-        if not self._cell_controls:
-            return
-        
-        # Obtener padding
-        padding = self.Padding
-        if isinstance(padding, tuple) and len(padding) == 4:
-            pad_left, pad_top, pad_right, pad_bottom = padding
-        elif isinstance(padding, tuple) and len(padding) == 2:
-            pad_left = pad_right = padding[0]
-            pad_top = pad_bottom = padding[1]
-        else:
-            pad_left = pad_right = pad_top = pad_bottom = 0
-        
-        # Área disponible
-        available_width = self.Width - pad_left - pad_right
-        available_height = self.Height - pad_top - pad_bottom
-        
-        # Calcular tamaños de columnas
-        column_widths = self._calculate_sizes(self.ColumnStyles, available_width, 'width')
-        
-        # Calcular tamaños de filas
-        row_heights = self._calculate_sizes(self.RowStyles, available_height, 'height')
-        
-        # Calcular posiciones de inicio de cada columna y fila
-        column_positions = [pad_left]
-        for width in column_widths[:-1]:
-            column_positions.append(column_positions[-1] + width)
-        
-        row_positions = [pad_top]
-        for height in row_heights[:-1]:
-            row_positions.append(row_positions[-1] + height)
-        
-        # Posicionar controles en sus celdas
-        for (row, col), control in self._cell_controls.items():
-            if row >= len(row_heights) or col >= len(column_widths):
-                continue
-            
-            # Skip if control is not visible
-            if not getattr(control, '_visible', True):
-                continue
-
-            row_span = getattr(control, '_row_span', 1)
-            col_span = getattr(control, '_column_span', 1)
-            
-            cell_x = column_positions[col]
-            cell_y = row_positions[row]
-            
-            # Calculate total width/height including spans
-            cell_width = 0
-            for i in range(col_span):
-                if col + i < len(column_widths):
-                    cell_width += column_widths[col + i]
-            
-            cell_height = 0
-            for i in range(row_span):
-                if row + i < len(row_heights):
-                    cell_height += row_heights[row + i]
-            
-            # Aplicar márgenes de celda usando control.Margin
-            margin = getattr(control, 'Margin', (3, 3, 3, 3))
-            if isinstance(margin, int): margin = (margin, margin, margin, margin)
-            m_left, m_top, m_right, m_bottom = margin
-            
-            # Determine final position and size based on Dock and Anchor
-            final_x = cell_x + m_left
-            final_y = cell_y + m_top
-            final_w = cell_width - (m_left + m_right)
-            final_h = cell_height - (m_top + m_bottom)
-            
-            dock = getattr(control, 'Dock', 'None')
-            anchor = getattr(control, 'Anchor', ['Top', 'Left'])
-            
-            if dock == 'Fill':
-                # Fill the cell (minus margins)
-                pass # final_x, final_y, final_w, final_h are already correct for Fill
-            elif dock == 'None':
-                # Handle Anchor
-                # Default size is control.Width/Height unless anchored to stretch
-                
-                ctrl_w = getattr(control, 'Width', 0)
-                ctrl_h = getattr(control, 'Height', 0)
-                
-                # Horizontal Anchor
-                if 'Left' in anchor and 'Right' in anchor:
-                    # Stretch horizontally
-                    pass # final_w is already stretched
-                elif 'Left' in anchor:
-                    # Align Left
-                    final_w = ctrl_w
-                elif 'Right' in anchor:
-                    # Align Right
-                    final_x = cell_x + cell_width - m_right - ctrl_w
-                    final_w = ctrl_w
-                else:
-                    # Center Horizontally (None or Top/Bottom only)
-                    final_x = cell_x + (cell_width - ctrl_w) // 2
-                    final_w = ctrl_w
-                
-                # Vertical Anchor
-                if 'Top' in anchor and 'Bottom' in anchor:
-                    # Stretch vertically
-                    pass # final_h is already stretched
-                elif 'Top' in anchor:
-                    # Align Top
-                    final_h = ctrl_h
-                elif 'Bottom' in anchor:
-                    # Align Bottom
-                    final_y = cell_y + cell_height - m_bottom - ctrl_h
-                    final_h = ctrl_h
-                else:
-                    # Center Vertically
-                    final_y = cell_y + (cell_height - ctrl_h) // 2
-                    final_h = ctrl_h
-
-            # Update control properties
-            control.Left = int(final_x)
-            control.Top = int(final_y)
-            control.Width = int(max(0, final_w))
-            control.Height = int(max(0, final_h))
-            
-            # Reposicionar el control
-            if hasattr(control, '_place_control'):
-                control._place_control(control.Width, control.Height)
-    
-    def _calculate_sizes(self, styles, available_space, dimension):
-        """Calcula los tamaños según los estilos definidos.
-        
-        Args:
-            styles: Lista de tuplas (SizeType, Value)
-            available_space: Espacio total disponible
-            dimension: 'width' o 'height'
-            
-        Returns:
-            Lista de tamaños calculados
-        """
-        count = len(styles)
-        sizes = [0] * count
-        remaining_space = available_space
-        remaining_percent = 100.0
-        autosize_indices = []
-        
-        # Primera pasada: tamaños absolutos y porcentajes
-        for i, (size_type, value) in enumerate(styles):
-            if size_type == 'Absolute':
-                sizes[i] = value
-                remaining_space -= value
-            elif size_type == 'Percent':
-                # Calculamos después
-                pass
-            elif size_type == 'AutoSize':
-                autosize_indices.append(i)
-        
-        # Segunda pasada: AutoSize (buscar contenido más grande)
-        for i in autosize_indices:
-            max_size = 0
-            for (row, col), control in self._cell_controls.items():
-                if (dimension == 'width' and col == i) or (dimension == 'height' and row == i):
-                    if hasattr(control, 'Width' if dimension == 'width' else 'Height'):
-                        # Use preferred size if available, else current size
-                        # For AutoSize, we ideally want the "natural" size of the control
-                        # But here we use Width/Height as a proxy
-                        size = control.Width if dimension == 'width' else control.Height
-                        
-                        # Add margins
-                        margin = getattr(control, 'Margin', (3, 3, 3, 3))
-                        if isinstance(margin, int): margin = (margin, margin, margin, margin)
-                        m_left, m_top, m_right, m_bottom = margin
-                        
-                        if dimension == 'width':
-                            size += m_left + m_right
-                        else:
-                            size += m_top + m_bottom
-                            
-                        max_size = max(max_size, size)
-            
-            sizes[i] = max_size
-            remaining_space -= sizes[i]
-        
-        # Tercera pasada: porcentajes del espacio restante
-        # Normalize percentages if they exceed 100? Or just use as weights?
-        # .NET treats them as weights if total > 100, or absolute % if < 100.
-        # Simplified: treat as weights of remaining space
-        
-        total_percent = sum(val for type, val in styles if type == 'Percent')
-        
-        if total_percent > 0:
-            for i, (size_type, value) in enumerate(styles):
-                if size_type == 'Percent':
-                    # Distribute remaining space proportionally
-                    sizes[i] = (value / total_percent) * max(0, remaining_space)
-        
-        return sizes
-    
-    def set_RowCount(self, count):
-        """Establece el número de filas y reorganiza el layout.
-        
-        Args:
-            count: Número de filas
-        """
-        self.RowCount = count
-        percent = 100.0 / max(1, count)
-        self.RowStyles = [('Percent', percent) for _ in range(count)]
-        self._apply_table_layout()
-    
-    def set_ColumnCount(self, count):
-        """Establece el número de columnas y reorganiza el layout.
-        
-        Args:
-            count: Número de columnas
-        """
-        self.ColumnCount = count
-        percent = 100.0 / max(1, count)
-        self.ColumnStyles = [('Percent', percent) for _ in range(count)]
-        self._apply_table_layout()
-    
-    def set_RowStyles(self, styles):
-        """Establece los estilos de las filas y reorganiza el layout.
-        
-        Args:
-            styles: Lista de tuplas (SizeType, Value)
-        """
-        self.RowStyles = styles
-        self._apply_table_layout()
-    
 
 class SplitterPanel(Panel):
     """
