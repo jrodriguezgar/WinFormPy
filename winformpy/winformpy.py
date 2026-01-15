@@ -1,6 +1,6 @@
 # =============================================================
 # Module: winformpy.py
-# Author: Vibe coding by DatamanEdge 
+# Author: DatamanEdge
 # Date: 2025-12-15
 # Version: 1.0.6
 # Description: 
@@ -115,6 +115,15 @@ def _resolve_master_widget(master_form):
 # =======================================================================
 # MAIN MODULE: winformpy.py
 # =======================================================================
+
+class ButtonGroup:
+    """Abstraction for grouping RadioButtons without exposing Tkinter internals."""
+    def __init__(self, default_value=''):
+        self._var = tk.StringVar(value=default_value)
+    
+    def _get_var(self):
+        """Internal method to get the underlying StringVar (used by RadioButton)."""
+        return self._var
 
 class SystemColors:
     """Windows Forms system colors."""
@@ -592,6 +601,40 @@ class ComboBoxStyle(Enum):
     Simple = 0
     DropDown = 1
     DropDownList = 2
+
+
+class Cursors:
+    """
+    Provides a collection of Cursor objects for use by a Windows Forms application.
+    """
+    AppStarting = "appstarting" if sys.platform == "win32" else "watch"
+    Arrow = "arrow"
+    Cross = "cross"
+    Default = "" # Empty string allows inheritance from parent
+    Hand = "hand2"
+    Help = "question_arrow"
+    HSplit = "sb_h_double_arrow"
+    IBeam = "xterm"
+    No = "no"
+    NoMove2D = "fleur"
+    NoMoveHoriz = "sb_h_double_arrow"
+    NoMoveVert = "sb_v_double_arrow"
+    PanEast = "arrow"
+    PanNE = "arrow"
+    PanNorth = "arrow"
+    PanNW = "arrow"
+    PanSE = "arrow"
+    PanSouth = "arrow"
+    PanSW = "arrow"
+    PanWest = "arrow"
+    SizeAll = "fleur"
+    SizeNESW = "size_ne_sw" if sys.platform == "win32" else "crosshair"
+    SizeNS = "size_ns" if sys.platform == "win32" else "sb_v_double_arrow"
+    SizeNWSE = "size_nw_se" if sys.platform == "win32" else "crosshair"
+    SizeWE = "size_we" if sys.platform == "win32" else "sb_h_double_arrow"
+    UpArrow = "sb_up_arrow"
+    VSplit = "sb_v_double_arrow"
+    WaitCursor = "watch"
 
 
 # =============================================================
@@ -1263,6 +1306,13 @@ class ScrollableControlMixin:
         """Resize the inner frame to match the canvas width (if we want to fit width)."""
         # For now, we don't force width to allow horizontal scrolling if needed
         pass
+
+    def UpdateScroll(self):
+        """Updates the scroll region based on the current controls.
+        
+        This method recalculates the scrollable area to ensure all child controls are accessible.
+        """
+        self._update_scroll_region()
 
     def _update_scroll_region(self):
         """Manually update the scroll region based on child controls."""
@@ -2377,11 +2427,16 @@ class ControlBase:
         self._width = None
         self._height = None
         
-        # MousePointer property (mouse cursor)
-        self.MousePointer = "arrow"
+        # Cursor property
+        self._cursor = Cursors.Default
+
+        # Tab properties
+        self._tab_index = 0
+        self._tab_stop = True
         
         # New VB properties
         self.Enabled = True
+        self._visible = True
         self.BackColor = None
         self.BorderStyle = None  # e.g., 'flat', 'raised', 'sunken', 'ridge', 'groove'
         self.BackgroundImage = None
@@ -2527,6 +2582,85 @@ class ControlBase:
             self.BringToFront()
         else:
             self.SendToBack()
+
+    @property
+    def TabIndex(self):
+        """Gets or sets the tab order of the control within its container."""
+        return self._tab_index
+
+    @TabIndex.setter
+    def TabIndex(self, value):
+        self._tab_index = value
+        # Re-order controls in the parent container based on TabIndex
+        if getattr(self, '_parent_container', None) and hasattr(self._parent_container, 'Controls'):
+            try:
+                # Sort controls by TabIndex
+                # We use a stable sort to preserve relative order of controls with same TabIndex
+                sorted_controls = sorted(
+                    self._parent_container.Controls, 
+                    key=lambda c: c.TabIndex if hasattr(c, 'TabIndex') else 0
+                )
+                
+                # Apply lift() in order (bottom to top)
+                # The first item in sorted list (lowest TabIndex) should be at the bottom?
+                # In Tkinter, traversal order is creation order (stacking order).
+                # So the first widget created is the first one visited.
+                # The first widget created is at the BOTTOM of the stacking order.
+                # So we want lowest TabIndex to be at the BOTTOM.
+                # But lift() brings to TOP.
+                # So if we iterate from lowest TabIndex to highest and call lift(),
+                # the highest TabIndex will end up at the TOP.
+                # Wait.
+                # 1. lift(lowest) -> lowest is TOP.
+                # 2. lift(next) -> next is TOP (lowest is below).
+                # ...
+                # last. lift(highest) -> highest is TOP.
+                # Result: lowest is at bottom? No.
+                # Stack: [lowest, next, ..., highest] (Top is highest).
+                # Traversal order: Bottom to Top?
+                # Tkinter traversal: "The default traversal order is the order in which widgets were created."
+                # "The stacking order of windows also affects the traversal order."
+                # Usually, Tab moves to the "next" widget.
+                # If I have A (bottom) and B (top).
+                # Does Tab go A -> B? Yes, usually.
+                # So lowest TabIndex should be at the BOTTOM.
+                # If I iterate sorted_controls (low to high) and call lift():
+                # 1. lift(low) -> low is TOP.
+                # 2. lift(high) -> high is TOP.
+                # Result: high is TOP, low is below high.
+                # So low is at BOTTOM (relative to high).
+                # So iterating low to high and calling lift() puts high at TOP.
+                # Which means low is at BOTTOM.
+                # So the order is correct.
+                
+                for ctrl in sorted_controls:
+                    if hasattr(ctrl, '_tk_widget') and ctrl._tk_widget:
+                        ctrl._tk_widget.lift()
+            except Exception:
+                pass
+
+    @property
+    def TabStop(self):
+        """Gets or sets a value indicating whether the user can give the focus to this control using the TAB key."""
+        return self._tab_stop
+
+    @TabStop.setter
+    def TabStop(self, value):
+        self._tab_stop = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                # takefocus: 0 means skip, 1 means visit
+                self._tk_widget.configure(takefocus=1 if value else 0)
+            except Exception:
+                pass
+
+    def Focus(self):
+        """Sets input focus to the control."""
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                self._tk_widget.focus_set()
+            except Exception:
+                pass
 
     def _notify_parent_layout_changed(self):
         """Notifies the parent container that this control's layout has changed.
@@ -2859,8 +2993,18 @@ class ControlBase:
                 pass
 
     def _place_control(self, width=None, height=None):
-        """Uses the 'place' geometry manager to position the control."""
+        """Uses the 'place' geometry manager to position the control.
+        
+        This method ALWAYS positions the control regardless of visibility state,
+        following Windows Forms behavior where positioning and visibility are independent.
+        Visibility is managed separately by the Visible property setter.
+        """
         if self._tk_widget:
+            # If Dock is active, use _apply_dock instead of manual placement
+            if hasattr(self, '_dock') and self._dock != DockStyle.None_:
+                self._apply_dock()
+                return
+
             # Coordinates are always relative to master
             # If master is a _container (Frame inside GroupBox/Panel),
             # coordinates are already correct without adjustments
@@ -2879,9 +3023,8 @@ class ControlBase:
                 place_args['height'] = height
                 
             try:
-                # print(f"DEBUG: Placing {self.Name} at {x_coord},{y_coord} size {width}x{height} in {self.master}")
                 self._tk_widget.place(**place_args)
-            except tk.TclError:
+            except tk.TclError as e:
                 # Widget might be destroyed or invalid
                 return
             
@@ -2898,7 +3041,7 @@ class ControlBase:
                     parent._update_scroll_region()
             
             # Set the cursor
-            self._tk_widget.config(cursor=self.MousePointer)
+            self._tk_widget.config(cursor=self.Cursor)
             
             # Apply visual configuration
             self._apply_visual_config()
@@ -3183,63 +3326,76 @@ class ControlBase:
         
         Implements the Windows Forms visibility hierarchy:
         - Sets the _visible property of the control
-        - If the control is a container (Panel, etc.), propagates the change to its children
-        - Only physically shows or hides the widget if the effective visibility changes
+        - The control is shown only if it AND all parents are visible
+        - If the control is a container, propagates visibility changes to children
         
         Args:
             value: True to make visible, False to hide
         """
         old_visible = getattr(self, '_visible', True)
+        
+        # Only do something if the value actually changed
+        if old_visible == value:
+            return
+            
         self._visible = value
         
-        # Determine if the control should be physically shown or hidden
-        # Only show if value is True AND all parents are also visible
-        should_be_visible = value
-        if value:
-            # Check parent visibility
-            parent = self.get_Parent()
-            while parent is not None:
-                if not getattr(parent, '_visible', True):
-                    should_be_visible = False
-                    break
-                parent = parent.get_Parent() if hasattr(parent, 'get_Parent') else None
+        # Check if parent hierarchy is visible
+        parent_visible = True
+        parent = self.get_Parent()
+        while parent is not None:
+            if not getattr(parent, '_visible', True):
+                parent_visible = False
+                break
+            parent = parent.get_Parent() if hasattr(parent, 'get_Parent') else None
+        
+        # Control should be physically visible only if:
+        # - Its own _visible is True AND parent hierarchy is visible
+        should_be_visible = self._visible and parent_visible
         
         # Apply physical visibility to the widget
         if hasattr(self, '_tk_widget') and self._tk_widget:
             if should_be_visible:
-                # Show the control using place with its current position and size
+                # Show the control - reposition it (will make it visible)
                 if hasattr(self, 'Width') and hasattr(self, 'Height'):
                     self._place_control(self.Width, self.Height)
                 else:
                     self._tk_widget.place(x=self.Left, y=self.Top)
-            elif not self._visible:
-                # Hide the control only if explicitly hidden
-                # If hidden due to parent, we keep it placed ("ubicar en su sitio")
+            else:
+                # Hide the control - remove from layout manager
                 self._tk_widget.place_forget()
         
-        # If it is a container with child controls, propagate the change
+        # If it is a container with child controls, update their physical visibility
+        # Each child will react based on its own _visible AND this parent's new visibility
         if hasattr(self, 'Controls'):
             for control in self.Controls:
-                if hasattr(control, '_visible'):
-                    # Only update the physical visibility if the child has _visible = True
-                    if control._visible:
-                        if should_be_visible:
-                            # The container becomes visible, show visible children
-                            if hasattr(control, '_place_control'):
-                                if hasattr(control, 'Width') and hasattr(control, 'Height'):
-                                    control._place_control(control.Width, control.Height)
-                                else:
-                                    control._place_control()
-                        # else:
-                        #     # The container is hidden, hide all children
-                        #     # NOT NECESSARY: Tkinter hides children automatically if parent is hidden
-                        #     # And keeping them placed preserves layout state ("ubicar en su sitio")
-                        #     pass
-                    # If the child is propagating changes to its own children (e.g. Panel inside Panel)
-                    if hasattr(control, 'set_Visible') and old_visible != value:
-                        # Re-evaluate the child's visibility so it propagates to its children
-                        control_visible = control._visible
-                        control.set_Visible(control_visible)
+                if hasattr(control, 'set_Visible'):
+                    # Force update to propagate visibility change recursively
+                    # We toggle _visible to bypass the "no change" check in set_Visible
+                    current_visible = getattr(control, '_visible', True)
+                    control._visible = not current_visible
+                    control.set_Visible(current_visible)
+                elif hasattr(control, '_tk_widget') and control._tk_widget:
+                    # Fallback for controls without set_Visible
+                    child_should_be_visible = getattr(control, '_visible', True) and should_be_visible
+                    
+                    if child_should_be_visible:
+                        # Show the child by repositioning it
+                        if hasattr(control, '_place_control'):
+                            if hasattr(control, 'Width') and hasattr(control, 'Height'):
+                                control._place_control(control.Width, control.Height)
+                    else:
+                        # Hide the child
+                        control._tk_widget.place_forget()
+                    
+                    # If the child is also a container, recursively update its children
+                    if hasattr(control, 'Controls') and len(control.Controls) > 0:
+                        # Trigger the same logic for grandchildren
+                        if hasattr(control, 'set_Visible'):
+                            child_visible = getattr(control, '_visible', True)
+                            # Force re-evaluation by temporarily changing and restoring
+                            control._visible = not child_visible
+                            control.set_Visible(child_visible)
     
     @property
     def ToolTipText(self):
@@ -3842,13 +3998,25 @@ class ControlBase:
     @property
     def Cursor(self):
         """Gets or sets the cursor that is displayed when the mouse pointer is over the control."""
-        return self.MousePointer
+        return self._cursor
 
     @Cursor.setter
     def Cursor(self, value):
-        self.MousePointer = value
+        self._cursor = value
         if self._tk_widget:
-            self._tk_widget.config(cursor=value)
+            try:
+                self._tk_widget.config(cursor=value)
+            except tk.TclError:
+                pass
+
+    @property
+    def MousePointer(self):
+        """Gets or sets the cursor (alias for Cursor)."""
+        return self.Cursor
+
+    @MousePointer.setter
+    def MousePointer(self, value):
+        self.Cursor = value
 
     def PointToClient(self, point):
         """Computes the location of the specified screen point into client coordinates."""
@@ -3960,6 +4128,9 @@ class ControlBase:
         if self.BackgroundImage is not None:
             config['image'] = self.BackgroundImage
         
+        # Apply TabStop (takefocus)
+        config['takefocus'] = 1 if self.TabStop else 0
+
         # Apply configuration to widget
         if config:
             try:
@@ -4026,7 +4197,8 @@ class ScrollBar(ControlBase):
             'Visible': True, 'Enabled': True, 'Name': '',
             'BackColor': None, 'ForeColor': None,
             'Font': None, 'AutoSize': False,
-            'BorderStyle': BorderStyle.None_, 'UseSystemStyles': True
+            'BorderStyle': BorderStyle.None_, 'UseSystemStyles': True,
+            'TabStop': False
         }
         
         if props:
@@ -4062,6 +4234,7 @@ class ScrollBar(ControlBase):
         self.AutoSize = defaults['AutoSize']
         self.BorderStyle = defaults['BorderStyle']
         self.UseSystemStyles = defaults['UseSystemStyles']
+        self.TabStop = defaults['TabStop']
         
         # Scroll event
         self.Scroll = None
@@ -4100,6 +4273,9 @@ class ScrollBar(ControlBase):
         
         # Configure size
         self._place_control(self.Width, self.Height)
+        
+        # Apply initial visibility state
+        self.set_Visible(self._visible)
     
     def _on_scroll(self, value):
         """Handler for the scroll event."""
@@ -4171,7 +4347,7 @@ class UserControl(ControlBase, ScrollableControlMixin):
             'Text': '',
             'Enabled': True,
             'Visible': True,
-            'BackColor': 'System.Control',
+            'BackColor': 'SystemButtonFace',
             'ForeColor': None,
             'BackgroundImage': None,
             'BorderStyle': BorderStyle.None_,
@@ -4184,7 +4360,8 @@ class UserControl(ControlBase, ScrollableControlMixin):
             'AutoSize': False,
             'AutoSizeMode': AutoSizeMode.GrowOnly,
             'MinimumSize': None,
-            'MaximumSize': None
+            'MaximumSize': None,
+            'TabStop': False
         }
         
         if props:
@@ -4199,6 +4376,11 @@ class UserControl(ControlBase, ScrollableControlMixin):
         master_widget, parent_container = _resolve_master_widget(parent)
         super().__init__(master_widget, defaults['Left'], defaults['Top'])
         
+        # Initialize Controls list early to avoid AttributeError in property setters
+        self.Controls = []
+        self.ControlAdded = lambda control: None
+        self.ControlRemoved = lambda control: None
+        
         # Store the parent container for auto-registration
         self._parent_container = parent_container
         
@@ -4212,6 +4394,7 @@ class UserControl(ControlBase, ScrollableControlMixin):
         self.ForeColor = defaults['ForeColor']
         self.BackgroundImage = defaults['BackgroundImage']
         self.BorderStyle = defaults['BorderStyle']
+        self.TabStop = defaults['TabStop']
         
         # Initialize scroll properties using the Mixin
         self._init_scroll_properties(defaults)
@@ -4275,9 +4458,6 @@ class UserControl(ControlBase, ScrollableControlMixin):
         # Configure scroll infrastructure using the Mixin
         self._setup_scroll_infrastructure(self._tk_widget, self.BackColor)
         
-        # Initialize Controls collection
-        self.Controls = []
-        
         # Add _root for container functionality
         if hasattr(parent, 'FindForm'):
             form = parent.FindForm()
@@ -4290,10 +4470,11 @@ class UserControl(ControlBase, ScrollableControlMixin):
         else:
              self._root = None
 
-        if self.Visible:
-            self._place_control(self.Width, self.Height)
-        else:
-            self._tk_widget.place_forget()
+        # Position - ALWAYS position regardless of visibility
+        self._place_control(self.Width, self.Height)
+        
+        # Apply initial visibility state
+        self.set_Visible(self._visible)
             
         # Events
         self.Load = lambda: None
@@ -4336,7 +4517,17 @@ class UserControl(ControlBase, ScrollableControlMixin):
         
         # Apply visibility hierarchy
         if hasattr(control, '_visible'):
-            control_should_be_visible = control._visible and self.get_Visible()
+            # Calculate effective visibility of the UserControl
+            usercontrol_visible = getattr(self, '_visible', True)
+            if hasattr(self, 'get_Parent'):
+                parent = self.get_Parent()
+                while parent is not None:
+                    if not getattr(parent, '_visible', True):
+                        usercontrol_visible = False
+                        break
+                    parent = parent.get_Parent() if hasattr(parent, 'get_Parent') else None
+            
+            control_should_be_visible = control._visible and usercontrol_visible
             if control_should_be_visible:
                 control._place_control()
             else:
@@ -4564,6 +4755,7 @@ class Form(ScrollableControlMixin):
         self.WindowState = FormWindowState.Normal
         self.Enabled = True
         self.Visible = True
+        self._cursor = Cursors.Default
         self.TopMost = False
         self.IsMdiContainer = False
         self.CancelButton = None
@@ -4605,6 +4797,35 @@ class Form(ScrollableControlMixin):
         self.ControlAdded = lambda control: None  # When a control is added
         self.ControlRemoved = lambda control: None  # When a control is removed 
 
+    def AddControl(self, control):
+        """Adds a control to the Form.
+        
+        Required for auto-registration of controls (like TabControl) to work correctly.
+        """
+        if control not in self.Controls:
+            self.Controls.append(control)
+            # control.master is already set to self._root or self._container
+            
+            # Register this Form as the wrapper
+            if not hasattr(self._container, '_control_wrapper'):
+                self._container._control_wrapper = self
+            
+            # Apply visibility hierarchy
+            if hasattr(control, '_visible'):
+                form_visible = getattr(self, '_visible', True)
+                control_should_be_visible = control._visible and form_visible
+                if control_should_be_visible:
+                    if hasattr(control, '_place_control'):
+                        control._place_control()
+                else:
+                    if hasattr(control, '_tk_widget') and control._tk_widget:
+                        control._tk_widget.place_forget()
+            else:
+                if hasattr(control, '_place_control'):
+                    control._place_control()
+                
+            self.ControlAdded(control)
+
     @property
     def Visible(self):
         """Gets or sets the form visibility."""
@@ -4616,20 +4837,25 @@ class Form(ScrollableControlMixin):
         if hasattr(self, '_root') and self._root:
             if value:
                 self._root.deiconify()
-                # Propagate to children to ensure they are placed (if they were added while hidden)
-                if hasattr(self, 'Controls'):
-                    for control in self.Controls:
-                        if hasattr(control, '_visible') and control._visible:
-                            # Force update to propagate visibility change recursively
-                            if hasattr(control, 'set_Visible'):
-                                control.set_Visible(True)
-                            elif hasattr(control, '_place_control'):
-                                if hasattr(control, 'Width') and hasattr(control, 'Height'):
-                                    control._place_control(control.Width, control.Height)
-                                else:
-                                    control._place_control()
             else:
                 self._root.withdraw()
+        
+        # Propagate to children to ensure they are placed (if they were added while hidden)
+        if hasattr(self, 'Controls'):
+            for control in self.Controls:
+                if hasattr(control, '_visible') and control._visible:
+                    # Force update to propagate visibility change recursively
+                    if hasattr(control, 'set_Visible'):
+                        # Force re-evaluation by temporarily changing and restoring
+                        # This ensures set_Visible logic runs even if _visible is already True
+                        current_visible = control._visible
+                        control._visible = not current_visible
+                        control.set_Visible(current_visible)
+                    elif hasattr(control, '_place_control'):
+                        if hasattr(control, 'Width') and hasattr(control, 'Height'):
+                            control._place_control(control.Width, control.Height)
+                        else:
+                            control._place_control()
 
     @property
     def DialogResult(self):
@@ -4772,6 +4998,31 @@ class Form(ScrollableControlMixin):
         self._text_value = value
         if hasattr(self, '_root') and self._root:
             self._root.title(value)
+
+    @property
+    def Cursor(self):
+        """Gets or sets the cursor that is displayed when the mouse pointer is over the form."""
+        return self._cursor
+
+    @Cursor.setter
+    def Cursor(self, value):
+        self._cursor = value
+        if hasattr(self, '_root') and self._root:
+            try:
+                self._root.config(cursor=value)
+                # Force update to ensure cursor change is visible immediately
+                self._root.update_idletasks()
+            except tk.TclError:
+                pass
+
+    @property
+    def MousePointer(self):
+        """Gets or sets the cursor (alias for Cursor)."""
+        return self.Cursor
+
+    @MousePointer.setter
+    def MousePointer(self, value):
+        self.Cursor = value
 
     @property
     def Size(self):
@@ -5351,6 +5602,7 @@ class ProgressBar(ControlBase):
         self._tk_widget['maximum'] = self.Maximum
         self._tk_widget['value'] = self.Value
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         
         # Bind common events
         self._bind_common_events()
@@ -5554,18 +5806,13 @@ class Button(ControlBase):
         # Bind common events
         self._bind_common_events()
         
-        # Unbind Button-1 because tk.Button uses command for clicks
-        # This prevents double firing of the Click event
-        if self._tk_widget:
-            self._tk_widget.unbind('<Button-1>')
+        # Position - ALWAYS position regardless of visibility
+        if self.AutoSize:
+            self._apply_autosize()
+        self._place_control(self.Width, self.Height)
         
-        # Position if visible
-        if self.Visible:
-            if self.AutoSize:
-                self._apply_autosize()
-            self._place_control(self.Width, self.Height)
-        else:
-            self._tk_widget.place_forget()
+        # Apply initial visibility state
+        self.set_Visible(self._visible)
             
         # Apply Dock and Anchor if they were specified in props
         if 'Dock' in defaults and defaults['Dock']:
@@ -5738,7 +5985,8 @@ class Label(ControlBase):
             'ImageList': None,
             'LiveSetting': 'off',
             'UseCompatibleTextRendering': False,
-            'UseWaitCursor': False
+            'UseWaitCursor': False,
+            'TabStop': False
         }
         
         if props:
@@ -5782,6 +6030,7 @@ class Label(ControlBase):
         self.UseMnemonic = defaults['UseMnemonic']
         self.Padding = defaults['Padding']
         self.Margin = defaults['Margin']
+        self.TabStop = defaults['TabStop']
         
         self._auto_ellipsis = defaults['AutoEllipsis']
         self._flat_style = defaults['FlatStyle']
@@ -5868,11 +6117,13 @@ class Label(ControlBase):
             
         self._tk_widget.config(padx=padx, pady=pady)
         
+        # Position - ALWAYS position regardless of visibility
+        self._place_control(self.Width, self.Height)
+        
         # Enabled/Visible
         if not self.Enabled:
             self._tk_widget.config(state='disabled')
-        if not self.Visible:
-            self._tk_widget.place_forget()
+        self.set_Visible(self._visible)
         
         # Set tooltip
         if defaults['ToolTipText']:
@@ -6288,18 +6539,18 @@ class TextBox(ControlBase):
         # Apply Enabled/Visible
         if not self.Enabled:
             self._tk_widget.config(state='disabled')
-        if not self.Visible:
-            self._tk_widget.place_forget()
         
         if self.AutoSize:
             self._apply_autosize_textbox()
 
-        # Place the control (use container frame if it exists for multiline with scrollbars)
+        # Place the control - ALWAYS position regardless of visibility
         if self.Multiline and hasattr(self, '_container_frame') and self._container_frame:
             # Place the container frame, not the text widget directly
             self._container_frame.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
         else:
             self._place_control(self.Width, self.Height if not self.Multiline else self.Height)
+        
+        self.set_Visible(self._visible)
         
         # Apply Dock and Anchor if they were specified in props
         if 'Dock' in defaults and defaults['Dock']:
@@ -6565,6 +6816,37 @@ class TextBox(ControlBase):
         """Gets the length of text in the control."""
         return len(self.Text)
 
+    def set_Visible(self, value):
+        """Sets the visibility state of the TextBox."""
+        old_visible = getattr(self, '_visible', True)
+        if old_visible == value:
+            return
+            
+        self._visible = value
+        
+        # Check hierarchy
+        parent_visible = True
+        parent = self.get_Parent()
+        while parent is not None:
+            if not getattr(parent, '_visible', True):
+                parent_visible = False
+                break
+            parent = parent.get_Parent() if hasattr(parent, 'get_Parent') else None
+            
+        should_be_visible = self._visible and parent_visible
+        
+        if self.Multiline and hasattr(self, '_container_frame') and self._container_frame:
+             if should_be_visible:
+                 self._container_frame.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
+             else:
+                 self._container_frame.place_forget()
+        else:
+             if hasattr(self, '_tk_widget') and self._tk_widget:
+                 if should_be_visible:
+                     self._place_control(self.Width, self.Height)
+                 else:
+                     self._tk_widget.place_forget()
+
     def AppendText(self, text):
         """Appends text to the current text of the text box."""
         if self.Multiline:
@@ -6732,7 +7014,7 @@ class RadioButton(ControlBase):
         self.CheckAlign = defaults['CheckAlign']
         self.TabStop = defaults['TabStop']
         
-        # Handle Group: if string, use shared StringVar; if StringVar, use it; else create new
+        # Handle Group: if string, use shared StringVar; if ButtonGroup, use it; if StringVar, use it; else create new
         # In WinForms, grouping is automatic by container. Here we simulate it with 'Group' prop or container ID.
         # If no group specified, use parent container ID to group automatically like WinForms
         if defaults['Group']:
@@ -6741,6 +7023,8 @@ class RadioButton(ControlBase):
                 if group_name not in RadioButton._group_vars:
                     RadioButton._group_vars[group_name] = tk.StringVar()
                 self.Group = RadioButton._group_vars[group_name]
+            elif isinstance(defaults['Group'], ButtonGroup):
+                self.Group = defaults['Group']._get_var()
             elif isinstance(defaults['Group'], tk.StringVar):
                 self.Group = defaults['Group']
             else:
@@ -6807,6 +7091,7 @@ class RadioButton(ControlBase):
             self._apply_autosize()
             
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         
         # Bind common events
         self._bind_common_events()
@@ -7162,14 +7447,14 @@ class ComboBox(ControlBase):
         # Apply Enabled/Visible
         if not self.Enabled:
             self._tk_widget.config(state='disabled')
-        if not self.Visible:
-            self._tk_widget.place_forget()
         
         # Apply AutoSize if enabled
         if self.AutoSize:
             self._apply_autosize()
         
+        # Position - ALWAYS position regardless of visibility
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         
         # Apply Dock and Anchor if they were specified in props
         if 'Dock' in defaults and defaults['Dock']:
@@ -7547,13 +7832,11 @@ class CheckBox(ControlBase):
         # Apply configurations
         self._apply_visual_config()
         
-        # Place if visible
-        if self.Visible:
-            if self.AutoSize:
-                self._apply_autosize()
-            self._place_control(self.Width, self.Height)
-        else:
-            self._tk_widget.place_forget()
+        # Position - ALWAYS position regardless of visibility
+        if self.AutoSize:
+            self._apply_autosize()
+        self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
             
         # Apply Dock and Anchor if they were specified in props
         if 'Dock' in defaults and defaults['Dock']:
@@ -7752,6 +8035,12 @@ class CheckBox(ControlBase):
         if self._checkstate_value != value:
             self._checkstate_value = value
             self._state_var.set(value)
+            # Forzar actualización visual del widget de Tkinter
+            if hasattr(self, '_tk_widget') and self._tk_widget:
+                if value == CheckState.Checked:
+                    self._tk_widget.select()
+                elif value == CheckState.Unchecked:
+                    self._tk_widget.deselect()
             self.OnCheckStateChanged(EventArgs.Empty)
             self.OnCheckedChanged(EventArgs.Empty)
 
@@ -8030,7 +8319,8 @@ class LinkLabel(Label):
             'DisabledLinkColor': 'gray',
             'LinkBehavior': 'SystemDefault', # 'SystemDefault', 'AlwaysUnderline', 'HoverUnderline', 'NeverUnderline'
             'LinkVisited': False,
-            'LinkArea': None # (start, length)
+            'LinkArea': None, # (start, length)
+            'TabStop': True
         }
         if props:
             defaults.update(props)
@@ -8369,6 +8659,7 @@ class DomainUpDown(ControlBase):
         self._bind_common_events()
         
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         self._auto_register_with_parent()
 
     def _apply_visual_config(self):
@@ -8569,7 +8860,8 @@ class NumericUpDown(ControlBase):
             'InterceptArrowKeys': True,
             'Left': 0, 'Top': 0, 'Width': 120, 'Height': 20,
             'Name': '', 'ReadOnly': False, 'TextAlign': HorizontalAlignment.Left,
-            'UpDownAlign': LeftRightAlignment.Right
+            'UpDownAlign': LeftRightAlignment.Right,
+            'Visible': True
         }
         if props:
             defaults.update(props)
@@ -8581,6 +8873,7 @@ class NumericUpDown(ControlBase):
         self.Name = defaults['Name']
         self.Width = defaults['Width']
         self.Height = defaults['Height']
+        self._visible = defaults['Visible']
         
         self._minimum = defaults['Minimum']
         self._maximum = defaults['Maximum']
@@ -8610,6 +8903,7 @@ class NumericUpDown(ControlBase):
         self.UpdateEditText()
         
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         self._auto_register_with_parent()
         self._bind_common_events()
         
@@ -10074,6 +10368,7 @@ class PictureBox(ControlBase):
             self.Load(self.ImageLocation)
         
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         
         # Bind events
         self._tk_widget.bind('<Button-1>', self._on_click)
@@ -10562,6 +10857,11 @@ class GroupBox(ControlBase):
         master_widget, parent_container = _resolve_master_widget(master_form)
         super().__init__(master_widget, defaults['Left'], defaults['Top'])
         
+        # Initialize Controls list early to avoid AttributeError in property setters
+        self.Controls = []
+        self.ControlAdded = lambda control: None
+        self.ControlRemoved = lambda control: None
+        
         # Store the parent container for auto-registration
         self._parent_container = parent_container
         
@@ -10652,22 +10952,17 @@ class GroupBox(ControlBase):
         # Add _root for container functionality
         self._root = master_form._root if hasattr(master_form, '_root') else master_form
         
-        # List of controls inside the GroupBox
-        self.Controls = []
-        
         # Windows Forms events for GroupBox
-        self.ControlAdded = lambda control=None: None
-        self.ControlRemoved = lambda control=None: None
         self.Enter = lambda sender=None, e=None: None  # When entering the GroupBox (Tab)
         self.Leave = lambda sender=None, e=None: None  # When leaving the GroupBox
         self.Click = lambda sender=None, e=None: None  # When clicking in the GroupBox area
         self.Paint = lambda sender=None, e=None: None  # When it needs to be painted
         
-        # Position the GroupBox
-        if self.Visible:
-            self._place_control(self.Width, self.Height)
-        else:
-            self._tk_widget.place_forget()
+        # Position - ALWAYS position regardless of visibility
+        self._place_control(self.Width, self.Height)
+        
+        # Apply initial visibility state
+        self.set_Visible(self._visible)
             
         # Apply Dock and Anchor if specified in props
         if 'Dock' in defaults and defaults['Dock']:
@@ -10688,6 +10983,28 @@ class GroupBox(ControlBase):
         
         # Auto-register with the parent container if necessary
         self._auto_register_with_parent()
+
+    def set_Visible(self, value):
+        """Override to ensure visibility propagation to children."""
+        # Call base implementation
+        super().set_Visible(value)
+        
+        # Ensure internal container is correctly placed/hidden
+        if hasattr(self, '_container') and self._container:
+            if value:
+                self._container.place(x=0, y=0, relwidth=1, relheight=1)
+            else:
+                self._container.place_forget()
+        
+        # Propagate to children (redundant with ControlBase but safe)
+        if hasattr(self, 'Controls'):
+            for control in self.Controls:
+                if hasattr(control, 'set_Visible'):
+                    # Force update
+                    current_visible = getattr(control, '_visible', True)
+                    # Toggle to force update
+                    control._visible = not current_visible
+                    control.set_Visible(current_visible)
     
     def AddControl(self, control):
         """Adds a control to the GroupBox with relative positions.
@@ -10819,7 +11136,17 @@ class GroupBox(ControlBase):
         # Apply visibility hierarchy:
         # The control is shown only if its _visible is True AND the GroupBox is visible
         if hasattr(control, '_visible'):
-            control_should_be_visible = control._visible and self.get_Visible()
+            # Calculate effective visibility of the GroupBox
+            groupbox_visible = getattr(self, '_visible', True)
+            if hasattr(self, 'get_Parent'):
+                parent = self.get_Parent()
+                while parent is not None:
+                    if not getattr(parent, '_visible', True):
+                        groupbox_visible = False
+                        break
+                    parent = parent.get_Parent() if hasattr(parent, 'get_Parent') else None
+            
+            control_should_be_visible = control._visible and groupbox_visible
             if control_should_be_visible:
                 # Show the control (place with in_= will use the new master)
                 control._place_control()
@@ -11164,7 +11491,8 @@ class Panel(ControlBase, ScrollableControlMixin):
             'AutoSize': False,
             'AutoSizeMode': AutoSizeMode.GrowOnly,
             'MinimumSize': None,
-            'MaximumSize': None
+            'MaximumSize': None,
+            'TabStop': False
         }
         
         if props:
@@ -11178,6 +11506,11 @@ class Panel(ControlBase, ScrollableControlMixin):
         # Resolve the Tkinter widget and store the parent container
         master_widget, parent_container = _resolve_master_widget(master_form)
         super().__init__(master_widget, defaults['Left'], defaults['Top'])
+        
+        # Initialize Controls list early to avoid AttributeError in property setters
+        self.Controls = []
+        self.ControlAdded = lambda control: None
+        self.ControlRemoved = lambda control: None
         
         # Store the parent container for auto-registration
         self._parent_container = parent_container
@@ -11197,6 +11530,7 @@ class Panel(ControlBase, ScrollableControlMixin):
         self._init_scroll_properties(defaults)
         
         self.Dock = defaults['Dock']
+        self.TabStop = defaults['TabStop']
         if 'Anchor' in defaults and defaults['Anchor'] is not None:
             self.Anchor = defaults['Anchor']
         if 'Margin' in defaults:
@@ -11306,26 +11640,21 @@ class Panel(ControlBase, ScrollableControlMixin):
         self._tk_widget.bind('<ButtonPress>', self._on_mouse_down)
         self._tk_widget.bind('<ButtonRelease>', self._on_mouse_up)
         
-        # List of child controls inside the panel
-        self.Controls = []
-        
-        # VB events
-        self.ControlAdded = lambda control: None
-        self.ControlRemoved = lambda control: None
-        
         # Auto-register with the parent container if needed
         self._auto_register_with_parent()
         
-        # Position the Panel (moved to end to ensure correct placement)
-        if self.Visible:
-            try:
-                self.master.update_idletasks()
-            except Exception:
-                pass
-            self._place_control(self.Width, self.Height)
-        else:
-            self._tk_widget.place_forget()
-
+        # Position the Panel - ALWAYS position regardless of visibility
+        # Positioning and visibility are independent concerns
+        try:
+            self.master.update_idletasks()
+        except Exception:
+            pass
+        self._place_control(self.Width, self.Height)
+        
+        # Apply initial visibility state
+        # If parent is visible, this will show the panel
+        # If parent is hidden, this will hide the panel (place_forget)
+        self.set_Visible(self._visible)
 
 
     def AddControl(self, control):
@@ -11359,7 +11688,17 @@ class Panel(ControlBase, ScrollableControlMixin):
         # Apply visibility hierarchy:
         # The control is shown only if its _visible is True AND the Panel is visible
         if hasattr(control, '_visible'):
-            control_should_be_visible = control._visible and self.get_Visible()
+            # Calculate effective visibility of the Panel
+            panel_visible = getattr(self, '_visible', True)
+            if hasattr(self, 'get_Parent'):
+                parent = self.get_Parent()
+                while parent is not None:
+                    if not getattr(parent, '_visible', True):
+                        panel_visible = False
+                        break
+                    parent = parent.get_Parent() if hasattr(parent, 'get_Parent') else None
+            
+            control_should_be_visible = control._visible and panel_visible
             if control_should_be_visible:
                 # Show the control
                 control._place_control()
@@ -12473,7 +12812,8 @@ class TabPage(ControlBase, ScrollableControlMixin):
             'AutoSizeMode': AutoSizeMode.GrowOnly,
             'Margin': (3, 3, 3, 3),
             'MinimumSize': None,
-            'MaximumSize': None
+            'MaximumSize': None,
+            'TabStop': False
         }
         
         if props:
@@ -12496,6 +12836,11 @@ class TabPage(ControlBase, ScrollableControlMixin):
         # Initialize ControlBase with dummy position (TabPages are managed by TabControl)
         ControlBase.__init__(self, master_for_frame, defaults['Left'], defaults['Top'])
         
+        # Initialize Controls list early to avoid AttributeError in property setters
+        self.Controls = []
+        self.ControlAdded = lambda control: None
+        self.ControlRemoved = lambda control: None
+        
         # Store parent container reference for potential future use
         self._parent_container = parent
         
@@ -12507,6 +12852,7 @@ class TabPage(ControlBase, ScrollableControlMixin):
         self._image_key = defaults['ImageKey']
         self._tooltip_text = defaults['ToolTipText']
         self.UseVisualStyleBackColor = defaults['UseVisualStyleBackColor']
+        self.TabStop = defaults['TabStop']
         
         # Initialize scroll properties
         self._init_scroll_properties(defaults)
@@ -12540,12 +12886,7 @@ class TabPage(ControlBase, ScrollableControlMixin):
         # Configure scroll infrastructure
         self._setup_scroll_infrastructure(self._tk_widget, self.BackColor)
         
-        # Initialize Controls list
-        self.Controls = []
-
         # VB events (override ControlBase defaults where needed)
-        self.ControlAdded = lambda control=None: None
-        self.ControlRemoved = lambda control=None: None
         self.ChangeUICues = lambda sender, e: None
         self.Disposed = lambda sender, e: None
 
@@ -12560,6 +12901,50 @@ class TabPage(ControlBase, ScrollableControlMixin):
             if hasattr(parent, 'master_form') and hasattr(parent.master_form, '_root'):
                 self._root = parent.master_form._root
             parent.AddTab(self)
+
+    def _place_control(self, width=None, height=None):
+        """Override to do nothing, as TabPage is managed by TabControl (Notebook)."""
+        pass
+
+    def set_Visible(self, value):
+        """Override to update visibility flag but delegate physical visibility to TabControl."""
+        old_visible = getattr(self, '_visible', True)
+        if old_visible == value:
+            return
+            
+        self._visible = value
+        
+        # Check hierarchy
+        parent_visible = True
+        parent = self.get_Parent()
+        while parent is not None:
+            if not getattr(parent, '_visible', True):
+                parent_visible = False
+                break
+            parent = parent.get_Parent() if hasattr(parent, 'get_Parent') else None
+            
+        should_be_visible = self._visible and parent_visible
+        
+        # Do NOT place/forget self._tk_widget (managed by Notebook)
+        
+        # Update children
+        if hasattr(self, 'Controls'):
+            for control in self.Controls:
+                if hasattr(control, '_tk_widget') and control._tk_widget:
+                    child_should_be_visible = getattr(control, '_visible', True) and should_be_visible
+                    
+                    if child_should_be_visible:
+                        if hasattr(control, '_place_control'):
+                            control._place_control(control.Width, control.Height)
+                    else:
+                        control._tk_widget.place_forget()
+                    
+                    # Recurse
+                    if hasattr(control, 'Controls') and len(control.Controls) > 0:
+                        if hasattr(control, 'set_Visible'):
+                            child_visible = getattr(control, '_visible', True)
+                            control._visible = not child_visible
+                            control.set_Visible(child_visible)
 
     @property
     def Parent(self):
@@ -12713,7 +13098,11 @@ class TabPage(ControlBase, ScrollableControlMixin):
             tabpage_visible = getattr(self, '_visible', True)
             if hasattr(self, 'Parent') and self.Parent:
                 # If the TabPage has a Parent (TabControl), check its visibility
-                parent_visible = getattr(self.Parent, '_visible', True)
+                # Use get_Visible() if available to check full hierarchy
+                if hasattr(self.Parent, 'get_Visible'):
+                    parent_visible = self.Parent.get_Visible()
+                else:
+                    parent_visible = getattr(self.Parent, '_visible', True)
                 tabpage_visible = tabpage_visible and parent_visible
             
             control_should_be_visible = control._visible and tabpage_visible
@@ -12882,6 +13271,9 @@ class TabControl(ControlBase):
             self.Dock = initial_dock
         else:
             self._place_control(self.Width, self.Height)
+            
+        # Apply initial visibility state
+        self.set_Visible(self._visible)
         
         # Track selected tab for events
         self._last_selected = self.SelectedIndex
@@ -12897,6 +13289,23 @@ class TabControl(ControlBase):
         
         # Auto-register with parent container if necessary
         self._auto_register_with_parent()
+
+    def set_Visible(self, value):
+        """Override to propagate visibility to TabPages."""
+        super().set_Visible(value)
+        
+        # Propagate to TabPages
+        if hasattr(self, 'TabPages'):
+            for tab_page in self.TabPages:
+                if hasattr(tab_page, 'set_Visible'):
+                    # Force update
+                    current_visible = getattr(tab_page, '_visible', True)
+                    # We need to force re-evaluation because TabPage.set_Visible checks parent visibility
+                    # and parent visibility just changed.
+                    # But if we just call set_Visible(current_visible), it might return early if value didn't change.
+                    # So we toggle it.
+                    tab_page._visible = not current_visible
+                    tab_page.set_Visible(current_visible)
 
     @property
     def Alignment(self):
@@ -12915,22 +13324,23 @@ class TabControl(ControlBase):
         
         # Map TabAlignment to ttk tabposition
         # TabAlignment: Top=0, Bottom=1, Left=2, Right=3
+        # Using 'nw', 'sw', 'wn', 'en' to align tabs to the start (left/top) instead of center
         position_map = {
-            TabAlignment.Top: 'n',
-            TabAlignment.Bottom: 's',
-            TabAlignment.Left: 'w',
-            TabAlignment.Right: 'e'
+            TabAlignment.Top: 'nw',
+            TabAlignment.Bottom: 'sw',
+            TabAlignment.Left: 'wn',
+            TabAlignment.Right: 'en'
         }
         
         # Handle both Enum and integer values
-        position = 'n'
+        position = 'nw'
         if isinstance(self._alignment, TabAlignment):
-            position = position_map.get(self._alignment, 'n')
+            position = position_map.get(self._alignment, 'nw')
         elif isinstance(self._alignment, int):
             # Try to map int to enum
             try:
                 enum_val = TabAlignment(self._alignment)
-                position = position_map.get(enum_val, 'n')
+                position = position_map.get(enum_val, 'nw')
             except ValueError:
                 pass
                 
@@ -13040,7 +13450,8 @@ class TabControl(ControlBase):
                 if old_index >= 0:
                     self.TabPages[old_index].Leave()
                     self.Deselected(self, {'TabPage': self.TabPages[old_index], 'TabPageIndex': old_index})
-                self.SelectedIndex = index
+                
+                # self.SelectedIndex = index  # Removed to avoid recursion since it's a property now
                 self._tk_widget.select(index)
                 self.TabPages[index].Enter()
                 self.Selected(self, {'TabPage': self.TabPages[index], 'TabPageIndex': index})
@@ -13127,6 +13538,8 @@ class TabControl(ControlBase):
                 self.TabPages[new_index].Enter()
                 self.Selected(self, {'TabPage': self.TabPages[new_index], 'TabPageIndex': new_index})
             self.SelectedIndexChanged()
+
+    SelectedIndex = property(get_SelectedIndex, set_SelectedIndex)
 
 
 ############# Nested Controls #############
@@ -13397,7 +13810,8 @@ class ListBox(ControlBase):
             'ForeColor': None,
             'BackColor': None,
             'UseTabStops': True,
-            'UseCustomTabOffsets': False
+            'UseCustomTabOffsets': False,
+            'Visible': True
         }
         
         if props:
@@ -13418,6 +13832,7 @@ class ListBox(ControlBase):
         self.Name = defaults['Name']
         self.Width = defaults['Width']
         self.Height = defaults['Height']
+        self._visible = defaults['Visible']
         
         self.Items = ListBoxObjectCollection(self)
         
@@ -13498,6 +13913,7 @@ class ListBox(ControlBase):
                 hscroll.place(x=self.Left, y=self.Top+self.Height-15, width=self.Width)
              
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         
         # Apply Dock and Anchor if they were specified in props
         if 'Dock' in defaults and defaults['Dock']:
@@ -14072,11 +14488,12 @@ class CheckedListBox(ControlBase):
             self.Items.Add(item)
             
         # Place control
-        if self.Visible:
-            self._place_control(self.Width, self.Height)
-            self._container_frame.pack_propagate(False)
-        else:
-            self._container_frame.place_forget()
+        # Position - ALWAYS position regardless of visibility
+        self._place_control(self.Width, self.Height)
+        self._container_frame.pack_propagate(False)
+        
+        # Apply initial visibility state
+        self.set_Visible(self._visible)
             
         # Apply Dock and Anchor
         if 'Dock' in defaults and defaults['Dock']:
@@ -14383,7 +14800,9 @@ class SplitContainer(ControlBase):
             'Height': 300,
             'Name': '',
             'Dock': None,
-            'Text': '' # Irrelevant
+            'Visible': True,
+            'Text': '', # Irrelevant
+            'TabStop': False
         }
         
         if props:
@@ -14413,6 +14832,8 @@ class SplitContainer(ControlBase):
         self._panel1_min_size = defaults['Panel1MinSize']
         self._panel2_min_size = defaults['Panel2MinSize']
         self._border_style = defaults['BorderStyle']
+        self._visible = defaults['Visible']
+        self.TabStop = defaults['TabStop']
         
         # Events
         self.SplitterMoved = lambda sender, e: None
@@ -14454,12 +14875,16 @@ class SplitContainer(ControlBase):
         else:
             self._place_control(self.Width, self.Height)
             
+        self.set_Visible(self._visible)
         self._auto_register_with_parent()
         
         # Defer setting splitter distance until mapped
         self._tk_widget.bind('<Map>', self._on_map)
 
     def _apply_border_style(self):
+        if not hasattr(self, '_tk_widget') or self._tk_widget is None:
+            return
+            
         if self._border_style == BorderStyle.FixedSingle:
             self._tk_widget.config(bd=1, relief='solid')
         elif self._border_style == BorderStyle.Fixed3D:
@@ -14625,7 +15050,9 @@ class StatusBar(ControlBase):
             'BorderStyle': "Fixed3D",
             'Name': "",
             'Dock': None,
-            'Margin': (0, 0, 0, 0)
+            'Visible': True,
+            'Margin': (0, 0, 0, 0),
+            'TabStop': False
         }
         
         if props:
@@ -14650,6 +15077,8 @@ class StatusBar(ControlBase):
         self.SizingGrip = defaults['SizingGrip']
         self.BorderStyle = defaults['BorderStyle']
         self.Margin = defaults['Margin']
+        self._visible = defaults['Visible']
+        self.TabStop = defaults['TabStop']
         self.BackColor = 'SystemButtonFace'
         self.ForeColor = 'black'
         self.Font = ('Segoe UI', 9)
@@ -14700,9 +15129,9 @@ class StatusBar(ControlBase):
         if initial_dock and initial_dock != 'None':
             self.Dock = initial_dock
         else:
-            if hasattr(self, '_visible') and self._visible:
-                self._place_control(self.Width, self.Height)
+            self._place_control(self.Width, self.Height)
 
+        self.set_Visible(self._visible)
         self._auto_register_with_parent()
     
     @property
@@ -16119,6 +16548,7 @@ class ListView(ControlBase):
         
         self._update_styles()
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         
         # Bind events
         self._bind_common_events()
@@ -17169,7 +17599,8 @@ class TreeView(ControlBase):
             'ShowNodeToolTips': False,
             'Sorted': False,
             'StateImageList': None,
-            'VisibleCount': 0 # Read-only usually
+            'VisibleCount': 0, # Read-only usually
+            'Visible': True
         }
         
         if props:
@@ -17190,6 +17621,7 @@ class TreeView(ControlBase):
         self.Name = defaults['Name']
         self.Width = defaults['Width']
         self.Height = defaults['Height']
+        self._visible = defaults['Visible']
         
         self._node_map = {} # Map Tkinter IID -> TreeNode
         self.Nodes = TreeNodeCollection(self) # Root nodes
@@ -17259,6 +17691,7 @@ class TreeView(ControlBase):
             style.configure('Treeview', fieldbackground=self.BackColor)
         
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         
         # Bind events
         self._tk_widget.bind('<<TreeviewSelect>>', self._on_after_select)
@@ -17840,6 +18273,7 @@ class DataGridView(ControlBase):
         self.DataSource = defaults['DataSource']
         
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         
         # Bind events
         self._bind_common_events()
@@ -18560,7 +18994,9 @@ class ToolStrip(ControlBase):
             'Text': '',
             'Left': 0,
             'Top': 0,
-            'Width': 300
+            'Width': 300,
+            'Visible': True,
+            'TabStop': False
         }
         if props: defaults.update(props)
         
@@ -18571,6 +19007,8 @@ class ToolStrip(ControlBase):
         self.Dock = defaults['Dock']
         self.Height = defaults['Height']
         self.Width = defaults['Width']
+        self._visible = defaults['Visible']
+        self.TabStop = defaults['TabStop']
         
         self._items = ToolStripItemCollection(self)
         
@@ -18587,6 +19025,7 @@ class ToolStrip(ControlBase):
         else:
             self._place_control(self.Width, self.Height)
             
+        self.set_Visible(self._visible)
         self._auto_register_with_parent()
 
     @property
@@ -18632,7 +19071,8 @@ class MenuStrip(ToolStrip):
             'Text': '',
             'Left': 0,
             'Top': 0,
-            'Width': 300
+            'Width': 300,
+            'TabStop': False
         }
         if props: defaults.update(props)
         
@@ -18657,7 +19097,8 @@ class StatusStrip(ControlBase):
             'Dock': 'Bottom',
             'SizingGrip': True,
             'ShowItemToolTips': True,
-            'Name': ""
+            'Name': "",
+            'TabStop': False
         }
         
         if props:
@@ -18673,6 +19114,7 @@ class StatusStrip(ControlBase):
         self.Dock = defaults['Dock']
         self.SizingGrip = defaults['SizingGrip']
         self.ShowItemToolTips = defaults['ShowItemToolTips']
+        self.TabStop = defaults['TabStop']
         self.BackColor = 'SystemButtonFace'
         
         self.Items = ToolStripItemCollection(self)
@@ -18707,9 +19149,9 @@ class StatusStrip(ControlBase):
         if self.Dock and self.Dock != 'None':
             pass
         else:
-             if hasattr(self, '_visible') and self._visible:
-                self._place_control(self.Width, self.Height)
+            self._place_control(self.Width, self.Height)
 
+        self.set_Visible(self._visible)
         self._auto_register_with_parent()
 
     def _update_layout(self):
@@ -18777,6 +19219,7 @@ class TrackBar(ControlBase):
         self._tick_frequency = defaults['TickFrequency']
         self._small_change = defaults['SmallChange']
         self._large_change = defaults['LargeChange']
+        self._visible = defaults['Visible']
         
         # Events
         self.Scroll = lambda sender, e: None
@@ -18797,6 +19240,8 @@ class TrackBar(ControlBase):
         self._tk_widget.set(self._value)
         
         self._apply_visual_config()
+        self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
         self._auto_register_with_parent()
 
     def _on_scroll(self, value):
@@ -19142,7 +19587,8 @@ class MonthCalendar(ControlBase):
             'OtherMonthBackground': None, 'OtherMonthForeground': None,
             'OtherMonthWeekendBackground': None, 'OtherMonthWeekendForeground': None,
             'TooltipBackground': None, 'TooltipForeground': None,
-            'TooltipAlpha': None, 'TooltipDelay': None
+            'TooltipAlpha': None, 'TooltipDelay': None,
+            'Visible': True
         }
         
         if props:
@@ -19155,6 +19601,7 @@ class MonthCalendar(ControlBase):
         self.Name = defaults['Name']
         self.Width = defaults['Width']
         self.Height = defaults['Height']
+        self._visible = defaults['Visible']
         
         self._selection_start = defaults['SelectionStart']
         self._selection_end = defaults['SelectionEnd']
@@ -19216,6 +19663,7 @@ class MonthCalendar(ControlBase):
             self._create_fallback()
             
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
 
     def _create_fallback(self):
         self._tk_widget = tk.Label(self.master, text="Install tkcalendar", bg='white', relief='sunken')
@@ -19569,6 +20017,7 @@ class DatePicker(ControlBase):
             self._create_fallback()
             
         self._place_control(self.Width, self.Height)
+        self.set_Visible(self._visible)
 
     def _create_fallback(self):
         self._date_entry = tk.Entry(self._frame)
