@@ -60,14 +60,18 @@ class MdiApp(MDIParent):
         self.child_count += 1
         child = MDIChild(mdi_parent=self)
         child.Text = f"Child Document {self.child_count}"
-        child.Width = 300
-        child.Height = 200
+        child.Width = 350
+        child.Height = 250
+        # Offset each new child
+        child.Left = 20 + (self.child_count - 1) * 30
+        child.Top = 20 + (self.child_count - 1) * 30
         
-        lbl = Label()
+        # Add a label to the child's content area
+        lbl = Label(child._content_frame)
         lbl.Text = f"This is content for document {self.child_count}"
-        lbl.Dock = DockStyle.Fill
-        # lbl.TextAlign = 32 # MiddleCenter (ContentAlignment.MiddleCenter)
-        child.Controls.append(lbl)
+        lbl.Left = 10
+        lbl.Top = 10
+        child.AddControl(lbl)
         
         child.Show()
 

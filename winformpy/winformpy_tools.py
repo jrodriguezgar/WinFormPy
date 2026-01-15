@@ -551,6 +551,10 @@ class LayoutManager:
         container_width = self.container.Width
         container_height = self.container.Height
         
+        # Get control dimensions (default to 0 if None for AutoSize controls)
+        control_width = control.Width if control.Width is not None else 0
+        control_height = control.Height if control.Height is not None else 0
+        
         # Handle Flow Layout Wrapping
         if self.layout_type == self.LayoutType.FlowLayout:
             should_wrap = False
@@ -562,10 +566,10 @@ class LayoutManager:
             else:
                 # Check wrap based on size (Automatic)
                 if self.distribution == self.Distribution.LeftRight:
-                    if x + control.Width > container_width - self.padding and x > self.start_x:
+                    if x + control_width > container_width - self.padding and x > self.start_x:
                         should_wrap = True
                 elif self.distribution == self.Distribution.UpDown:
-                    if y + control.Height > container_height - self.padding and y > self.start_y:
+                    if y + control_height > container_height - self.padding and y > self.start_y:
                         should_wrap = True
 
             if should_wrap:
@@ -596,9 +600,9 @@ class LayoutManager:
         control.Top = final_y
         
         # Track maximum dimensions for AutoSize
-        control_right = final_x + control.Width
-        control_bottom = final_y + control.Height
-        self.current_col_width = max(self.current_col_width, control.Width)
+        control_right = final_x + control_width
+        control_bottom = final_y + control_height
+        self.current_col_width = max(self.current_col_width, control_width)
             
         if control_right > self.max_width:
             self.max_width = control_right
@@ -607,17 +611,17 @@ class LayoutManager:
         
         # Update the current position based on distribution
         if self.distribution == self.Distribution.UpDown:
-            self.current_y += control.Height + self.margin
+            self.current_y += control_height + self.margin
             # Alignment handling (Cross-axis)
             if self.alignment == self.Alignment.Right:
-                 control.Left = container_width - self.padding - control.Width
+                 control.Left = container_width - self.padding - control_width
             elif self.alignment == self.Alignment.Center:
-                 control.Left = (container_width - control.Width) // 2
+                 control.Left = (container_width - control_width) // 2
             # Default Left: already set
             
         elif self.distribution == self.Distribution.LeftRight:
-            self.current_x += control.Width + self.margin
-            self.current_row_height = max(self.current_row_height, control.Height)
+            self.current_x += control_width + self.margin
+            self.current_row_height = max(self.current_row_height, control_height)
             # Alignment handling (Cross-axis - Vertical)
             # This is tricky for FlowLayout as it depends on row height.
             # For simple LeftRight without flow (single row), we can align.
@@ -663,8 +667,19 @@ class LayoutManager:
         self.current_row_height = 0
         self.current_line_item_count = 0
         
-        w = self.container.Width
-        h = self.container.Height
+        # Ensure container has valid dimensions
+        w = self.container.Width if hasattr(self.container, 'Width') else 0
+        h = self.container.Height if hasattr(self.container, 'Height') else 0
+        
+        # If dimensions are 0 or 1 (uninitialized), try to get from tk widget
+        if (w <= 1 or h <= 1) and hasattr(self.container, '_tk_widget'):
+            try:
+                self.container._tk_widget.update_idletasks()
+                w = self.container._tk_widget.winfo_width()
+                h = self.container._tk_widget.winfo_height()
+            except Exception:
+                pass
+        
         p = self.padding
         
         # Determine start coordinates
