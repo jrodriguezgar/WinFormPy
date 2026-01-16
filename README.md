@@ -119,6 +119,52 @@ if __name__ == "__main__":
 
 ---
 
+## Event Handling
+
+WinFormPy follows the standard .NET/Windows Forms event pattern. All event handlers receive two parameters:
+1. `sender`: The object that raised the event.
+2. `e`: An `EventArgs` object containing event data.
+
+### Basic Event Binding
+
+You can bind an event by assigning a method or a lambda function to the event property:
+
+```python
+# Using a method
+self.button.Click = self.on_button_click
+
+# Using a lambda
+self.button.Click = lambda sender, e: print(f"Clicked {sender.Name}")
+```
+
+### Accessing Event Data
+
+The `EventArgs` object provides properties that map to the underlying event details:
+
+```python
+def on_form_click(self, sender, e):
+    # e.X and e.Y are relative to the control
+    print(f"Mouse clicked at: {e.X}, {e.Y}")
+    
+    # Check for modifiers
+    if e.Control:
+        print("Control key was pressed")
+```
+
+### Event Arguments Properties
+
+| Property | Description |
+| --- | --- |
+| `X`, `Y` | Mouse coordinates relative to the sender |
+| `Button` | Mouse button number (1=Left, 2=Middle, 3=Right) |
+| `KeyChar` | The character correspond to the key press |
+| `KeyCode` | The Tkinter keysym string (e.g. 'Return', 'Escape') |
+| `Shift`, `Control`, `Alt` | Boolean flags for modifier keys |
+| `Data` | Extra data for complex controls (e.g. `NewIndex` in TabControl) |
+| `Cancel` | Used in events like `FormClosing` to prevent the action |
+
+---
+
 ## Documentation
 
 ### Control Reference

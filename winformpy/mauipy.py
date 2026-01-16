@@ -34,6 +34,19 @@ from datetime import datetime, date, time
 import calendar
 
 
+class EventArgs:
+    """Base class for event data."""
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+    
+    @property
+    def Empty(self):
+        return EventArgs()
+
+EventArgs.Empty = EventArgs()
+
+
 # =============================================================================
 # SHELL - Main Application Container
 # =============================================================================
@@ -939,7 +952,15 @@ class Label:
             defaults['WrapLength'] = kwargs['wraplength']
         
         self._master = master
-        self._click_command = None
+        
+        # Events
+        self.Click = lambda sender, e: None
+        self.DoubleClick = lambda sender, e: None
+        self.MouseDown = lambda sender, e: None
+        self.MouseUp = lambda sender, e: None
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
+        self.MouseMove = lambda sender, e: None
         
         # Determine parent
         if hasattr(master, '_frame'):
@@ -964,8 +985,14 @@ class Label:
         if not use_grid:
             self._widget.pack(side=side, anchor="w", fill=tk.X)
         
-        # Bind click event
-        self._widget.bind("<Button-1>", self._on_click)
+        # Bind events
+        self._widget.bind("<Button-1>", lambda e: self.Click(self, e))
+        self._widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
+        self._widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, e))
+        self._widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, e))
+        self._widget.bind("<Motion>", lambda e: self.MouseMove(self, e))
+        self._widget.bind("<Enter>", lambda e: self.MouseEnter(self, e))
+        self._widget.bind("<Leave>", lambda e: self.MouseLeave(self, e))
         
     @property
     def Text(self):
@@ -990,24 +1017,6 @@ class Label:
     @ForeColor.setter
     def ForeColor(self, value):
         self._widget.configure(fg=value)
-        
-    def _on_click(self, event):
-        """Handles click event."""
-        if self._click_command:
-            self._click_command()
-            
-    @property
-    def Click(self):
-        """Gets or sets the click event handler."""
-        return self._click_command
-        
-    @Click.setter
-    def Click(self, value):
-        self._click_command = value
-        if value:
-            self._widget.configure(cursor="hand2")
-        else:
-            self._widget.configure(cursor="")
 
 
 class Button:
@@ -1075,7 +1084,17 @@ class Button:
             defaults['Anchor'] = kwargs['anchor']
         
         self._master = master
-        self._command = None
+        
+        # Events
+        self.Click = lambda sender, e: None
+        self.DoubleClick = lambda sender, e: None
+        self.MouseDown = lambda sender, e: None
+        self.MouseUp = lambda sender, e: None
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
+        self.MouseMove = lambda sender, e: None
+        self.GotFocus = lambda sender, e: None
+        self.LostFocus = lambda sender, e: None
         
         # Determine parent
         if hasattr(master, '_frame'):
@@ -1105,9 +1124,29 @@ class Button:
         # Hover effects
         self._bg = defaults['BackColor']
         self._hover_bg = defaults['HoverColor']
-        self._widget.bind("<Enter>", lambda e: self._widget.configure(bg=self._hover_bg))
-        self._widget.bind("<Leave>", lambda e: self._widget.configure(bg=self._bg))
         
+        # Bind events
+        self._widget.bind("<Button-1>", self._on_click)
+        self._widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
+        self._widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, e))
+        self._widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, e))
+        self._widget.bind("<Motion>", lambda e: self.MouseMove(self, e))
+        self._widget.bind("<Enter>", self._on_mouse_enter)
+        self._widget.bind("<Leave>", self._on_mouse_leave)
+        self._widget.bind("<FocusIn>", lambda e: self.GotFocus(self, e))
+        self._widget.bind("<FocusOut>", lambda e: self.LostFocus(self, e))
+        
+    def _on_click(self, event):
+        self.Click(self, event)
+
+    def _on_mouse_enter(self, event):
+        self._widget.configure(bg=self._hover_bg)
+        self.MouseEnter(self, event)
+
+    def _on_mouse_leave(self, event):
+        self._widget.configure(bg=self._bg)
+        self.MouseLeave(self, event)
+
     @property
     def Text(self):
         return self._widget.cget("text")
@@ -1115,15 +1154,6 @@ class Button:
     @Text.setter
     def Text(self, value):
         self._widget.configure(text=value)
-        
-    @property
-    def Click(self):
-        return self._command
-        
-    @Click.setter
-    def Click(self, value):
-        self._command = value
-        self._widget.configure(command=value)
 
 
 class Entry:
@@ -1178,7 +1208,19 @@ class Entry:
         
         self._master = master
         self._placeholder = defaults['Placeholder']
-        self.TextChanged = None  # Event callback
+        
+        # Events
+        self.TextChanged = lambda sender, e: None
+        self.Click = lambda sender, e: None
+        self.DoubleClick = lambda sender, e: None
+        self.MouseDown = lambda sender, e: None
+        self.MouseUp = lambda sender, e: None
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
+        self.GotFocus = lambda sender, e: None
+        self.LostFocus = lambda sender, e: None
+        self.KeyDown = lambda sender, e: None
+        self.KeyUp = lambda sender, e: None
         
         # Determine parent
         if hasattr(master, '_frame'):
@@ -1200,35 +1242,42 @@ class Entry:
             self._widget.configure(width=defaults['Width'] // 8)  # Approximate char width
             self._widget.pack(side=side, anchor="w", fill=tk.X if defaults['Fill'] else None)
         
-        # Bind text change event
+        # Bind events
         self._widget.bind("<KeyRelease>", self._on_text_changed)
+        self._widget.bind("<Button-1>", lambda e: self.Click(self, e))
+        self._widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
+        self._widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, e))
+        self._widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, e))
+        self._widget.bind("<Enter>", lambda e: self.MouseEnter(self, e))
+        self._widget.bind("<Leave>", lambda e: self.MouseLeave(self, e))
+        self._widget.bind("<KeyDown>", lambda e: self.KeyDown(self, e))
+        self._widget.bind("<KeyUp>", lambda e: self.KeyUp(self, e))
         
         # Placeholder handling
         if placeholder:
             self._show_placeholder()
             self._widget.bind("<FocusIn>", self._on_focus_in)
             self._widget.bind("<FocusOut>", self._on_focus_out)
-            
-    def _show_placeholder(self):
-        if not self._widget.get():
-            self._widget.insert(0, self._placeholder)
-            self._widget.configure(fg="#999999")
+        else:
+            self._widget.bind("<FocusIn>", lambda e: self.GotFocus(self, e))
+            self._widget.bind("<FocusOut>", lambda e: self.LostFocus(self, e))
             
     def _on_focus_in(self, event):
         if self._widget.get() == self._placeholder:
             self._widget.delete(0, tk.END)
             self._widget.configure(fg="#333333")
+        self.GotFocus(self, event)
             
     def _on_focus_out(self, event):
         if not self._widget.get():
             self._show_placeholder()
+        self.LostFocus(self, event)
             
     def _on_text_changed(self, event):
         """Handles text change events."""
-        if self.TextChanged:
-            text = self._widget.get()
-            if text != self._placeholder:
-                self.TextChanged(text)
+        text = self._widget.get()
+        if text != self._placeholder:
+            self.TextChanged(self, event)
             
     @property
     def Text(self):
@@ -1296,9 +1345,24 @@ class Image:
         if not use_grid:
             self._widget.pack(side=side)
         
-        # Bind click event
-        self._widget.bind("<Button-1>", self._on_click)
+        # Standard events
+        self.Click = lambda sender, e: None
+        self.DoubleClick = lambda sender, e: None
+        self.MouseDown = lambda sender, e: None
+        self.MouseUp = lambda sender, e: None
+        self.MouseMove = lambda sender, e: None
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
         
+        # Bind events
+        self._widget.bind("<Button-1>", lambda e: self.Click(self, EventArgs(e)))
+        self._widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
+        self._widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
+        self._widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
+        self._widget.bind("<Motion>", lambda e: self.MouseMove(self, EventArgs(e)))
+        self._widget.bind("<Enter>", lambda e: self.MouseEnter(self, EventArgs(e)))
+        self._widget.bind("<Leave>", lambda e: self.MouseLeave(self, EventArgs(e)))
+
         if defaults['Source']:
             self.Load(defaults['Source'])
             
@@ -1316,25 +1380,6 @@ class Image:
                 self._widget.configure(image=self._image)
             except:
                 self._widget.configure(text=f"[Image: {source}]")
-                
-    def _on_click(self, event):
-        """Handles click event."""
-        if self._click_command:
-            self._click_command()
-            
-    @property
-    def Click(self):
-        """Gets or sets the click event handler."""
-        return self._click_command
-        
-    @Click.setter
-    def Click(self, value):
-        self._click_command = value
-        if value:
-            self._widget.configure(cursor="hand2")
-        else:
-            self._widget.configure(cursor="")
-
 
 # =============================================================================
 # ADDITIONAL MAUI COMPONENTS
@@ -1452,7 +1497,7 @@ class CarouselView:
         self._items = []
         self._current_index = 0
         self._content_font = defaults['ContentFont']
-        self.PositionChanged = None  # Event callback
+        self.PositionChanged = lambda sender, e: None # Event when current item changes
         
         if hasattr(master, '_content'):
             parent = master._content
@@ -1516,15 +1561,13 @@ class CarouselView:
         if self._current_index > 0:
             self._current_index -= 1
             self._update_view()
-            if self.PositionChanged:
-                self.PositionChanged(self._current_index)
+            self.PositionChanged(self, EventArgs())
             
     def _next(self):
         if self._current_index < len(self._items) - 1:
             self._current_index += 1
             self._update_view()
-            if self.PositionChanged:
-                self.PositionChanged(self._current_index)
+            self.PositionChanged(self, EventArgs())
 
 
 class ToastNotification:
@@ -1633,7 +1676,7 @@ class SearchBar:
             defaults.update(props)
         
         self._master = master
-        self.SearchCommand = None
+        self.Search = lambda sender, e: None
         self._placeholder = defaults['Placeholder']
         self._fg_color = defaults['ForeColor']
         self._placeholder_color = defaults['PlaceholderColor']
@@ -1685,10 +1728,9 @@ class SearchBar:
             self._entry.configure(fg="#999999")
             
     def _on_search(self):
-        if self.SearchCommand:
-            text = self._entry.get()
-            if text != self._placeholder:
-                self.SearchCommand(text)
+        text = self._entry.get()
+        if text != self._placeholder:
+            self.Search(self, EventArgs(text))
                 
     @property
     def Text(self):
@@ -1745,7 +1787,7 @@ class ChipTag:
             defaults.update(props)
         
         self._master = master
-        self.CloseCommand = None
+        self.Close = lambda sender, e: None
         self._back_color = defaults['BackColor']
         self._fore_color = defaults['ForeColor']
         self._font = defaults['Font']
@@ -1785,8 +1827,7 @@ class ChipTag:
             self._close_btn.pack(side=tk.LEFT, padx=(5, 0))
             
     def _on_close(self):
-        if self.CloseCommand:
-            self.CloseCommand()
+        self.Close(self, EventArgs())
         self._frame.destroy()
         
     @property
@@ -1844,7 +1885,7 @@ class Stepper:
         self._max = defaults['Maximum']
         self._step = defaults['Step']
         self._value = defaults['Value']
-        self.ValueChanged = None
+        self.ValueChanged = lambda sender, e: None
         
         if hasattr(master, '_frame'):
             parent = master._frame
@@ -1891,16 +1932,14 @@ class Stepper:
         if new_val != self._value:
             self._value = new_val
             self._value_label.configure(text=str(self._value))
-            if self.ValueChanged:
-                self.ValueChanged(self._value)
+            self.ValueChanged(self, EventArgs(self._value))
                 
     def _decrement(self):
         new_val = max(self._min, self._value - self._step)
         if new_val != self._value:
             self._value = new_val
             self._value_label.configure(text=str(self._value))
-            if self.ValueChanged:
-                self.ValueChanged(self._value)
+            self.ValueChanged(self, EventArgs(self._value))
                 
     @property
     def Value(self):
@@ -2048,7 +2087,15 @@ class Switch:
         
         self._master = master
         self._is_toggled = defaults['IsToggled']
-        self.Toggled = None  # Event callback
+        
+        # Events
+        self.Toggled = lambda sender, e: None
+        self.Click = lambda sender, e: None
+        self.DoubleClick = lambda sender, e: None
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
+        self.GotFocus = lambda sender, e: None
+        self.LostFocus = lambda sender, e: None
         
         # Colors
         self._on_color = defaults['OnColor']
@@ -2081,8 +2128,13 @@ class Switch:
         # Draw initial state
         self._draw()
         
-        # Bind click
+        # Bind events
         self._canvas.bind("<Button-1>", self._on_click)
+        self._canvas.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
+        self._canvas.bind("<Enter>", lambda e: self.MouseEnter(self, e))
+        self._canvas.bind("<Leave>", lambda e: self.MouseLeave(self, e))
+        self._canvas.bind("<FocusIn>", lambda e: self.GotFocus(self, e))
+        self._canvas.bind("<FocusOut>", lambda e: self.LostFocus(self, e))
         
     def _draw(self):
         """Draws the switch."""
@@ -2115,8 +2167,8 @@ class Switch:
         self._is_toggled = not self._is_toggled
         self._draw()
         
-        if self.Toggled:
-            self.Toggled(self._is_toggled)
+        self.Toggled(self, event)
+        self.Click(self, event)
             
     @property
     def IsToggled(self):
@@ -2182,7 +2234,15 @@ class CheckBox:
         self._master = master
         self._text = defaults['Text']
         self._is_checked = defaults['IsChecked']
-        self.CheckedChanged = None  # Event callback
+        
+        # Events
+        self.CheckedChanged = lambda sender, e: None
+        self.Click = lambda sender, e: None
+        self.DoubleClick = lambda sender, e: None
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
+        self.GotFocus = lambda sender, e: None
+        self.LostFocus = lambda sender, e: None
         
         # Colors
         self._check_color = defaults['CheckColor']
@@ -2229,9 +2289,17 @@ class CheckBox:
         # Draw initial state
         self._draw()
         
-        # Bind click
+        # Bind events
         self._canvas.bind("<Button-1>", self._on_click)
         self._label.bind("<Button-1>", self._on_click)
+        self._canvas.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
+        self._label.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
+        self._canvas.bind("<Enter>", lambda e: self.MouseEnter(self, e))
+        self._label.bind("<Enter>", lambda e: self.MouseEnter(self, e))
+        self._canvas.bind("<Leave>", lambda e: self.MouseLeave(self, e))
+        self._label.bind("<Leave>", lambda e: self.MouseLeave(self, e))
+        self._canvas.bind("<FocusIn>", lambda e: self.GotFocus(self, e))
+        self._canvas.bind("<FocusOut>", lambda e: self.LostFocus(self, e))
         
     def _draw(self):
         """Draws the checkbox."""
@@ -2266,8 +2334,8 @@ class CheckBox:
         self._is_checked = not self._is_checked
         self._draw()
         
-        if self.CheckedChanged:
-            self.CheckedChanged(self._is_checked)
+        self.CheckedChanged(self, event)
+        self.Click(self, event)
             
     @property
     def IsChecked(self):
@@ -2339,7 +2407,7 @@ class RadioButton:
         self._value = defaults['Value']
         self._is_checked = defaults['IsChecked']
         self._group = group
-        self.CheckedChanged = None
+        self.CheckedChanged = lambda sender, e: None
         
         # Colors
         self._check_color = defaults['CheckColor']
@@ -2428,8 +2496,7 @@ class RadioButton:
             else:
                 self._is_checked = True
                 self._draw()
-                if self.CheckedChanged:
-                    self.CheckedChanged(True)
+                self.CheckedChanged(self, EventArgs(True))
             
     @property
     def IsChecked(self):
@@ -2476,7 +2543,7 @@ class RadioButtonGroup:
     def __init__(self):
         self._radios = []
         self._selected = None
-        self.SelectionChanged = None
+        self.SelectionChanged = lambda sender, e: None
         
     def _add_radio(self, radio):
         """Adds a radio button to the group."""
@@ -2488,21 +2555,15 @@ class RadioButtonGroup:
             if r == radio:
                 r._is_checked = True
                 r._draw()
-                if r.CheckedChanged:
-                    r.CheckedChanged(True)
+                r.CheckedChanged(r, EventArgs(True))
             else:
                 if r._is_checked:
                     r._is_checked = False
                     r._draw()
-                    if r.CheckedChanged:
-                        r.CheckedChanged(False)
-                        
+                    r.CheckedChanged(r, EventArgs(False))
+        
         self._selected = radio
-        if self.SelectionChanged:
-            self.SelectionChanged(radio.Value)
-            
-    @property
-    def SelectedValue(self):
+        self.SelectionChanged(self, EventArgs(radio.Value))
         """Gets the selected value."""
         return self._selected.Value if self._selected else None
         
@@ -2559,7 +2620,7 @@ class Picker:
         self._items = defaults['Items']
         self._title = defaults['Title']
         self._selected_index = defaults['SelectedIndex']
-        self.SelectedIndexChanged = None
+        self.SelectedIndexChanged = lambda sender, e: None
         
         # Determine parent
         if hasattr(master, '_frame'):
@@ -2597,8 +2658,7 @@ class Picker:
     def _on_select(self, event):
         """Handles selection change."""
         self._selected_index = self._combo.current()
-        if self.SelectedIndexChanged:
-            self.SelectedIndexChanged(self._selected_index)
+        self.SelectedIndexChanged(self, EventArgs(self._selected_index))
             
     @property
     def Items(self):
@@ -2683,7 +2743,15 @@ class Slider:
         self._minimum = defaults['Minimum']
         self._maximum = defaults['Maximum']
         self._value = defaults['Value']
-        self.ValueChanged = None
+        
+        # Events
+        self.ValueChanged = lambda sender, e: None
+        self.Click = lambda sender, e: None
+        self.DoubleClick = lambda sender, e: None
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
+        self.GotFocus = lambda sender, e: None
+        self.LostFocus = lambda sender, e: None
         
         # Colors
         self._track_color = defaults['TrackColor']
@@ -2721,6 +2789,11 @@ class Slider:
         # Bind events
         self._canvas.bind("<Button-1>", self._on_click)
         self._canvas.bind("<B1-Motion>", self._on_drag)
+        self._canvas.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
+        self._canvas.bind("<Enter>", lambda e: self.MouseEnter(self, e))
+        self._canvas.bind("<Leave>", lambda e: self.MouseLeave(self, e))
+        self._canvas.bind("<FocusIn>", lambda e: self.GotFocus(self, e))
+        self._canvas.bind("<FocusOut>", lambda e: self.LostFocus(self, e))
         
     def _draw(self):
         """Draws the slider."""
@@ -2772,21 +2845,22 @@ class Slider:
     def _on_click(self, event):
         """Handles click to set value."""
         new_value = self._get_value_from_x(event.x)
-        self._set_value(new_value)
+        self._set_value(new_value, event)
+        self.Click(self, event)
         
     def _on_drag(self, event):
         """Handles drag to change value."""
         new_value = self._get_value_from_x(event.x)
-        self._set_value(new_value)
+        self._set_value(new_value, event)
         
-    def _set_value(self, value):
+    def _set_value(self, value, event=None):
         """Sets value and triggers event."""
         old_value = self._value
         self._value = max(self._minimum, min(self._maximum, value))
         self._draw()
         
-        if old_value != self._value and self.ValueChanged:
-            self.ValueChanged(self._value)
+        if old_value != self._value:
+            self.ValueChanged(self, event)
             
     @property
     def Value(self):
@@ -2859,7 +2933,7 @@ class Editor:
         self._master = master
         self._placeholder = defaults['Placeholder']
         self._showing_placeholder = False
-        self.TextChanged = None
+        self.TextChanged = lambda sender, e: None
         self._fg_color = defaults['ForeColor']
         self._placeholder_color = defaults['PlaceholderColor']
         self._height = defaults['Height']
@@ -2924,8 +2998,8 @@ class Editor:
             
     def _on_key_release(self, event):
         """Triggers TextChanged event."""
-        if self.TextChanged and not self._showing_placeholder:
-            self.TextChanged(self.Text)
+        if not self._showing_placeholder:
+            self.TextChanged(self, EventArgs(self.Text))
             
     @property
     def Text(self):
@@ -3003,7 +3077,7 @@ class DatePicker:
         self._format = defaults['Format']
         self._min_date = defaults['MinimumDate']
         self._max_date = defaults['MaximumDate']
-        self.DateSelected = None
+        self.DateSelected = lambda sender, e: None
         
         # Determine parent
         if hasattr(master, '_frame'):
@@ -3162,8 +3236,7 @@ class DatePicker:
             self._date = new_date
             self._entry.delete(0, tk.END)
             self._entry.insert(0, self._date.strftime(self._format))
-            if self.DateSelected:
-                self.DateSelected(self._date)
+            self.DateSelected(self, EventArgs(self._date))
         if self._calendar_popup:
             self._calendar_popup.destroy()
             
@@ -3237,7 +3310,7 @@ class TimePicker:
         self._master = master
         self._time = defaults['Time']
         self._format_24h = defaults['Format24h']
-        self.TimeSelected = None
+        self.TimeSelected = lambda sender, e: None
         
         # Determine parent
         if hasattr(master, '_frame'):
@@ -3313,8 +3386,7 @@ class TimePicker:
             # Create time
             self._time = time(hour, minute, second)
             
-            if self.TimeSelected:
-                self.TimeSelected(self._time)
+            self.TimeSelected(self, EventArgs(self._time))
                 
         except ValueError:
             # Reset to current time
@@ -4072,7 +4144,7 @@ class Expander:
         self._is_expanded = defaults['IsExpanded']
         self._header_bg = defaults['HeaderBackColor']
         self._content_bg = defaults['ContentBackColor']
-        self.ExpandedChanged = None
+        self.ExpandedChanged = lambda sender, e: None
         
         # Determine parent
         if hasattr(master, '_frame'):
@@ -4135,8 +4207,7 @@ class Expander:
             self._content.pack_forget()
             self._indicator.config(text="▶")
             
-        if self.ExpandedChanged:
-            self.ExpandedChanged(self._is_expanded)
+        self.ExpandedChanged(self, EventArgs(self._is_expanded))
             
     @property
     def Content(self):
@@ -4225,7 +4296,7 @@ class FloatingActionButton:
         self._foreground_color = defaults['ForegroundColor']
         self._size = 40 if defaults['Mini'] else defaults['Size']
         self._mini = defaults['Mini']
-        self.Clicked = None
+        self.Clicked = lambda sender, e: None
         
         # Get root window for positioning
         if hasattr(master, '_frame'):
@@ -4310,8 +4381,7 @@ class FloatingActionButton:
         
     def _on_click(self, event):
         """Handles click."""
-        if self.Clicked:
-            self.Clicked()
+        self.Clicked(self, EventArgs(event))
             
     def _on_enter(self, event):
         """Hover enter."""
@@ -4411,7 +4481,7 @@ class BottomSheet:
         self._is_open = False
         self._height = defaults['Height']
         self._background_color = defaults['BackgroundColor']
-        self.StateChanged = None
+        self.StateChanged = lambda sender, e: None
         
         # Get root window
         if hasattr(master, '_frame'):
@@ -4505,8 +4575,7 @@ class BottomSheet:
                          width=root_width, height=self._height)
         self._sheet.lift()
         
-        if self.StateChanged:
-            self.StateChanged(True)
+        self.StateChanged(self, EventArgs(True))
             
     def Close(self):
         """Closes the bottom sheet."""
@@ -4517,8 +4586,7 @@ class BottomSheet:
         self._overlay.place_forget()
         self._sheet.place_forget()
         
-        if self.StateChanged:
-            self.StateChanged(False)
+        self.StateChanged(self, EventArgs(False))
             
     @property
     def Title(self):
@@ -4892,7 +4960,7 @@ class RefreshView:
         self._master = master
         self._is_refreshing = False
         self._refresh_color = defaults['RefreshColor']
-        self.Refreshing = None
+        self.Refreshing = lambda sender, e: None
         
         # Determine parent
         if hasattr(master, '_frame'):
@@ -4927,8 +4995,7 @@ class RefreshView:
         """Triggers refresh."""
         if not self._is_refreshing:
             self.BeginRefresh()
-            if self.Refreshing:
-                self.Refreshing()
+            self.Refreshing(self, EventArgs())
                 
     @property
     def Content(self):

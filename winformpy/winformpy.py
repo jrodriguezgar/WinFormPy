@@ -33,6 +33,57 @@ import subprocess
 import importlib
 from typing import List, Tuple, Optional, Union, Literal
 
+
+class EventArgs:
+    """
+    Provides data for events in the winformpy library, matching the .NET pattern.
+    Maps Tkinter event properties to WinForms-friendly names.
+    """
+    def __init__(self, event=None):
+        self.Empty = event is None
+        self.X = 0
+        self.Y = 0
+        self.Button = 0
+        self.KeyChar = ''
+        self.KeyCode = 0
+        self.Delta = 0
+        self.Shift = False
+        self.Control = False
+        self.Alt = False
+        self.Data = None  # Generic storage for custom event data
+        self.Cancel = False  # Used for events that can be cancelled (e.g. FormClosing)
+        
+        if event:
+            # Check if event is actually a dict or something else
+            if isinstance(event, dict):
+                self.Data = event
+                return
+
+            # Map Tkinter event properties to WinForms-like properties
+            self.X = getattr(event, 'x', 0)
+            self.Y = getattr(event, 'y', 0)
+            self.Button = getattr(event, 'num', 0)
+            self.KeyChar = getattr(event, 'char', '')
+            self.KeyCode = getattr(event, 'keycode', 0)
+            self.Delta = getattr(event, 'delta', 0)
+            
+            # Map state masks (this helps detect Shift, Ctrl, Alt)
+            state = getattr(event, 'state', 0)
+            if isinstance(state, int):
+                # Standard Tkinter state masks
+                self.Shift = bool(state & 0x0001)
+                self.Control = bool(state & 0x0004)
+                # Alt mask can vary by platform, usually 0x20000 or 8
+                self.Alt = bool(state & 0x20000) or bool(state & 0x0020) or bool(state & 8)
+
+class PaintEventArgs(EventArgs):
+    """Event data for the Paint event."""
+    def __init__(self, graphics=None, clip_rectangle=None):
+        super().__init__()
+        self.Graphics = graphics
+        self.ClipRectangle = clip_rectangle
+
+
  # Import winformpy_tools utilities
 try:
     from .winformpy_tools import css_to_tkinter_config, apply_css_to_widget
@@ -2474,15 +2525,33 @@ class ControlBase:
         self.MouseUp = lambda button=None, x=None, y=None: None
         self.MouseEnter = lambda sender=None, e=None: None
         self.MouseLeave = lambda sender=None, e=None: None
+        self.MouseMove = lambda sender=None, e=None: None
+        self.MouseWheel = lambda sender=None, e=None: None
+        self.MouseClick = lambda sender=None, e=None: None
+        self.MouseDoubleClick = lambda sender=None, e=None: None
+        self.MouseHover = lambda sender=None, e=None: None
         self.Enter = lambda sender=None, e=None: None  # GotFocus
         self.Leave = lambda sender=None, e=None: None  # LostFocus
+        self.GotFocus = lambda sender=None, e=None: None
+        self.LostFocus = lambda sender=None, e=None: None
         self.KeyDown = lambda sender=None, e=None: None
         self.Click = lambda sender=None, e=None: None
         self.DoubleClick = lambda sender=None, e=None: None
         self.Paint = lambda sender=None, e=None: None
         self.Resize = lambda sender=None, e=None: None
+        self.Move = lambda sender=None, e=None: None
         self.KeyPress = lambda sender=None, e=None: None
         self.KeyUp = lambda sender=None, e=None: None
+        self.TextChanged = lambda sender=None, e=None: None
+        self.VisibleChanged = lambda sender=None, e=None: None
+        self.EnabledChanged = lambda sender=None, e=None: None
+        self.LocationChanged = lambda sender=None, e=None: None
+        self.SizeChanged = lambda sender=None, e=None: None
+        self.FontChanged = lambda sender=None, e=None: None
+        self.BackColorChanged = lambda sender=None, e=None: None
+        self.ForeColorChanged = lambda sender=None, e=None: None
+        self.Validating = lambda sender=None, e=None: None
+        self.Validated = lambda sender=None, e=None: None
         
         # Reference to the original parent container (before resolving to Tkinter widget)
         self._parent_container = None
@@ -2695,6 +2764,8 @@ class ControlBase:
         self._left = value
         if hasattr(self, '_tk_widget') and self._tk_widget:
             self._place_control(self.Width, self.Height)
+        # Trigger LocationChanged
+        self.LocationChanged()
         # Notify parent only after initialization is complete
         if not getattr(self, '_initializing', False):
             self._notify_parent_layout_changed()
@@ -2708,6 +2779,8 @@ class ControlBase:
         self._top = value
         if hasattr(self, '_tk_widget') and self._tk_widget:
             self._place_control(self.Width, self.Height)
+        # Trigger LocationChanged
+        self.LocationChanged()
         # Notify parent only after initialization is complete
         if not getattr(self, '_initializing', False):
             self._notify_parent_layout_changed()
@@ -2724,6 +2797,8 @@ class ControlBase:
             self._original_size = (value, self._height)
         if hasattr(self, '_tk_widget') and self._tk_widget:
             self._place_control(self.Width, self.Height)
+        # Trigger SizeChanged
+        self.SizeChanged()
         # Notify parent only after initialization is complete
         if not getattr(self, '_initializing', False):
             self._notify_parent_layout_changed()
@@ -2740,6 +2815,8 @@ class ControlBase:
             self._original_size = (self._width, value)
         if hasattr(self, '_tk_widget') and self._tk_widget:
             self._place_control(self.Width, self.Height)
+        # Trigger SizeChanged
+        self.SizeChanged()
         # Notify parent only after initialization is complete
         if not getattr(self, '_initializing', False):
             self._notify_parent_layout_changed()
@@ -2892,6 +2969,8 @@ class ControlBase:
                 if hasattr(self, 'Visible') and self.Visible and hasattr(self, '_place_control'):
                     if hasattr(self, 'Width') and hasattr(self, 'Height'):
                         self._place_control(self.Width, self.Height)
+        # Trigger FontChanged
+        self.FontChanged()
 
     @property
     def BackColor(self):
@@ -2904,6 +2983,8 @@ class ControlBase:
         self._backcolor = value
         if self._tk_widget:
             self._apply_visual_config()
+        # Trigger BackColorChanged
+        self.BackColorChanged()
 
     @property
     def ForeColor(self):
@@ -2916,6 +2997,8 @@ class ControlBase:
         self._forecolor = value
         if self._tk_widget:
             self._apply_visual_config()
+        # Trigger ForeColorChanged
+        self.ForeColorChanged()
 
     @property
     def Enabled(self):
@@ -2928,6 +3011,8 @@ class ControlBase:
         self._enabled = value
         if self._tk_widget:
             self._apply_visual_config()
+        # Trigger EnabledChanged
+        self.EnabledChanged()
 
     @property
     def BorderStyle(self):
@@ -3057,6 +3142,11 @@ class ControlBase:
             self._tk_widget.bind('<ButtonRelease>', self._on_mouse_up)
             self._tk_widget.bind('<Enter>', self._on_mouse_enter)
             self._tk_widget.bind('<Leave>', self._on_mouse_leave)
+            self._tk_widget.bind('<Motion>', self._on_mouse_move)
+            self._tk_widget.bind('<MouseWheel>', self._on_mouse_wheel)
+            # Linux support for mouse wheel
+            self._tk_widget.bind('<Button-4>', self._on_mouse_wheel)
+            self._tk_widget.bind('<Button-5>', self._on_mouse_wheel)
             self._tk_widget.bind('<FocusIn>', self._on_enter)
             self._tk_widget.bind('<FocusOut>', self._on_leave)
             self._tk_widget.bind('<Key>', self._on_key_down)
@@ -3075,52 +3165,84 @@ class ControlBase:
 
     def _on_mouse_down(self, event):
         """Handler for MouseDown event."""
-        self.MouseDown(event.num, event.x, event.y)
+        self.MouseDown(self, EventArgs(event))
 
     def _on_mouse_up(self, event):
         """Handler for MouseUp event."""
-        self.MouseUp(event.num, event.x, event.y)
+        self.MouseUp(self, EventArgs(event))
 
     def _on_mouse_enter(self, event):
         """Handler for MouseEnter event."""
-        self.MouseEnter()
+        self.MouseEnter(self, EventArgs(event))
 
     def _on_mouse_leave(self, event):
         """Handler for MouseLeave event."""
-        self.MouseLeave()
+        self.MouseLeave(self, EventArgs(event))
+
+    def _on_mouse_move(self, event):
+        """Handler for MouseMove event."""
+        self.MouseMove(self, EventArgs(event))
+        # MouseHover simulation (could use a timer, but this is a simple start)
+        if hasattr(self, 'MouseHover'):
+            self.MouseHover(self, EventArgs(event))
+
+    def _on_mouse_wheel(self, event):
+        """Handler for MouseWheel event."""
+        self.MouseWheel(self, EventArgs(event))
 
     def _on_enter(self, event):
         """Handler for Enter (GotFocus) event."""
-        self.Enter()
+        self.Enter(self, EventArgs(event))
+        self.GotFocus(self, EventArgs(event))
 
     def _on_leave(self, event):
         """Handler for Leave (LostFocus) event."""
-        self.Leave()
+        # Focus loss is often used for validation in WinForms
+        if hasattr(self, 'Validating'):
+            self.Validating(self, EventArgs(event))
+            
+        self.Leave(self, EventArgs(event))
+        self.LostFocus(self, EventArgs(event))
+        
+        if hasattr(self, 'Validated'):
+            self.Validated(self, EventArgs(event))
 
     def _on_key_down(self, event):
         """Handler for KeyDown event."""
-        self.KeyDown(event.keysym)
+        self.KeyDown(self, EventArgs(event))
 
     def _on_click(self, event):
         """Handler for Click event."""
-        self.Click()
+        # Call Click(sender, e)
+        self.Click(self, EventArgs(event))
+        self.MouseClick(self, EventArgs(event))
 
     def _on_double_click(self, event):
         """Handler for DoubleClick event."""
-        self.DoubleClick()
+        # Call DoubleClick(sender, e)
+        self.DoubleClick(self, EventArgs(event))
+        self.MouseDoubleClick(self, EventArgs(event))
 
     def _on_paint(self, event):
-        """Handler for Paint and Resize events."""
-        self.Paint()
-        self.Resize()
+        """Handler for Paint, Resize and Move events."""
+        self.Paint(self, PaintEventArgs())
+        # Trigger SizeChanged/LocationChanged if size/position changed
+        self.Resize(self, EventArgs(event))
+        self.Move(self, EventArgs(event))
+        
+        # Optionally trigger SizeChanged and LocationChanged if they differ from stored values
+        if hasattr(self, 'SizeChanged'):
+             self.SizeChanged(self, EventArgs(event))
+        if hasattr(self, 'LocationChanged'):
+             self.LocationChanged(self, EventArgs(event))
 
     def _on_key_press(self, event):
         """Handler for KeyPress event."""
-        self.KeyPress(event.char)
+        self.KeyPress(self, EventArgs(event))
 
     def _on_key_up(self, event):
         """Handler for KeyUp event."""
-        self.KeyUp(event.keysym)
+        self.KeyUp(self, EventArgs(event))
 
     def apply_css(self, css_string):
         """Applies CSS styles to the control using the winform-py_tools utility."""
@@ -3396,6 +3518,9 @@ class ControlBase:
                             # Force re-evaluation by temporarily changing and restoring
                             control._visible = not child_visible
                             control.set_Visible(child_visible)
+                            
+        # Trigger VisibleChanged
+        self.VisibleChanged()
     
     @property
     def ToolTipText(self):
@@ -4476,14 +4601,13 @@ class UserControl(ControlBase, ScrollableControlMixin):
         # Apply initial visibility state
         self.set_Visible(self._visible)
             
+        # Bind common events
+        self._bind_common_events()
+            
         # Events
         self.Load = lambda: None
         self.ControlAdded = lambda control: None
         self.ControlRemoved = lambda control: None
-        self.Paint = lambda: None
-        self.Resize = lambda: None
-        
-        self._tk_widget.bind('<Configure>', self._on_paint)
         
         # Auto-registration: Use centralized method from ControlBase
         self._auto_register_with_parent()
@@ -4786,16 +4910,33 @@ class Form(ScrollableControlMixin):
             self._container = self._root 
         
         # VB Events for forms (inspired by ControlBase)
-        self.Load = lambda: None  # Initialization, before showing the form
-        self.Shown = lambda: None # Occurs whenever the form is first displayed
+        self.Load = lambda sender, e: None  # Initialization, before showing the form
+        self.Shown = lambda sender, e: None # Occurs whenever the form is first displayed
         self.FormClosing = lambda sender, e: None  # Before closing, allows cancellation
-        self.FormClosed = lambda: None  # After closing
-        self.Activated = lambda: None  # When the form is activated
-        self.Deactivate = lambda: None  # When the form loses focus
-        self.Resize = lambda: None  # On resize
-        self.Move = lambda: None  # On move (placeholder)
-        self.ControlAdded = lambda control: None  # When a control is added
-        self.ControlRemoved = lambda control: None  # When a control is removed 
+        self.FormClosed = lambda sender, e: None  # After closing
+        self.Activated = lambda sender, e: None  # When the form is activated
+        self.Deactivate = lambda sender, e: None  # When the form loses focus
+        self.Resize = lambda sender, e: None  # On resize
+        self.Move = lambda sender, e: None  # On move (placeholder)
+        self.ControlAdded = lambda sender, e: None  # When a control is added
+        self.ControlRemoved = lambda sender, e: None  # When a control is removed 
+        
+        # Additional Form Events
+        self.GotFocus = lambda sender, e: None
+        self.LostFocus = lambda sender, e: None
+        self.KeyDown = lambda sender, e: None
+        self.KeyUp = lambda sender, e: None
+        self.KeyPress = lambda sender, e: None
+        self.Click = lambda sender, e: None
+        self.DoubleClick = lambda sender, e: None
+        self.MouseDown = lambda sender, e: None
+        self.MouseUp = lambda sender, e: None
+        self.MouseMove = lambda sender, e: None
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
+        self.MouseWheel = lambda sender, e: None
+        self.Closing = self.FormClosing # Alias
+        self.Closed = self.FormClosed   # Alias
 
     def AddControl(self, control):
         """Adds a control to the Form.
@@ -5170,22 +5311,52 @@ class Form(ScrollableControlMixin):
         
         # Bind form events
         self._root.protocol("WM_DELETE_WINDOW", self._close)
-        self._root.bind('<FocusIn>', lambda e: self.Activated())
-        self._root.bind('<FocusOut>', lambda e: self.Deactivate())
-        self._root.bind('<Configure>', lambda e: self.Resize())
-        # Move placeholder
+        self._root.bind('<FocusIn>', self._on_activated)
+        self._root.bind('<FocusOut>', self._on_deactivate)
+        self._root.bind('<Configure>', self._on_configure)
+        self._root.bind('<Key>', lambda e: self.KeyDown(self, EventArgs(e)))
+        self._root.bind('<KeyPress>', lambda e: self.KeyPress(self, EventArgs(e)))
+        self._root.bind('<KeyRelease>', lambda e: self.KeyUp(self, EventArgs(e)))
+        self._root.bind('<Button-1>', lambda e: self.Click(self, EventArgs(e)))
+        self._root.bind('<Double-Button-1>', lambda e: self.DoubleClick(self, EventArgs(e)))
+        self._root.bind('<ButtonPress>', lambda e: self.MouseDown(self, EventArgs(e)))
+        self._root.bind('<ButtonRelease>', lambda e: self.MouseUp(self, EventArgs(e)))
+        self._root.bind('<Motion>', lambda e: self.MouseMove(self, EventArgs(e)))
+        self._root.bind('<Enter>', lambda e: self.MouseEnter(self, EventArgs(e)))
+        self._root.bind('<Leave>', lambda e: self.MouseLeave(self, EventArgs(e)))
+        self._root.bind('<MouseWheel>', lambda e: self.MouseWheel(self, EventArgs(e)))
+        # Linux support for mouse wheel
+        self._root.bind('<Button-4>', lambda e: self.MouseWheel(self, EventArgs(e)))
+        self._root.bind('<Button-5>', lambda e: self.MouseWheel(self, EventArgs(e)))
         
         # Trigger Load event
-        self.Load()
+        self.Load(self, EventArgs())
         
         # Request repaint
         self.Invalidate()
         
         # Trigger Shown event
-        self._root.after_idle(self.Shown)
+        self._root.after_idle(lambda: self.Shown(self, EventArgs()))
         
         if isinstance(self._root, tk.Tk):
             self._root.mainloop()
+
+    def _on_activated(self, event):
+        self.Activated(self, EventArgs(event))
+        self.GotFocus(self, EventArgs(event))
+
+    def _on_deactivate(self, event):
+        self.Deactivate(self, EventArgs(event))
+        self.LostFocus(self, EventArgs(event))
+
+    def _on_configure(self, event):
+        # Only trigger if the size or position of the ROOT changed, 
+        # not just any widget inside it.
+        if event.widget == self._root:
+            self.Resize(self, EventArgs(event))
+            # In WinForms, Move event also triggers
+            if hasattr(self, 'Move'):
+                self.Move(self, EventArgs(event))
 
     def ShowDialog(self):
         """Shows the form as a modal dialog."""
@@ -5210,13 +5381,13 @@ class Form(ScrollableControlMixin):
         
     def _close(self):
         """Handles the form closing."""
-        e = {'Cancel': False}
+        e = EventArgs()
         self.FormClosing(self, e)
-        if not e['Cancel']:
+        if not e.Cancel:
             if self.DialogResult == DialogResult.None_:
                 self.DialogResult = DialogResult.Cancel
             self._root.destroy()
-            self.FormClosed()
+            self.FormClosed(self, EventArgs())
     
     def Close(self):
         """Closes the form."""
@@ -5479,9 +5650,9 @@ class Timer:
         self.Interval = defaults['interval']
         self._enabled = False  # Initialize _enabled before property setter usage
         self.Enabled = defaults['Enabled']
-        self._tag = defaults['Tag']  # Custom object
+        self.Tag = defaults['Tag']  # Custom object
         self.Modifiers = defaults['Modifiers']  # 'Public', 'Private', etc. (placeholder)
-        self.Tick = lambda: None
+        self.Tick = lambda sender, e: None
         self._job = None
         
         # Start if Enabled
@@ -5524,7 +5695,7 @@ class Timer:
     def _schedule(self):
         """Schedules the next tick."""
         if self._enabled:
-            self.Tick()
+            self.Tick(self, EventArgs())
             self._job = self._root.after(self.Interval, self._schedule)
 
 
@@ -5780,11 +5951,6 @@ class Button(ControlBase):
         self.UseMnemonic = defaults['UseMnemonic']
         self.UseVisualStyleBackColor = defaults['UseVisualStyleBackColor']
         self.TextAlign = defaults['TextAlign']
-        
-        # Events
-        self.CommandCanExecuteChanged = lambda sender, e: None
-        self.CommandChanged = lambda sender, e: None
-        self.CommandParameterChanged = lambda sender, e: None
         
         # Location as a tuple
         self.Location = (self.Left, self.Top)
@@ -6043,9 +6209,6 @@ class Label(ControlBase):
         self._use_compatible_text_rendering = defaults['UseCompatibleTextRendering']
         self._use_wait_cursor = defaults['UseWaitCursor']
         
-        # VB events
-        self.TextChanged = lambda: None
-        
         # Process UseMnemonic
         display_text = self._text_value
         underline = -1
@@ -6131,9 +6294,6 @@ class Label(ControlBase):
         
         # Bind events
         self._bind_common_events()
-        self._tk_widget.bind('<Button-1>', self._on_click)
-        self._tk_widget.bind('<Double-Button-1>', self._on_double_click)
-        self._tk_widget.bind('<Configure>', self._on_paint)  # Placeholder for Paint
         
         # AutoSize: automatically adjust size according to content
         if self.AutoSize:
@@ -6443,10 +6603,6 @@ class TextBox(ControlBase):
         self.ShortcutsEnabled = defaults['ShortcutsEnabled']
         self.UseWaitCursor = defaults['UseWaitCursor']
         self.SelectAllOnClick = defaults['SelectAllOnClick']
-        
-        # VB events (callbacks)
-        self.TextChanged = lambda: None
-        self.MouseMove = lambda x, y: None
         
         # Create the Tkinter widget
         if self.Multiline:
@@ -7462,17 +7618,15 @@ class ComboBox(ControlBase):
         if 'Anchor' in defaults and defaults['Anchor']:
             self.Anchor = defaults['Anchor']
         
+        # Bind common events
+        self._bind_common_events()
+        
         # Bind events
         self._tk_widget.bind('<<ComboboxSelected>>', self._on_selected_index_changed)
         # self._tk_widget.bind('<Post>', self._on_drop_down)
         self._tk_widget.bind('<Unmap>', self._on_drop_down_closed) # Approximation
         
         self._selected_var.trace('w', self._on_text_changed)
-        
-        self._tk_widget.bind('<FocusIn>', self._on_enter)
-        self._tk_widget.bind('<FocusOut>', self._on_leave)
-        self._tk_widget.bind('<Key>', self._on_key_down)
-        self._tk_widget.bind('<KeyPress>', self._on_key_press)
         
         # Set initial selection
         if self._selected_index >= 0 and self._selected_index < len(self._items):
@@ -7649,37 +7803,39 @@ class ComboBox(ControlBase):
     def _on_selected_index_changed(self, event=None):
         """Handler for SelectedIndexChanged event."""
         if self._ignore_change: return
-        self.SelectedIndexChanged(self, None)
-        self.SelectionChangeCommitted(self, None)
-        self.SelectedValueChanged(self, None)
+        e = EventArgs(event)
+        self.SelectedIndexChanged(self, e)
+        self.SelectionChangeCommitted(self, e)
+        self.SelectedValueChanged(self, e)
 
     def _on_text_changed(self, *args):
         """Handler for TextChanged event."""
         if self._ignore_change: return
-        self.TextUpdate(self, None)
-        self.TextChanged(self, None)
+        e = EventArgs() # Trace doesn't provide event object normally
+        self.TextUpdate(self, e)
+        self.TextChanged(self, e)
 
     def _on_drop_down(self, event):
         self.DroppedDown = True
-        self.DropDown(self, None)
+        self.DropDown(self, EventArgs(event))
 
     def _on_drop_down_closed(self, event):
         # This is tricky in Tkinter, Unmap might fire for other reasons
         self.DroppedDown = False
-        self.DropDownClosed(self, None)
+        self.DropDownClosed(self, EventArgs(event))
 
     def _on_enter(self, event):
-        self.Enter(self, None)
+        super()._on_enter(event)
 
     def _on_leave(self, event):
-        self.Leave(self, None)
-        self.Validating(self, None)
+        super()._on_leave(event)
+        self.Validating(self, EventArgs(event))
 
     def _on_key_down(self, event):
-        self.KeyDown(self, event.keysym)
+        super()._on_key_down(event)
 
     def _on_key_press(self, event):
-        self.KeyPress(self, event.char)
+        super()._on_key_press(event)
     
     @property
     def Text(self):
@@ -7837,6 +7993,9 @@ class CheckBox(ControlBase):
             self._apply_autosize()
         self._place_control(self.Width, self.Height)
         self.set_Visible(self._visible)
+        
+        # Bind common events
+        self._bind_common_events()
             
         # Apply Dock and Anchor if they were specified in props
         if 'Dock' in defaults and defaults['Dock']:
@@ -9004,7 +9163,7 @@ class NumericUpDown(ControlBase):
         self._user_edit = False
         
         if changed:
-            self.ValueChanged(self, None)
+            self.ValueChanged(self, EventArgs())
 
     @property
     def Value(self):
@@ -9019,7 +9178,7 @@ class NumericUpDown(ControlBase):
         if self._value != val:
             self._value = val
             self.UpdateEditText()
-            self.ValueChanged(self, None)
+            self.ValueChanged(self, EventArgs())
             
     @property
     def Minimum(self): return self._minimum
@@ -10371,13 +10530,7 @@ class PictureBox(ControlBase):
         self.set_Visible(self._visible)
         
         # Bind events
-        self._tk_widget.bind('<Button-1>', self._on_click)
-        self._tk_widget.bind('<Double-Button-1>', self._on_double_click)
-        self._tk_widget.bind('<Configure>', self._on_paint)
-        self._tk_widget.bind('<Enter>', self._on_mouse_enter)
-        self._tk_widget.bind('<Leave>', self._on_mouse_leave)
-        self._tk_widget.bind('<ButtonPress>', self._on_mouse_down)
-        self._tk_widget.bind('<ButtonRelease>', self._on_mouse_up)
+        self._bind_common_events()
         
         # Auto-register with parent container if necessary
         self._auto_register_with_parent()
@@ -10952,12 +11105,6 @@ class GroupBox(ControlBase):
         # Add _root for container functionality
         self._root = master_form._root if hasattr(master_form, '_root') else master_form
         
-        # Windows Forms events for GroupBox
-        self.Enter = lambda sender=None, e=None: None  # When entering the GroupBox (Tab)
-        self.Leave = lambda sender=None, e=None: None  # When leaving the GroupBox
-        self.Click = lambda sender=None, e=None: None  # When clicking in the GroupBox area
-        self.Paint = lambda sender=None, e=None: None  # When it needs to be painted
-        
         # Position - ALWAYS position regardless of visibility
         self._place_control(self.Width, self.Height)
         
@@ -10974,11 +11121,7 @@ class GroupBox(ControlBase):
         if 'Padding' in defaults:
             self.Padding = defaults['Padding']
         
-        # Bind events
-        self._tk_widget.bind('<Configure>', self._on_paint)
-        self._tk_widget.bind('<Button-1>', self._on_click)
-        self._tk_widget.bind('<FocusIn>', self._on_enter)
-        self._tk_widget.bind('<FocusOut>', self._on_leave)
+        # Bind common events
         self._bind_common_events()
         
         # Auto-register with the parent container if necessary
@@ -11632,13 +11775,8 @@ class Panel(ControlBase, ScrollableControlMixin):
         self._root = master_form._root
         
         # Bind events
+        self._bind_common_events()
         self._tk_widget.bind('<Configure>', self._on_paint)
-        self._tk_widget.bind('<Button-1>', self._on_click)
-        self._tk_widget.bind('<Double-Button-1>', self._on_double_click)
-        self._tk_widget.bind('<Enter>', self._on_mouse_enter)
-        self._tk_widget.bind('<Leave>', self._on_mouse_leave)
-        self._tk_widget.bind('<ButtonPress>', self._on_mouse_down)
-        self._tk_widget.bind('<ButtonRelease>', self._on_mouse_up)
         
         # Auto-register with the parent container if needed
         self._auto_register_with_parent()
@@ -12892,8 +13030,8 @@ class TabPage(ControlBase, ScrollableControlMixin):
 
         # Bind events
         self._tk_widget.bind('<Configure>', self._on_configure)
-        self._tk_widget.bind('<FocusIn>', lambda e: self.ChangeUICues(self, e))
-        self._tk_widget.bind('<FocusOut>', lambda e: self.ChangeUICues(self, e))
+        self._tk_widget.bind('<FocusIn>', lambda e: self.ChangeUICues(self, EventArgs(e)), add='+')
+        self._tk_widget.bind('<FocusOut>', lambda e: self.ChangeUICues(self, EventArgs(e)), add='+')
         
         # Auto-register with the parent TabControl if provided
         if parent and hasattr(parent, 'AddTab'):
@@ -13221,14 +13359,14 @@ class TabControl(ControlBase):
         self.Margin = defaults['Margin']  # (left, top, right, bottom) - external margins
         
         # VB Events
-        self.SelectedIndexChanged = lambda: None
+        self.SelectedIndexChanged = lambda sender, e: None
         self.Selecting = lambda sender, e: None
         self.Selected = lambda sender, e: None
         self.Deselecting = lambda sender, e: None
         self.Deselected = lambda sender, e: None
         self.DrawItem = lambda sender, e: None
-        self.ControlAdded = lambda control: None
-        self.ControlRemoved = lambda control: None
+        self.ControlAdded = lambda sender, e: None
+        self.ControlRemoved = lambda sender, e: None
         
         # Create a unique style for this TabControl instance to support custom Alignment
         self._style_name = f"Custom.TNotebook_{id(self)}"
@@ -13520,33 +13658,34 @@ class TabControl(ControlBase):
         """
         new_index = self.get_SelectedIndex()
         if new_index != self._last_selected:
+            e = EventArgs(event)
             # Trigger Selecting and Deselecting
-            if new_index >= 0:
-                self.Selecting(self, {'TabPage': self.TabPages[new_index], 'TabPageIndex': new_index, 'Cancel': False})
-            if self._last_selected >= 0:
-                self.Deselecting(self, {'TabPage': self.TabPages[self._last_selected], 'TabPageIndex': self._last_selected, 'Cancel': False})
+            if new_index >= 0 and new_index < len(self.TabPages):
+                e.Data = {'TabPage': self.TabPages[new_index], 'TabPageIndex': new_index, 'Cancel': False}
+                self.Selecting(self, e)
+            if self._last_selected >= 0 and self._last_selected < len(self.TabPages):
+                e.Data = {'TabPage': self.TabPages[self._last_selected], 'TabPageIndex': self._last_selected, 'Cancel': False}
+                self.Deselecting(self, e)
             # Proceed
-            if self._last_selected >= 0:
-                self.TabPages[self._last_selected].Leave()
-                self.Deselected(self, {'TabPage': self.TabPages[self._last_selected], 'TabPageIndex': self._last_selected})
+            if self._last_selected >= 0 and self._last_selected < len(self.TabPages):
+                e.Data = {'TabPage': self.TabPages[self._last_selected], 'TabPageIndex': self._last_selected}
+                self.Deselected(self, e)
             
             # Update the SelectedIndex attribute to match the widget state
-            self.SelectedIndex = new_index
-            
+            self._selected_index = new_index
             self._last_selected = new_index
-            if new_index >= 0:
-                self.TabPages[new_index].Enter()
-                self.Selected(self, {'TabPage': self.TabPages[new_index], 'TabPageIndex': new_index})
-            self.SelectedIndexChanged()
+            
+            if new_index >= 0 and new_index < len(self.TabPages):
+                e.Data = {'TabPage': self.TabPages[new_index], 'TabPageIndex': new_index}
+                self.Selected(self, e)
+            
+            e.Data = None
+            self.SelectedIndexChanged(self, e)
 
     SelectedIndex = property(get_SelectedIndex, set_SelectedIndex)
 
 
 ############# Nested Controls #############
-
-class EventArgs:
-    pass
-EventArgs.Empty = EventArgs()
 
 
 class ListBoxObjectCollection:
@@ -13915,6 +14054,9 @@ class ListBox(ControlBase):
         self._place_control(self.Width, self.Height)
         self.set_Visible(self._visible)
         
+        # Bind common events
+        self._bind_common_events()
+        
         # Apply Dock and Anchor if they were specified in props
         if 'Dock' in defaults and defaults['Dock']:
             self.Dock = defaults['Dock']
@@ -13923,10 +14065,6 @@ class ListBox(ControlBase):
         
         # Bind events
         self._tk_widget.bind('<<ListboxSelect>>', self._on_selected_index_changed)
-        self._tk_widget.bind('<Button-1>', self._on_click)
-        self._tk_widget.bind('<Double-Button-1>', self._on_double_click)
-        self._tk_widget.bind('<FocusIn>', self._on_enter)
-        self._tk_widget.bind('<FocusOut>', self._on_leave)
         self._tk_widget.bind('<Key>', self._on_key_down)
         
         if self._sorted:
@@ -14170,23 +14308,24 @@ class ListBox(ControlBase):
         return (0,0,0,0)
 
     def _on_selected_index_changed(self, event=None):
-        self.SelectedIndexChanged(self, None)
-        self.SelectedValueChanged(self, None)
+        e = EventArgs(event)
+        self.SelectedIndexChanged(self, e)
+        self.SelectedValueChanged(self, e)
 
     def _on_click(self, event):
-        self.Click(self, None)
+        self.Click(self, EventArgs(event))
 
     def _on_double_click(self, event):
-        self.DoubleClick(self, None)
+        self.DoubleClick(self, EventArgs(event))
 
     def _on_enter(self, event):
-        self.Enter(self, None)
+        super()._on_enter(event)
 
     def _on_leave(self, event):
-        self.Leave(self, None)
+        super()._on_leave(event)
 
     def _on_key_down(self, event):
-        self.KeyDown(self, event.keysym)
+        super()._on_key_down(event)
 
 
 class CheckedListBoxObjectCollection(ListBoxObjectCollection):
@@ -14662,8 +14801,8 @@ class CheckedListBox(ControlBase):
                 # Ensure visible
                 # self._canvas.yview_moveto(...) # Complex to calculate
             
-            self.SelectedIndexChanged()
-            self.SelectedValueChanged()
+            self.SelectedIndexChanged(self, EventArgs())
+            self.SelectedValueChanged(self, EventArgs())
 
     @property
     def SelectedItem(self):
@@ -14875,6 +15014,7 @@ class SplitContainer(ControlBase):
         else:
             self._place_control(self.Width, self.Height)
             
+        self._bind_common_events()
         self.set_Visible(self._visible)
         self._auto_register_with_parent()
         
@@ -14915,10 +15055,10 @@ class SplitContainer(ControlBase):
     def _on_sash_move(self, event):
         if self._is_splitter_fixed:
             return "break"
-        self.SplitterMoving(self, event)
+        self.SplitterMoving(self, EventArgs(event))
 
     def _on_sash_release(self, event):
-        self.SplitterMoved(self, event)
+        self.SplitterMoved(self, EventArgs(event))
         # Update internal distance
         try:
             if self.Orientation == Orientation.Vertical:
@@ -15131,6 +15271,7 @@ class StatusBar(ControlBase):
         else:
             self._place_control(self.Width, self.Height)
 
+        self._bind_common_events()
         self.set_Visible(self._visible)
         self._auto_register_with_parent()
     
@@ -16505,16 +16646,9 @@ class ListView(ControlBase):
         # Events
         self.SelectedIndexChanged = lambda sender=None, e=None: None
         self.ItemSelectionChanged = lambda sender=None, e=None: None
-        self.DoubleClick = lambda sender=None, e=None: None
-        self.Click = lambda sender=None, e=None: None
         self.ItemCheck = lambda sender, e: None
         self.AfterCheck = lambda sender, e: None
         self.ColumnClick = lambda sender, e: None
-        self.MouseClick = lambda sender, e: None
-        self.Enter = lambda: None
-        self.Leave = lambda: None
-        self.KeyDown = lambda sender=None, e=None: None
-        self.KeyPress = lambda sender=None, e=None: None
         self.DrawItem = lambda sender=None, e=None: None
         self.DrawSubItem = lambda sender, e: None
         self.DrawColumnHeader = lambda sender, e: None
@@ -16547,6 +16681,7 @@ class ListView(ControlBase):
                 self._items.Add(item)
         
         self._update_styles()
+        self._bind_common_events()
         self._place_control(self.Width, self.Height)
         self.set_Visible(self._visible)
         
@@ -16980,32 +17115,32 @@ class ListView(ControlBase):
             style.configure("Treeview", rowheight=25) # Placeholder
 
     def _on_selection_changed(self, event):
-        self.SelectedIndexChanged()
+        self.SelectedIndexChanged(self, EventArgs(event))
         selected = self.SelectedItems
         for item in selected:
-            self.ItemSelectionChanged(self, {'Item': item, 'Selected': True})
+            self.ItemSelectionChanged(self, EventArgs({'Item': item, 'Selected': True}))
 
     def _on_column_click(self, column_index):
-        self.ColumnClick(self, {'Column': self._columns[column_index]})
+        self.ColumnClick(self, EventArgs({'Column': self._columns[column_index]}))
 
     def _on_key_down(self, event):
-        self.KeyDown(self, {'KeyCode': event.keysym, 'Modifiers': event.state})
+        self.KeyDown(self, EventArgs(event))
 
     def _on_key_press(self, event):
-        self.KeyPress(self, {'KeyChar': event.char})
+        self.KeyPress(self, EventArgs(event))
 
     def _on_double_click(self, event):
-        self.DoubleClick()
-        self.MouseDoubleClick(self, {'Button': 'Left', 'Clicks': 2, 'X': event.x, 'Y': event.y})
+        self.DoubleClick(self, EventArgs(event))
+        self.MouseDoubleClick(self, EventArgs({'Button': 'Left', 'Clicks': 2, 'X': event.x, 'Y': event.y}))
 
     def _on_click(self, event):
-        self.Click()
-        self.MouseClick(self, {'Button': 'Left', 'Clicks': 1, 'X': event.x, 'Y': event.y})
+        self.Click(self, EventArgs(event))
+        self.MouseClick(self, EventArgs({'Button': 'Left', 'Clicks': 1, 'X': event.x, 'Y': event.y}))
         item = self.GetItemAt(event.x, event.y)
         if item:
             self._focused_item = item
             if self.Activation == Activation.OneClick:
-                self.ItemActivate(self, {'Item': item})
+                self.ItemActivate(self, EventArgs({'Item': item}))
 
 
 class TreeNodeCollection:
@@ -17699,6 +17834,7 @@ class TreeView(ControlBase):
         self._tk_widget.bind('<<TreeviewClose>>', self._on_after_collapse)
         self._tk_widget.bind('<Button-1>', self._on_node_mouse_click)
         self._tk_widget.bind('<Double-1>', self._on_node_mouse_double_click)
+        self._bind_common_events()
         
         # Add initial nodes if provided in defaults
         initial_nodes = defaults['Nodes']
@@ -17850,7 +17986,9 @@ class TreeView(ControlBase):
         """Handler for AfterSelect event."""
         node = self.SelectedNode
         if node:
-            self.AfterSelect(self, {'Node': node, 'Action': TreeViewAction.ByMouse})
+            e = EventArgs(event)
+            e.Data = {'Node': node, 'Action': TreeViewAction.ByMouse}
+            self.AfterSelect(self, e)
     
     def _on_after_expand(self, event):
         """Handler for AfterExpand event."""
@@ -17863,28 +18001,36 @@ class TreeView(ControlBase):
         item_id = self._tk_widget.focus()
         node = self._node_map.get(item_id)
         if node:
-            self.AfterExpand(self, {'Node': node})
+            e = EventArgs(event)
+            e.Data = {'Node': node}
+            self.AfterExpand(self, e)
     
     def _on_after_collapse(self, event):
         """Handler for AfterCollapse event."""
         item_id = self._tk_widget.focus()
         node = self._node_map.get(item_id)
         if node:
-            self.AfterCollapse(self, {'Node': node})
+            e = EventArgs(event)
+            e.Data = {'Node': node}
+            self.AfterCollapse(self, e)
     
     def _on_node_mouse_click(self, event):
         """Handler for NodeMouseClick event."""
         item_id = self._tk_widget.identify_row(event.y)
         node = self._node_map.get(item_id)
         if node:
-            self.NodeMouseClick(self, {'Node': node, 'Button': event.num, 'X': event.x, 'Y': event.y})
+            e = EventArgs(event)
+            e.Data = {'Node': node, 'Button': event.num, 'X': event.x, 'Y': event.y}
+            self.NodeMouseClick(self, e)
     
     def _on_node_mouse_double_click(self, event):
         """Handler for NodeMouseDoubleClick event."""
         item_id = self._tk_widget.identify_row(event.y)
         node = self._node_map.get(item_id)
         if node:
-            self.NodeMouseDoubleClick(self, {'Node': node, 'Button': event.num, 'X': event.x, 'Y': event.y})
+            e = EventArgs(event)
+            e.Data = {'Node': node, 'Button': event.num, 'X': event.x, 'Y': event.y}
+            self.NodeMouseDoubleClick(self, e)
     
     def _find_node_by_id(self, item_id):
         """Finds TreeNode by item_id."""
@@ -18470,7 +18616,7 @@ class DataGridView(ControlBase):
 
     def _on_selection_changed(self, event):
         """Handler for SelectionChanged."""
-        self.SelectionChanged(self, {})
+        self.SelectionChanged(self, EventArgs(event))
 
     def _on_click(self, event):
         """Handler for Click/CellClick."""
@@ -18483,10 +18629,16 @@ class DataGridView(ControlBase):
             row_index = self._tk_widget.index(item_id)
             
             if 0 <= row_index < len(self.Rows) and 0 <= col_index < len(self.Columns):
-                self.CellClick(self, {'RowIndex': row_index, 'ColumnIndex': col_index})
+                self.CellClick(self, EventArgs({'RowIndex': row_index, 'ColumnIndex': col_index}))
+        
+        # Base events
+        self.Click(self, EventArgs(event))
+        self.MouseClick(self, EventArgs(event))
 
     def _on_double_click(self, event):
-        pass
+        """Handler for DoubleClick."""
+        self.DoubleClick(self, EventArgs(event))
+        self.MouseDoubleClick(self, EventArgs(event))
 
 
 class ToolStripItem:
@@ -18510,6 +18662,23 @@ class ToolStripItem:
         self._widget = None
         
         self.Click = lambda sender, e: None
+        self.DoubleClick = lambda sender, e: None
+        self.MouseDown = lambda sender, e: None
+        self.MouseUp = lambda sender, e: None
+        self.MouseEnter = lambda sender, e: None
+        self.MouseLeave = lambda sender, e: None
+        self.MouseMove = lambda sender, e: None
+
+    def _bind_item_events(self, widget):
+        """Helper to bind events to the underlying Tkinter widget."""
+        if not widget: return
+        widget.bind("<Button-1>", lambda e: self.Click(self, e))
+        widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
+        widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, e))
+        widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, e))
+        widget.bind("<Enter>", lambda e: self.MouseEnter(self, e))
+        widget.bind("<Leave>", lambda e: self.MouseLeave(self, e))
+        widget.bind("<Motion>", lambda e: self.MouseMove(self, e))
 
     @property
     def Text(self): return self._text
@@ -18623,6 +18792,10 @@ class ToolStripButton(ToolStripItem):
             self._widget.config(image=self.Image)
             
         self._widget.bind('<Button-1>', self._on_click)
+        self._widget.bind('<Double-Button-1>', lambda e: self.DoubleClick(self, e))
+        self._widget.bind('<ButtonPress>', lambda e: self.MouseDown(self, e))
+        self._widget.bind('<ButtonRelease>', lambda e: self.MouseUp(self, e))
+        self._widget.bind('<Motion>', lambda e: self.MouseMove(self, e))
         self._widget.bind('<Enter>', self._on_mouse_enter)
         self._widget.bind('<Leave>', self._on_mouse_leave)
         
@@ -18637,12 +18810,14 @@ class ToolStripButton(ToolStripItem):
     def _on_mouse_enter(self, event):
         if self.Enabled:
             self._widget.config(relief='raised', bg='#e5f1fb') # Light blue hover
+        self.MouseEnter(self, event)
 
     def _on_mouse_leave(self, event):
         if self.Enabled and not self.Checked:
             self._widget.config(relief='flat', bg=self._owner._tk_widget.cget('bg') if self._owner else 'SystemButtonFace')
         elif self.Checked:
              self._widget.config(relief='sunken', bg='#cce8ff') # Checked state
+        self.MouseLeave(self, event)
 
     def _update_widget(self):
         if self._widget:
@@ -18692,7 +18867,7 @@ class ToolStripLabel(ToolStripItem):
         if self.Image:
             self._widget.config(image=self.Image)
             
-        self._widget.bind('<Button-1>', lambda e: self.Click(self, e))
+        self._bind_item_events(self._widget)
         self._update_widget()
         return self._widget
 
@@ -18762,7 +18937,7 @@ class ToolStripStatusLabel(ToolStripItem):
         if self.Image:
             self._widget.config(image=self.Image, compound='left')
             
-        self._widget.bind('<Button-1>', lambda e: self.Click(self, e))
+        self._bind_item_events(self._widget)
         return self._widget
 
     def _update_widget(self):
@@ -18826,6 +19001,10 @@ class ToolStripMenuItem(ToolStripItem):
             self._widget.config(image=self.Image)
             
         self._widget.bind('<Button-1>', self._on_click)
+        self._widget.bind('<Double-Button-1>', lambda e: self.DoubleClick(self, e))
+        self._widget.bind('<ButtonPress>', lambda e: self.MouseDown(self, e))
+        self._widget.bind('<ButtonRelease>', lambda e: self.MouseUp(self, e))
+        self._widget.bind('<Motion>', lambda e: self.MouseMove(self, e))
         self._widget.bind('<Enter>', self._on_mouse_enter)
         self._widget.bind('<Leave>', self._on_mouse_leave)
         
@@ -18843,10 +19022,12 @@ class ToolStripMenuItem(ToolStripItem):
     def _on_mouse_enter(self, event):
         if self.Enabled:
             self._widget.config(bg='#cce8ff') # Light blue hover
+        self.MouseEnter(self, event)
 
     def _on_mouse_leave(self, event):
         if self.Enabled:
             self._widget.config(bg=self._owner._tk_widget.cget('bg') if self._owner else 'SystemButtonFace')
+        self.MouseLeave(self, event)
 
     def _update_widget(self):
         if self._widget:
@@ -18925,7 +19106,7 @@ class ToolStripProgressBar(ToolStripItem):
         except ImportError:
             self._widget = tk.Label(parent, text=f"Progress: {self.Value}%")
         
-        self._widget.bind('<Button-1>', lambda e: self.Click(self, e))
+        self._bind_item_events(self._widget)
         return self._widget
 
     def _update_widget(self):
@@ -19026,6 +19207,7 @@ class ToolStrip(ControlBase):
             self._place_control(self.Width, self.Height)
             
         self.set_Visible(self._visible)
+        self._bind_common_events()
         self._auto_register_with_parent()
 
     @property
@@ -19151,6 +19333,7 @@ class StatusStrip(ControlBase):
         else:
             self._place_control(self.Width, self.Height)
 
+        self._bind_common_events()
         self.set_Visible(self._visible)
         self._auto_register_with_parent()
 
@@ -19239,6 +19422,7 @@ class TrackBar(ControlBase):
         )
         self._tk_widget.set(self._value)
         
+        self._bind_common_events()
         self._apply_visual_config()
         self._place_control(self.Width, self.Height)
         self.set_Visible(self._visible)
@@ -19248,8 +19432,10 @@ class TrackBar(ControlBase):
         new_val = float(value)
         if self._value != new_val:
             self._value = new_val
-            self.Scroll(self, None)
-            self.ValueChanged(self, None)
+            e = EventArgs()
+            e.Data = {'Value': new_val}
+            self.Scroll(self, e)
+            self.ValueChanged(self, e)
 
     @property
     def Value(self):
@@ -19302,7 +19488,7 @@ class MenuItem:
         
     def PerformClick(self):
         if self.Enabled:
-            self.Click(self, None)
+            self.Click(self, EventArgs())
 
 class MainMenu:
     """Represents the menu structure of a form."""
@@ -19566,8 +19752,6 @@ class MonthCalendar(ControlBase):
         # Events
         self.DateChanged = lambda sender=None, e=None: None
         self.DateSelected = lambda sender=None, e=None: None
-        self.MouseUp = lambda sender=None, e=None: None
-        self.DoubleClick = lambda sender=None, e=None: None
         
         defaults = {
             'Left': 10, 'Top': 10, 'Width': 220, 'Height': 200, 'Name': "",
@@ -19654,8 +19838,7 @@ class MonthCalendar(ControlBase):
                 self._tk_widget = self._calendar
                 
                 self._calendar.bind('<<CalendarSelected>>', self._on_date_changed)
-                self._calendar.bind('<ButtonRelease-1>', self._on_mouse_up)
-                self._calendar.bind('<Double-1>', self._on_double_click)
+                self._bind_common_events()
                 
             except ImportError:
                 self._create_fallback()
@@ -19674,16 +19857,12 @@ class MonthCalendar(ControlBase):
             self._selection_start = selected_date
             self._selection_end = selected_date
             
-            self.DateChanged(self, {'Start': selected_date, 'End': selected_date})
-            self.DateSelected(self, {'Start': selected_date, 'End': selected_date})
+            e = EventArgs(event)
+            e.Data = {'Start': selected_date, 'End': selected_date}
+            self.DateChanged(self, e)
+            self.DateSelected(self, e)
         except:
             pass
-
-    def _on_mouse_up(self, event):
-        self.MouseUp(self, {'Button': event.num, 'X': event.x, 'Y': event.y})
-        
-    def _on_double_click(self, event):
-        self.DoubleClick()
 
     def _update_style(self, option, value):
         self._styles[option] = value
@@ -19974,6 +20153,9 @@ class DatePicker(ControlBase):
         # Apply initial state
         self._update_display()
         
+        # Bind common events
+        self._bind_common_events()
+        
         # Auto-register
         self._auto_register_with_parent()
 
@@ -20066,7 +20248,9 @@ class DatePicker(ControlBase):
     def _on_checked_changed(self):
         self._checked = bool(self._chk_var.get())
         self._update_display()
-        self.CheckedChanged(self, {'Checked': self._checked})
+        e = EventArgs()
+        e.Data = {'Checked': self._checked}
+        self.CheckedChanged(self, e)
 
     def _update_style(self, option, value):
         self._styles[option] = value
@@ -20086,7 +20270,10 @@ class DatePicker(ControlBase):
         old = self._value
         self._value = value
         self._update_display()
-        if old != value: self.ValueChanged(self, {'OldValue': old, 'NewValue': value})
+        if old != value:
+            e = EventArgs()
+            e.Data = {'OldValue': old, 'NewValue': value}
+            self.ValueChanged(self, e)
 
     @property
     def MinDate(self): return self._min_date

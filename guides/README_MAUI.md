@@ -179,6 +179,18 @@ if __name__ == "__main__":
 | **CollectionView** | Templated list/grid view | `ItemsSource`, `SelectedItem`, `SelectionChanged`, `ItemTapped` |
 | **RefreshView** | Pull-to-refresh container | `Content`, `IsRefreshing`, `Refreshing` |
 
+## Events
+
+MAUIPy controls use the same event pattern as the core library. All event handlers receive `(sender, e)`:
+
+```python
+def on_btn_clicked(sender, e):
+    print(f"Clicked {sender.Text}")
+
+btn = Button(self, text="Click Me")
+btn.Click = on_btn_clicked
+```
+
 ## Example Usage
 
 ### Basic Controls

@@ -43,8 +43,8 @@ class ExtendedLabel(Label):
             
         super().__init__(master_form, props)
         
-        # Bind the resize event to update text wrapping
-        self._tk_widget.bind('<Configure>', self._update_wrapping)
+        # Bind the resize event to update text wrapping with add='+' to keep base class bindings
+        self._tk_widget.bind('<Configure>', self._update_wrapping, add="+")
         
         # Initial wrap update
         self._tk_widget.after(10, self._update_wrapping)
