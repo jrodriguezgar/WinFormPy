@@ -14,15 +14,15 @@ import os
 
 # Add project root to path for direct execution
 _current_dir = os.path.dirname(os.path.abspath(__file__))
-_project_root = os.path.abspath(os.path.join(_current_dir, '..', '..', '..', '..', '..', '..'))
+_project_root = os.path.abspath(os.path.join(_current_dir, '..', '..', '..'))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from pentano.gui.windows.winformpy.winformpy import (
+from winformpy.winformpy import (
     Form, Panel, Label, TextBox, Button, ComboBox, MessageBox, 
     GroupBox, ListView, ColumnHeader
 )
-from pentano.gui.windows.winformpy.ui_elements.db_connection.db_connection_manager import DBConnectionManager
+from winformpy.ui_elements.db_connection.db_connection_manager import DBConnectionManager
 
 
 class DBConnectionUI(Form):

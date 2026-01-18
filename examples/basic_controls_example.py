@@ -85,7 +85,7 @@ def main():
     
     # Timer for countdown (Timer control demonstration)
     countdown_value = [5]  # Use list to modify in nested function
-    timer = Timer(form._root)
+    timer = Timer(form)
     timer.Interval = 1000  # 1 second
     
     # Button initially disabled (Button control demonstration)

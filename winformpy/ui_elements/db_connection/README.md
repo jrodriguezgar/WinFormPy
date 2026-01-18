@@ -123,7 +123,7 @@ The **"Test Connection"** feature requires the backend to implement `test_connec
 ### Using Visual Interface (Form)
 
 ```python
-from pentano.gui.windows.winformpy.ui_elements.db_connection import (
+from winformpy.ui_elements.db_connection import (
     DBConnectionManager,
     DBConnectionUI
 )
@@ -142,33 +142,34 @@ ui.show_dialog()
 ### Embeddable Visual Panel
 
 ```python
-from pentano.gui.windows.winformpy.winformpy import Form
-from pentano.gui.windows.winformpy.ui_elements.db_connection import (
+from winformpy.winformpy import Form, DockStyle
+from winformpy.ui_elements.db_connection import (
     DBConnectionManager,
     DBConnectionPanel
 )
 
 # Create main window
-app = Form({'Text': "My App", 'Width': 900, 'Height': 700})
+form = Form({'Text': "My App", 'Width': 900, 'Height': 700})
+form.ApplyLayout()  # IMPORTANT: Call before adding child controls
 
 # External backend (NOT part of this project)
 backend = MyExternalBackend()
 
 # Create layers
 manager = DBConnectionManager(backend)
-panel = DBConnectionPanel(app, manager, {'Left': 10, 'Top': 10, 'Width': 880})
+panel = DBConnectionPanel(form, manager, {'Dock': DockStyle.Fill})
 
-app.ShowDialog()
+form.Run()
 ```
 
 ### Included Demo
 
 ```bash
 # DBConnectionUI demo (Standalone Form)
-python -m pentano.gui.windows.winformpy.ui_elements.db_connection.db_connection_ui
+python -m winformpy.ui_elements.db_connection.db_connection_ui
 
 # DBConnectionPanel demo (Embeddable Panel)
-python -m pentano.gui.windows.winformpy.ui_elements.db_connection.db_connection_panel
+python -m winformpy.ui_elements.db_connection.db_connection_panel
 ```
 
 Demos include a sample backend for demonstration purposes.
@@ -307,7 +308,7 @@ class JSONStorageBackend:
 
 
 # === Usage ===
-from pentano.gui.windows.winformpy.ui_elements.db_connection import (
+from winformpy.ui_elements.db_connection import (
     DBConnectionManager,
     DBConnectionUI
 )
@@ -327,19 +328,19 @@ ui.show_dialog()
 
 ### Default Ports
 
-| Type              | Port  | Required Fields                        |
-| ----------------- | ----- | -------------------------------------- |
-| `oracle`        | 1521  | host, service_name, user, password     |
-| `mysql`         | 3306  | host, database, user, password         |
-| `postgresql`    | 5432  | host, database, user, password, schema |
-| `sqlserver`     | 1433  | host, database, user, password         |
-| `sqlite`        | N/A   | database (file path)                   |
-| `access`        | N/A   | database (file path)                   |
-| `mongodb`       | 27017 | host, database                         |
-| `cassandra`     | 9042  | host, keyspace                         |
-| `neo4j`         | 7687  | host, database, user, password         |
-| `elasticsearch` | 9200  | host                                   |
-| `redis`         | 6379  | host                                   |
+| Type | Port | Required Fields |
+|------|------|-----------------|
+| `oracle` | 1521 | host, service_name, user, password |
+| `mysql` | 3306 | host, database, user, password |
+| `postgresql` | 5432 | host, database, user, password, schema |
+| `sqlserver` | 1433 | host, database, user, password |
+| `sqlite` | N/A | database (file path) |
+| `access` | N/A | database (file path) |
+| `mongodb` | 27017 | host, database |
+| `cassandra` | 9042 | host, keyspace |
+| `neo4j` | 7687 | host, database, user, password |
+| `elasticsearch` | 9200 | host |
+| `redis` | 6379 | host |
 
 ---
 
@@ -350,27 +351,27 @@ ui.show_dialog()
 Service layer that validates data and delegates CRUD to backend.
 
 ```python
-from pentano.gui.windows.winformpy.ui_elements.db_connection import DBConnectionManager
+from winformpy.ui_elements.db_connection import DBConnectionManager
 
 manager = DBConnectionManager(backend)
 ```
 
-| Method                         | Signature                                 | Description                                  | Returns                        |
-| ------------------------------ | ----------------------------------------- | -------------------------------------------- | ------------------------------ |
-| `save()`                     | `save(name, data)`                      | Save/update connection                       | `'created'` or `'updated'` |
-| `read()`                     | `read(name)`                            | Read a connection                            | `dict` or `None`           |
-| `read_all()`                 | `read_all()`                            | Read all connections                         | `dict`                       |
-| `delete()`                   | `delete(name)`                          | Delete a connection                          | `bool`                       |
-| `list_names()`               | `list_names()`                          | List connection names                        | `list[str]`                  |
-| `test_connection()`          | `test_connection(name=None, data=None)` | Test connectivity (if backend implements it) | `tuple[bool, str]`           |
-| `validate_connection_data()` | `validate_connection_data(data)`        | Validate connection structure                | `tuple[bool, str]`           |
+| Method | Parameters | Description | Returns |
+|--------|------------|-------------|---------|
+| `save()` | `name: str, data: dict` | Save/update connection | `'created'` or `'updated'` |
+| `read()` | `name: str` | Read a connection | `dict` or `None` |
+| `read_all()` | — | Read all connections | `dict` |
+| `delete()` | `name: str` | Delete a connection | `bool` |
+| `list_names()` | — | List connection names | `list[str]` |
+| `test_connection()` | `name: str = None, data: dict = None` | Test connectivity | `tuple[bool, str]` |
+| `validate_connection_data()` | `data: dict` | Validate connection structure | `tuple[bool, str]` |
 
 ### DBConnectionUI
 
 Standalone Form window for visual connection management.
 
 ```python
-from pentano.gui.windows.winformpy.ui_elements.db_connection import DBConnectionUI
+from winformpy.ui_elements.db_connection import DBConnectionUI
 
 ui = DBConnectionUI(manager)
 ui.show_dialog()
@@ -381,11 +382,22 @@ ui.show_dialog()
 Embeddable panel for integration in other windows.
 
 ```python
-from pentano.gui.windows.winformpy.ui_elements.db_connection import DBConnectionPanel
+from winformpy.ui_elements.db_connection import DBConnectionPanel
 
 panel = DBConnectionPanel(parent, manager, props)
 config = panel.get_config()  # Get selected connection
 ```
+
+---
+
+## 📁 Module Files
+
+| File | Description |
+|------|-------------|
+| `__init__.py` | Module exports |
+| `db_connection_manager.py` | DBConnectionManager service layer |
+| `db_connection_panel.py` | DBConnectionPanel embeddable component |
+| `db_connection_ui.py` | DBConnectionUI standalone form |
 
 ---
 

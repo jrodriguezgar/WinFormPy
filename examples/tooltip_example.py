@@ -64,7 +64,7 @@ def main():
         'Left': 20, 'Top': 90,
         'Width': 120
     })
-    tooltip_save = ToolTip(btn_save._tk_widget, {
+    tooltip_save = ToolTip(btn_save, {
         'Text': "Save the current document\n(Ctrl+S)",
         'UseSystemStyles': True
     })
@@ -74,7 +74,7 @@ def main():
         'Left': 150, 'Top': 90,
         'Width': 120
     })
-    tooltip_open = ToolTip(btn_open._tk_widget, {
+    tooltip_open = ToolTip(btn_open, {
         'Text': "Open an existing file\nSupported formats: .txt, .doc, .pdf",
         'UseSystemStyles': True
     })
@@ -84,7 +84,7 @@ def main():
         'Left': 280, 'Top': 90,
         'Width': 120
     })
-    tooltip_delete = ToolTip(btn_delete._tk_widget, {
+    tooltip_delete = ToolTip(btn_delete, {
         'Text': "⚠️ WARNING: This action cannot be undone\nPermanently deletes the selected item",
         'UseSystemStyles': True
     })
@@ -103,7 +103,7 @@ def main():
         'Width': 200,
         'ForeColor': 'blue'
     })
-    tooltip_version = ToolTip(info_label._tk_widget, {
+    tooltip_version = ToolTip(info_label, {
         'Text': "Version: 2.0.1\nRelease Date: Nov 27, 2025\nAuthor: Your Name",
         'UseSystemStyles': True
     })
@@ -113,7 +113,7 @@ def main():
         'Left': 230, 'Top': 170,
         'Width': 150
     })
-    tooltip_cpu = ToolTip(cpu_label._tk_widget, {
+    tooltip_cpu = ToolTip(cpu_label, {
         'Text': "Central Processing Unit\nCurrent processor usage",
         'UseSystemStyles': True
     })
@@ -136,7 +136,7 @@ def main():
         'Left': 180, 'Top': 240,
         'Width': 300
     })
-    tooltip_username = ToolTip(username_textbox._tk_widget, {
+    tooltip_username = ToolTip(username_textbox, {
         'Text': "Enter your username\nMinimum 4 characters, no spaces",
         'UseSystemStyles': True
     })
@@ -151,7 +151,7 @@ def main():
         'Left': 180, 'Top': 280,
         'Width': 300
     })
-    tooltip_email = ToolTip(email_textbox._tk_widget, {
+    tooltip_email = ToolTip(email_textbox, {
         'Text': "Format: user@domain.com\nExample: john.doe@company.com",
         'UseSystemStyles': True
     })
@@ -169,7 +169,7 @@ def main():
         'Left': 20, 'Top': 350,
         'Width': 250
     })
-    tooltip_autosave = ToolTip(check_auto_save._tk_widget, {
+    tooltip_autosave = ToolTip(check_auto_save, {
         'Text': "Automatically saves changes every 5 minutes\nPrevents data loss in case of unexpected closure",
         'UseSystemStyles': True
     })
@@ -179,7 +179,7 @@ def main():
         'Left': 20, 'Top': 380,
         'Width': 250
     })
-    tooltip_notifications = ToolTip(check_notifications._tk_widget, {
+    tooltip_notifications = ToolTip(check_notifications, {
         'Text': "Display system notifications for:\n• Available updates\n• New messages\n• Important alerts",
         'UseSystemStyles': True
     })
@@ -198,7 +198,7 @@ def main():
         'Left': 20, 'Top': 450,
         'Width': 150
     })
-    tooltip_counter = ToolTip(counter_button._tk_widget, {
+    tooltip_counter = ToolTip(counter_button, {
         'Text': "Click to increment the counter",
         'UseSystemStyles': True
     })
@@ -225,7 +225,7 @@ def main():
         'Left': 180, 'Top': 450,
         'Width': 100
     })
-    tooltip_reset = ToolTip(reset_button._tk_widget, {
+    tooltip_reset = ToolTip(reset_button, {
         'Text': "Reset counter to zero",
         'UseSystemStyles': True
     })

@@ -96,8 +96,7 @@ def create_content_panel(parent_form, index, on_update_layout=None):
         internal_layout.arrange_all(panel_controls)
         
         # Force button to front to ensure it's not covered
-        if hasattr(btn, '_tk_widget'):
-            btn._tk_widget.lift()
+        btn.BringToFront()
         
         # Update main layout if callback provided
         if on_update_layout:
