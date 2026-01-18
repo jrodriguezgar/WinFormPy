@@ -210,7 +210,7 @@ def main():
         'Width': 150,
         'Checked': False
     })
-    ToolTip(chk_beep._tk_widget, {
+    ToolTip(chk_beep, {
         'Text': 'Play a beep sound when invalid input is entered',
         'UseSystemStyles': True
     })
@@ -224,7 +224,7 @@ def main():
         'Width': 180,
         'Checked': False
     })
-    ToolTip(chk_password._tk_widget, {
+    ToolTip(chk_password, {
         'Text': 'Display all characters as asterisks (*) for password entry',
         'UseSystemStyles': True
     })
@@ -236,7 +236,7 @@ def main():
         'Width': 150,
         'Checked': False
     })
-    ToolTip(chk_ascii._tk_widget, {
+    ToolTip(chk_ascii, {
         'Text': 'Reject non-ASCII characters (ñ, á, ü, etc.)',
         'UseSystemStyles': True
     })
@@ -248,7 +248,7 @@ def main():
         'Width': 180,
         'Checked': True
     })
-    ToolTip(chk_skip_literals._tk_widget, {
+    ToolTip(chk_skip_literals, {
         'Text': 'Automatically skip over literal characters (/, -, spaces) when typing',
         'UseSystemStyles': True
     })
@@ -259,7 +259,7 @@ def main():
         'Top': 343,
         'Width': 90
     })
-    ToolTip(lbl_prompt_char._tk_widget, {
+    ToolTip(lbl_prompt_char, {
         'Text': 'Character used to indicate empty positions in the mask',
         'UseSystemStyles': True
     })
@@ -271,7 +271,7 @@ def main():
         'Items': ['_', '-', '*', '•', ' ']
     })
     combo_prompt.SelectedIndex = 0
-    ToolTip(combo_prompt._tk_widget, {
+    ToolTip(combo_prompt, {
         'Text': 'Select the prompt character to display for unfilled positions',
         'UseSystemStyles': True
     })
@@ -434,7 +434,7 @@ def main():
         """Handle invalid input rejection"""
         lbl_validation_result.Text = "⚠ Invalid character entered!\nThe character doesn't match the mask pattern."
         lbl_validation_result.ForeColor = 'red'
-        form._root.after(2000, lambda: setattr(lbl_validation_result, 'Text', ''))
+        form.SetTimeout(lambda: setattr(lbl_validation_result, 'Text', ''), 2000)
     
     def on_apply_options(sender=None, e=None):
         """Apply selected options to MaskedTextBox"""
@@ -456,7 +456,7 @@ def main():
         
         lbl_validation_result.Text = "✓ Options applied successfully!"
         lbl_validation_result.ForeColor = 'green'
-        form._root.after(2000, lambda: setattr(lbl_validation_result, 'Text', ''))
+        form.SetTimeout(lambda: setattr(lbl_validation_result, 'Text', ''), 2000)
     
     def on_validate(sender=None, e=None):
         """Validate current input"""
@@ -507,11 +507,10 @@ def main():
         text = txt_masked.Text
         if text:
             try:
-                form._root.clipboard_clear()
-                form._root.clipboard_append(text)
+                form.SetClipboard(text)
                 lbl_validation_result.Text = "✓ Text copied to clipboard!"
                 lbl_validation_result.ForeColor = 'blue'
-                form._root.after(2000, lambda: setattr(lbl_validation_result, 'Text', ''))
+                form.SetTimeout(lambda: setattr(lbl_validation_result, 'Text', ''), 2000)
             except:
                 lbl_validation_result.Text = "✗ Failed to copy to clipboard"
                 lbl_validation_result.ForeColor = 'red'

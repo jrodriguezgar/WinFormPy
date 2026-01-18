@@ -32,7 +32,7 @@ Optional method (for connectivity testing):
     - test_connection(conn_data) -> tuple[bool, str]
 
 Example:
-    >>> from pentano.gui.windows.winformpy.ui_elements.db_connection import (
+    >>> from winformpy.ui_elements.db_connection import (
     ...     DBConnectionManager, DBConnectionUI
     ... )
     >>> 

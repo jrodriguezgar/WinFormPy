@@ -18,11 +18,11 @@ from typing import Dict, Optional, Any
 
 # Add project root to path for direct execution
 _current_dir = os.path.dirname(os.path.abspath(__file__))
-_project_root = os.path.abspath(os.path.join(_current_dir, '..', '..', '..', '..', '..', '..'))
+_project_root = os.path.abspath(os.path.join(_current_dir, '..', '..', '..'))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from pentano.gui.windows.winformpy.winformpy import (
+from winformpy.winformpy import (
     Panel, Label, TextBox, Button, ComboBox, MessageBox
 )
 
@@ -40,8 +40,8 @@ class DBConnectionPanel(Panel):
         on_test_connection: Optional callback for custom connection testing.
     
     Example:
-        >>> from pentano.gui.windows.winformpy.winformpy import Form
-        >>> from pentano.gui.windows.winformpy.ui_elements.db_connection import (
+        >>> from winformpy import Form
+        >>> from winformpy.ui_elements.db_connection import (
         ...     DBConnectionManager, DBConnectionPanel
         ... )
         >>> 
@@ -131,7 +131,7 @@ class DBConnectionPanel(Panel):
         Label(self, {'Text': "Connection Name:", 'Left': MARGIN_X, 'Top': current_y, 'Width': LBL_WIDTH, 'Height': ROW_HEIGHT})
         self.txt_conn_name = TextBox(self, {'Left': field_x, 'Top': current_y, 'Width': FIELD_WIDTH - 150})
         
-        Label(self, {'Text': "DB Type:", 'Left': field_x + (FIELD_WIDTH - 150) + 5, 'Top': current_y, 'Width': 60, 'Height': ROW_HEIGHT, 'TextAlign': 'MiddleRight'})
+        Label(self, {'Text': "DB Type:", 'Left': field_x + (FIELD_WIDTH - 150) + 5, 'Top': current_y, 'Width': 60, 'Height': ROW_HEIGHT, 'TextAlign': 'MiddleLeft'})
         self.cmb_db_type = ComboBox(self, {
             'Left': field_x + (FIELD_WIDTH - 150) + 70, 
             'Top': current_y, 
@@ -146,7 +146,7 @@ class DBConnectionPanel(Panel):
         Label(self, {'Text': "Host:", 'Left': MARGIN_X, 'Top': current_y, 'Width': LBL_WIDTH, 'Height': ROW_HEIGHT})
         self.txt_host = TextBox(self, {'Text': "localhost", 'Left': field_x, 'Top': current_y, 'Width': FIELD_WIDTH - 150})
         
-        Label(self, {'Text': "Port:", 'Left': field_x + (FIELD_WIDTH - 150) + 5, 'Top': current_y, 'Width': 60, 'Height': ROW_HEIGHT, 'TextAlign': 'MiddleRight'})
+        Label(self, {'Text': "Port:", 'Left': field_x + (FIELD_WIDTH - 150) + 5, 'Top': current_y, 'Width': 60, 'Height': ROW_HEIGHT, 'TextAlign': 'MiddleLeft'})
         self.txt_port = TextBox(self, {'Text': "1521", 'Left': field_x + (FIELD_WIDTH - 150) + 70, 'Top': current_y, 'Width': 80})
         
         current_y += STEP_Y
@@ -393,8 +393,8 @@ class DBConnectionPanel(Panel):
 
 # ===== DEMO =====
 if __name__ == "__main__":
-    from pentano.gui.windows.winformpy.ui_elements.db_connection.db_connection_manager import DBConnectionManager
-    from pentano.gui.windows.winformpy.winformpy import Form
+    from winformpy.ui_elements.db_connection.db_connection_manager import DBConnectionManager
+    from winformpy.winformpy import Form
     
     # --- Demo Storage Backend (simulates external backend) ---
     class DemoStorageBackend:

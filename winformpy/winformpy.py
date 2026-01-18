@@ -39,8 +39,11 @@ class EventArgs:
     Provides data for events in the winformpy library, matching the .NET pattern.
     Maps Tkinter event properties to WinForms-friendly names.
     """
+    # Static Empty instance (assigned after class definition)
+    Empty = None
+
     def __init__(self, event=None):
-        self.Empty = event is None
+        self.IsEmpty = event is None  # Renamed from Empty to IsEmpty to avoid conflict with static Empty
         self.X = 0
         self.Y = 0
         self.Button = 0
@@ -75,6 +78,9 @@ class EventArgs:
                 self.Control = bool(state & 0x0004)
                 # Alt mask can vary by platform, usually 0x20000 or 8
                 self.Alt = bool(state & 0x20000) or bool(state & 0x0020) or bool(state & 8)
+
+# Initialize static Empty instance
+EventArgs.Empty = EventArgs()
 
 class PaintEventArgs(EventArgs):
     """Event data for the Paint event."""
@@ -1059,16 +1065,34 @@ class Font:
         """
         self._family = family or SystemFonts.DefaultFont[0]
         self._size = size if size is not None else SystemFonts.DefaultFont[1]
-        self._style = style if style is not None else FontStyle.Regular
+        # Convert string style to FontStyle enum if needed
+        if isinstance(style, str):
+            style_map = {
+                'regular': FontStyle.Regular,
+                'bold': FontStyle.Bold,
+                'italic': FontStyle.Italic,
+                'underline': FontStyle.Underline,
+                'strikeout': FontStyle.Strikeout,
+            }
+            self._style = style_map.get(style.lower(), FontStyle.Regular)
+        else:
+            self._style = style if style is not None else FontStyle.Regular
         self._tk_font = None
         self._create_tk_font()
     
     def _create_tk_font(self):
         """Create the underlying Tkinter font."""
-        weight = "bold" if (self._style & FontStyle.Bold) else "normal"
-        slant = "italic" if (self._style & FontStyle.Italic) else "roman"
-        underline = bool(self._style & FontStyle.Underline)
-        overstrike = bool(self._style & FontStyle.Strikeout)
+        # Handle both FontStyle enum and string values
+        if isinstance(self._style, str):
+            weight = "bold" if self._style.lower() == "bold" else "normal"
+            slant = "italic" if self._style.lower() == "italic" else "roman"
+            underline = False
+            overstrike = False
+        else:
+            weight = "bold" if (self._style & FontStyle.Bold) else "normal"
+            slant = "italic" if (self._style & FontStyle.Italic) else "roman"
+            underline = bool(self._style & FontStyle.Underline)
+            overstrike = bool(self._style & FontStyle.Strikeout)
         
         self._tk_font = tkfont.Font(
             family=self._family,
@@ -2485,42 +2509,11 @@ class ControlBase:
         self._tab_index = 0
         self._tab_stop = True
         
-        # New VB properties
-        self.Enabled = True
-        self._visible = True
-        self.BackColor = None
-        self.BorderStyle = None  # e.g., 'flat', 'raised', 'sunken', 'ridge', 'groove'
-        self.BackgroundImage = None
-        self.Font = None
-        self.FontColor = None
-        self.ForeColor = None
-        self.Tag = None
-        self.BackgroundImageLayout = "Tile" # None, Tile, Center, Stretch, Zoom
-        self.ContextMenuStrip = None
-        self.AllowDrop = False
-        
-        # AutoSize properties
-        self._autosize = False
-        self._autosizemode = AutoSizeMode.GrowAndShrink  # Basic controls use GrowAndShrink
-        self.MinimumSize = None  # (width, height) or None
-        self.MaximumSize = None  # (width, height) or None
-        self._original_size = None  # For AutoSizeMode.GrowOnly
-        
-        # Layout properties
-        self._margin = (3, 3, 3, 3)  # Left, Top, Right, Bottom
-        self._padding = (0, 0, 0, 0)  # Left, Top, Right, Bottom
-        
-        # Anchor and Dock properties
-        self._anchor = [AnchorStyles.Top, AnchorStyles.Left]  # Default: Top, Left
-        self._dock = DockStyle.None_  # None, Top, Bottom, Left, Right, Fill
-        self._initial_distance = {}  # Stores initial distances to edges
-        self._container_size = None  # Initial container size
-        
         # ToolTip
         self._tooltip_text = ""
         self._tooltip_instance = None
         
-        # Common VB events (callbacks)
+        # Common VB events (callbacks) - MUST be defined before properties that trigger them
         self.MouseDown = lambda button=None, x=None, y=None: None
         self.MouseUp = lambda button=None, x=None, y=None: None
         self.MouseEnter = lambda sender=None, e=None: None
@@ -2552,6 +2545,38 @@ class ControlBase:
         self.ForeColorChanged = lambda sender=None, e=None: None
         self.Validating = lambda sender=None, e=None: None
         self.Validated = lambda sender=None, e=None: None
+        
+        # New VB properties (after event handlers are defined)
+        self.Enabled = True
+        self._visible = True
+        self.BackColor = None
+        self.BorderStyle = None  # e.g., 'flat', 'raised', 'sunken', 'ridge', 'groove'
+        self.BorderWidth = None
+        self.BackgroundImage = None
+        self.Font = None
+        self.FontColor = None
+        self.ForeColor = None
+        self.Tag = None
+        self.BackgroundImageLayout = "Tile" # None, Tile, Center, Stretch, Zoom
+        self.ContextMenuStrip = None
+        self.AllowDrop = False
+        
+        # AutoSize properties
+        self._autosize = False
+        self._autosizemode = AutoSizeMode.GrowAndShrink  # Basic controls use GrowAndShrink
+        self.MinimumSize = None  # (width, height) or None
+        self.MaximumSize = None  # (width, height) or None
+        self._original_size = None  # For AutoSizeMode.GrowOnly
+        
+        # Layout properties
+        self._margin = (3, 3, 3, 3)  # Left, Top, Right, Bottom
+        self._padding = (0, 0, 0, 0)  # Left, Top, Right, Bottom
+        
+        # Anchor and Dock properties
+        self._anchor = [AnchorStyles.Top, AnchorStyles.Left]  # Default: Top, Left
+        self._dock = DockStyle.None_  # None, Top, Bottom, Left, Right, Fill
+        self._initial_distance = {}  # Stores initial distances to edges
+        self._container_size = None  # Initial container size
         
         # Reference to the original parent container (before resolving to Tkinter widget)
         self._parent_container = None
@@ -2728,6 +2753,115 @@ class ControlBase:
         if hasattr(self, '_tk_widget') and self._tk_widget:
             try:
                 self._tk_widget.focus_set()
+            except Exception:
+                pass
+
+    def BindKey(self, key, handler):
+        """Binds a keyboard key to a handler function.
+        
+        Args:
+            key: The key to bind. Common values:
+                 - 'Return' or 'Enter' for Enter key
+                 - 'Escape' for Escape key
+                 - 'Tab' for Tab key
+                 - 'space' for Space bar
+                 - 'a', 'b', etc. for letter keys
+                 - 'Control-s', 'Control-c' for Ctrl combinations
+            handler: The function to call when the key is pressed.
+                     Receives (sender, event) parameters.
+        """
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            # Normalize key name
+            if key.lower() == 'enter':
+                key = 'Return'
+            
+            tk_key = f'<{key}>'
+            
+            def wrapper(event):
+                handler(self, event)
+            
+            try:
+                self._tk_widget.bind(tk_key, wrapper)
+            except Exception:
+                pass
+
+    def Refresh(self):
+        """Forces the control to invalidate and redraw itself and all child controls.
+        
+        Use this when you need to update the visual state of the control.
+        """
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                self._tk_widget.update_idletasks()
+            except Exception:
+                pass
+        if hasattr(self, '_container') and self._container:
+            try:
+                self._container.update_idletasks()
+            except Exception:
+                pass
+
+    def PerformLayout(self):
+        """Forces the control to apply layout logic to its child controls.
+        
+        Call this after changing control positions or sizes to update the layout.
+        """
+        # Refresh geometry
+        if hasattr(self, '_place_control'):
+            self._place_control(self.Width, self.Height)
+        self.Refresh()
+
+    def GetTkWidget(self):
+        """Gets the underlying Tkinter widget for advanced customization.
+        
+        WARNING: Use this only when WinFormPy doesn't provide the needed functionality.
+        Direct manipulation of the Tkinter widget may cause unexpected behavior.
+        
+        Returns:
+            The underlying Tkinter widget, or None if not available.
+        """
+        return getattr(self, '_tk_widget', None)
+
+    def GetChildren(self):
+        """Gets all child widgets of this control.
+        
+        Returns:
+            A list of child Tkinter widgets.
+        """
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                return self._tk_widget.winfo_children()
+            except Exception:
+                pass
+        return []
+
+    def ClearChildren(self):
+        """Removes all child widgets from this control."""
+        for child in self.GetChildren():
+            try:
+                child.destroy()
+            except Exception:
+                pass
+
+    def BringToFront(self):
+        """Brings the control to the front of the z-order.
+        
+        Use this when you need a control to be displayed on top of others.
+        """
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                self._tk_widget.lift()
+            except Exception:
+                pass
+
+    def SendToBack(self):
+        """Sends the control to the back of the z-order.
+        
+        Use this when you need a control to be displayed behind others.
+        """
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                self._tk_widget.lower()
             except Exception:
                 pass
 
@@ -2912,6 +3046,15 @@ class ControlBase:
 
     @AutoSizeMode.setter
     def AutoSizeMode(self, value):
+        # Handle string input
+        if isinstance(value, str):
+            mode_map = {
+                'growonly': AutoSizeMode.GrowOnly,
+                'grow_only': AutoSizeMode.GrowOnly,
+                'growandshrink': AutoSizeMode.GrowAndShrink,
+                'grow_and_shrink': AutoSizeMode.GrowAndShrink,
+            }
+            value = mode_map.get(value.lower().replace(' ', ''), AutoSizeMode.GrowAndShrink)
         self._autosizemode = value
         if self.AutoSize:
             self._apply_autosize()
@@ -2979,10 +3122,21 @@ class ControlBase:
 
     @BackColor.setter
     def BackColor(self, value):
-        """Sets the background color of the control."""
+        """Sets the background color of the control.
+        
+        This setter applies the color to:
+        - The main tk widget
+        - Any internal container widgets (for controls like Panel)
+        """
         self._backcolor = value
         if self._tk_widget:
             self._apply_visual_config()
+        # Also apply to internal container if present
+        if hasattr(self, '_container') and self._container and value:
+            try:
+                self._container.configure(bg=value)
+            except Exception:
+                pass
         # Trigger BackColorChanged
         self.BackColorChanged()
 
@@ -3023,6 +3177,18 @@ class ControlBase:
     def BorderStyle(self, value):
         """Sets the border style of the control."""
         self._borderstyle = value
+        if self._tk_widget:
+            self._apply_visual_config()
+
+    @property
+    def BorderWidth(self):
+        """Gets or sets the border width of the control."""
+        return getattr(self, '_border_width', None)
+
+    @BorderWidth.setter
+    def BorderWidth(self, value):
+        """Sets the border width of the control."""
+        self._border_width = value
         if self._tk_widget:
             self._apply_visual_config()
 
@@ -3117,7 +3283,11 @@ class ControlBase:
             if not hasattr(self, '_anchor_dock_initialized'):
                 self._anchor_dock_initialized = True
                 # Wait for the window to be fully rendered
-                self.master.after(100, self._initialize_anchor_dock)
+                try:
+                    if self.master.winfo_exists():
+                        self.master.after(100, self._initialize_anchor_dock)
+                except Exception:
+                    pass
             
             # Update scroll region if parent has AutoScroll enabled
             if hasattr(self.master, '_control_wrapper'):
@@ -3580,7 +3750,7 @@ class ControlBase:
         
         # If the container does not yet have a valid size, retry
         if container_width <= 1 or container_height <= 1:
-            self.master.after(50, self._calculate_initial_distances)
+            self._schedule_calculate_distances()
             return
 
         # Check if container size matches Form size (if applicable) to avoid default 200x200
@@ -3591,8 +3761,8 @@ class ControlBase:
                 # We use a 80% threshold to account for window borders/decorations.
                 # This ensures we don't calculate anchors based on a not-yet-resized window.
                 if (container_width < form.Width * 0.8) or (container_height < form.Height * 0.8):
-                     self.master.after(50, self._calculate_initial_distances)
-                     return
+                    self._schedule_calculate_distances()
+                    return
         
         # Get the actual current position of the widget
         self._tk_widget.update_idletasks()
@@ -3631,8 +3801,8 @@ class ControlBase:
         wait_height = (actual_height <= 1) and (self.Height is None or self.Height > 1)
         
         if wait_width or wait_height:
-             self.master.after(50, self._calculate_initial_distances)
-             return
+            self._schedule_calculate_distances()
+            return
         
         # Use properties as source of truth for initial calculation
         # This avoids issues where Tkinter widgets report 0,0 or 1x1 before being fully mapped
@@ -3649,6 +3819,24 @@ class ControlBase:
             'bottom': container_height - (current_top + current_height)
         }
     
+    def _schedule_calculate_distances(self):
+        """Safely schedules _calculate_initial_distances with widget existence check."""
+        try:
+            if self.master and self.master.winfo_exists():
+                if self._tk_widget and self._tk_widget.winfo_exists():
+                    self.master.after(50, self._safe_calculate_distances)
+        except Exception:
+            pass
+    
+    def _safe_calculate_distances(self):
+        """Wrapper that checks widget existence before calculating distances."""
+        try:
+            if self.master and self.master.winfo_exists():
+                if self._tk_widget and self._tk_widget.winfo_exists():
+                    self._calculate_initial_distances()
+        except Exception:
+            pass
+
     def _on_container_resize(self, event=None):
         """Handles container resizing to apply Anchor."""
         if not self._tk_widget or self._dock != DockStyle.None_:
@@ -3975,12 +4163,17 @@ class ControlBase:
         Args:
             value: DockStyle enum or string (legacy).
         """
-        # Handle legacy string input
+        # Handle legacy string input (case-insensitive)
         if isinstance(value, str):
-            try:
-                value = DockStyle[value]
-            except KeyError:
-                return # Invalid value
+            dock_map = {
+                'none': DockStyle.None_,
+                'top': DockStyle.Top,
+                'bottom': DockStyle.Bottom,
+                'left': DockStyle.Left,
+                'right': DockStyle.Right,
+                'fill': DockStyle.Fill,
+            }
+            value = dock_map.get(value.lower(), DockStyle.None_)
         
         # Clear Anchor if Dock is set
         if value != DockStyle.None_:
@@ -4007,7 +4200,7 @@ class ControlBase:
                         # Restore default Anchor (Top, Left) as in WinForms
                         self._anchor = [AnchorStyles.Top, AnchorStyles.Left]
                     # Recalculate distances for Anchor in the new container
-                    self.master.after(0, self._calculate_initial_distances)
+                    self._schedule_calculate_distances()
                     self._place_control(self.Width, self.Height)
             # Readjust all Dock controls in the container
             self._layout_container_dock()
@@ -4221,7 +4414,10 @@ class ControlBase:
         
         # Apply font
         if self.Font is not None:
-            config['font'] = self.Font
+            f = self.Font
+            if hasattr(f, '_tk_font'):
+                f = f._tk_font
+            config['font'] = f
         
         # Apply enabled/disabled state
         if not self.Enabled:
@@ -4242,12 +4438,16 @@ class ControlBase:
             config['relief'] = relief_map.get(self.BorderStyle, 'flat')
             
             # Set borderwidth
-            if self.BorderStyle in ['FixedSingle', 'solid', 'fixed_single', BorderStyle.FixedSingle, 1]:
+            if self.BorderWidth is not None:
+                config['borderwidth'] = self.BorderWidth
+            elif self.BorderStyle in ['FixedSingle', 'solid', 'fixed_single', BorderStyle.FixedSingle, 1]:
                 config['borderwidth'] = 3  # Increased for better visibility
             elif self.BorderStyle in ['Fixed3D', 'ridge', 'groove', 'sunken', 'raised', 'fixed_3d', BorderStyle.Fixed3D, 2]:
                 config['borderwidth'] = 3  # Increased for better visibility
             else:
                 config['borderwidth'] = 0
+        elif self.BorderWidth is not None:
+            config['borderwidth'] = self.BorderWidth
         
         # Apply background image
         if self.BackgroundImage is not None:
@@ -5224,6 +5424,21 @@ class Form(ScrollableControlMixin):
                     state=state
                 )
 
+    def ApplyLayout(self):
+        """Applies the form geometry and forces layout recalculation.
+        
+        Call this method after creating the Form but BEFORE adding child controls
+        when you need Dock/Fill layouts to work correctly. This ensures the form
+        has the correct dimensions for child control layout calculations.
+        
+        Example:
+            form = Form({'Width': 1200, 'Height': 800})
+            form.ApplyLayout()  # Apply geometry before adding controls
+            panel = Panel(form, {'Dock': 'Fill'})  # Now Dock works correctly
+        """
+        self._root.geometry(f"{self.Width}x{self.Height}")
+        self._root.update_idletasks()
+
     def Show(self):
         """Starts the main loop."""
         # Ensure the form is visible
@@ -5557,6 +5772,74 @@ class Form(ScrollableControlMixin):
         """
         self.SetResizable(True, True)
 
+    def SetTimeout(self, callback, delay_ms):
+        """Schedules a callback to be executed after a delay.
+        
+        Args:
+            callback: The function to call after the delay.
+            delay_ms: The delay in milliseconds.
+            
+        Returns:
+            An ID that can be used with CancelTimeout to cancel the scheduled callback.
+        """
+        return self._root.after(delay_ms, callback)
+
+    def CancelTimeout(self, timeout_id):
+        """Cancels a scheduled timeout callback.
+        
+        Args:
+            timeout_id: The ID returned by SetTimeout.
+        """
+        if timeout_id:
+            self._root.after_cancel(timeout_id)
+
+    def SetClipboard(self, text):
+        """Copies text to the system clipboard.
+        
+        Args:
+            text: The text to copy to the clipboard.
+        """
+        self._root.clipboard_clear()
+        self._root.clipboard_append(text)
+
+    def GetClipboard(self):
+        """Gets text from the system clipboard.
+        
+        Returns:
+            The text from the clipboard, or empty string if clipboard is empty or contains non-text data.
+        """
+        try:
+            return self._root.clipboard_get()
+        except tk.TclError:
+            return ""
+
+    def Update(self):
+        """Forces immediate processing of all pending events.
+        
+        Use this when you need to update the UI immediately during a long operation.
+        """
+        self._root.update()
+
+    def UpdateLayout(self):
+        """Forces processing of pending geometry calculations.
+        
+        Use this when you need control positions/sizes to be finalized.
+        """
+        self._root.update_idletasks()
+
+    def SetGeometry(self, width=None, height=None):
+        """Sets the form's size.
+        
+        Args:
+            width: The new width in pixels. If None, keeps current width.
+            height: The new height in pixels. If None, keeps current height.
+        """
+        if width is not None:
+            self.Width = width
+        if height is not None:
+            self.Height = height
+        self._root.geometry(f"{self.Width}x{self.Height}")
+
     def get_Parent(self):
         """Gets the parent control of the Form.
 
@@ -5626,11 +5909,13 @@ class Timer:
     """
     Represents a Timer for timed events.
     
-    Usage - Option 1: timer = Timer(root); timer.Interval = 2000; timer.Enabled = True
-    Usage - Option 2: timer = Timer(root, {'Interval': 2000, 'Enabled': True})
+    Usage - Option 1: timer = Timer(form); timer.Interval = 2000; timer.Enabled = True
+    Usage - Option 2: timer = Timer(form, {'Interval': 2000, 'Enabled': True})
+    
+    Note: Accepts both a WinFormPy Form or a raw tkinter root.
     """
     
-    def __init__(self, root, props=None):
+    def __init__(self, master, props=None):
         defaults = {
             'interval': 1000,
             'Name': "",
@@ -5645,7 +5930,12 @@ class Timer:
             if 'Interval' in props:
                 defaults['interval'] = props['Interval']
         
-        self._root = root
+        # Extract the underlying tk root if this is a WinFormPy Form
+        if hasattr(master, '_root') and master._root:
+            self._root = master._root
+        else:
+            self._root = master  # Assume it's already a tkinter root
+            
         self.Name = defaults['Name']
         self.Interval = defaults['interval']
         self._enabled = False  # Initialize _enabled before property setter usage
@@ -5768,8 +6058,10 @@ class ProgressBar(ControlBase):
         # Determine mode based on Style
         mode = 'indeterminate' if self.Style == ProgressBarStyle.Marquee else 'determinate'
         
-        # Create Tkinter widget
-        self._tk_widget = ttk.Progressbar(self.master, orient='horizontal', length=self.Width, mode=mode)
+        # Create Tkinter widget and style
+        self._style_name = f"WinFormPy.Progressbar.{id(self)}.Horizontal.TProgressbar"
+        self._style = ttk.Style(master_widget)
+        self._tk_widget = ttk.Progressbar(self.master, orient='horizontal', length=self.Width, mode=mode, style=self._style_name)
         self._tk_widget['maximum'] = self.Maximum
         self._tk_widget['value'] = self.Value
         self._place_control(self.Width, self.Height)
@@ -6036,6 +6328,36 @@ class Button(ControlBase):
     def _handle_click_event(self):
         """Intermediate function to execute the assigned Click handler."""
         self.Click(self, None)
+    
+    def _bind_common_events(self):
+        """Binds common events to the widget.
+        
+        Overrides base class to exclude <Button-1> binding since tk.Button
+        already uses `command` parameter for click handling. This prevents
+        the Click event from firing twice.
+        """
+        if self._tk_widget:
+            # Note: We intentionally do NOT bind <Button-1> here because
+            # tk.Button's `command` parameter already handles click events.
+            # Binding <Button-1> would cause the Click event to fire twice.
+            self._tk_widget.bind('<ButtonPress>', self._on_mouse_down)
+            self._tk_widget.bind('<ButtonRelease>', self._on_mouse_up)
+            self._tk_widget.bind('<Enter>', self._on_mouse_enter)
+            self._tk_widget.bind('<Leave>', self._on_mouse_leave)
+            self._tk_widget.bind('<Motion>', self._on_mouse_move)
+            self._tk_widget.bind('<MouseWheel>', self._on_mouse_wheel)
+            # Linux support for mouse wheel
+            self._tk_widget.bind('<Button-4>', self._on_mouse_wheel)
+            self._tk_widget.bind('<Button-5>', self._on_mouse_wheel)
+            self._tk_widget.bind('<FocusIn>', self._on_enter)
+            self._tk_widget.bind('<FocusOut>', self._on_leave)
+            self._tk_widget.bind('<Key>', self._on_key_down)
+            self._tk_widget.bind('<Double-Button-1>', self._on_double_click)
+            self._tk_widget.bind('<Configure>', self._on_paint)
+            self._tk_widget.bind('<KeyPress>', self._on_key_press)
+            self._tk_widget.bind('<KeyRelease>', self._on_key_up)
+            # Context Menu
+            self._tk_widget.bind('<Button-3>', self._on_right_click)
 
     def set_Enabled(self, enabled):
         """Sets whether the button is enabled."""
@@ -6092,6 +6414,49 @@ class Button(ControlBase):
                 'Standard': 'raised', 'Flat': 'flat', 'Popup': 'ridge', 'System': 'raised'
             }
             self._tk_widget.config(relief=relief_map.get(value, 'raised'))
+
+    @property
+    def BorderWidth(self):
+        """Gets the border width of the button."""
+        return getattr(self, '_border_width', 2)
+    
+    @BorderWidth.setter
+    def BorderWidth(self, value):
+        """Sets the border width of the button."""
+        self._border_width = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                self._tk_widget.configure(borderwidth=value, bd=value)
+            except Exception:
+                pass
+
+    @property
+    def HighlightThickness(self):
+        """Gets the focus highlight thickness of the button."""
+        return getattr(self, '_highlight_thickness', 1)
+    
+    @HighlightThickness.setter
+    def HighlightThickness(self, value):
+        """Sets the focus highlight thickness of the button (0 to remove focus border)."""
+        self._highlight_thickness = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                self._tk_widget.configure(highlightthickness=value)
+            except Exception:
+                pass
+
+    def RemoveBorders(self):
+        """Removes all borders from the button for a clean flat look."""
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                self._tk_widget.configure(
+                    borderwidth=0, 
+                    bd=0, 
+                    highlightthickness=0,
+                    relief='flat'
+                )
+            except Exception:
+                pass
 
     def NotifyDefault(self, value):
         """Notifies the Button whether it is the default button."""
@@ -6239,7 +6604,8 @@ class Label(ControlBase):
             }
             self._tk_widget.config(relief=relief_map.get(self.BorderStyle, 'flat'))
         if self.Font:
-            self._tk_widget.config(font=self.Font)
+            f = self.Font._tk_font if hasattr(self.Font, '_tk_font') else self.Font
+            self._tk_widget.config(font=f)
         
         # Alignment
         anchor_map = {
@@ -6672,7 +7038,10 @@ class TextBox(ControlBase):
         if self.ForeColor:
             config['fg'] = self.ForeColor
         if self.Font:
-            config['font'] = self.Font
+            f = self.Font
+            if hasattr(f, '_tk_font'):
+                f = f._tk_font
+            config['font'] = f
         if config:
             try:
                 self._tk_widget.config(**config)
@@ -6748,13 +7117,13 @@ class TextBox(ControlBase):
 
     def _on_text_changed(self, event=None):
         """Handler for TextChanged event (Text widget)."""
-        self.TextChanged()
+        self.TextChanged(self, EventArgs.Empty)
         # Reset modified flag
         self._tk_widget.edit_modified(False)
 
     def _on_text_changed_entry(self, *args):
         """Handler for TextChanged event (Entry widget)."""
-        self.TextChanged()
+        self.TextChanged(self, EventArgs.Empty)
 
     def _on_mouse_move(self, event):
         """Handler for MouseMove event."""
@@ -6997,11 +7366,11 @@ class TextBox(ControlBase):
              else:
                  self._container_frame.place_forget()
         else:
-             if hasattr(self, '_tk_widget') and self._tk_widget:
-                 if should_be_visible:
-                     self._place_control(self.Width, self.Height)
-                 else:
-                     self._tk_widget.place_forget()
+            if hasattr(self, '_tk_widget') and self._tk_widget:
+                if should_be_visible:
+                    self._place_control(self.Width, self.Height)
+                else:
+                    self._tk_widget.place_forget()
 
     def AppendText(self, text):
         """Appends text to the current text of the text box."""
@@ -7214,7 +7583,10 @@ class RadioButton(ControlBase):
         # Apply configurations
         config = {}
         if self.Font:
-            config['font'] = self.Font
+            f = self.Font
+            if hasattr(f, '_tk_font'):
+                f = f._tk_font
+            config['font'] = f
         if self.ForeColor:
             config['fg'] = self.ForeColor
         if self.BackColor:
@@ -7589,7 +7961,10 @@ class ComboBox(ControlBase):
         # Apply styles
         config = {}
         if self.Font:
-            config['font'] = self.Font
+            f = self.Font
+            if hasattr(f, '_tk_font'):
+                f = f._tk_font
+            config['font'] = f
         if self.BackColor:
             config['background'] = self.BackColor
         if self.ForeColor:
@@ -7985,6 +8360,12 @@ class CheckBox(ControlBase):
         if self._three_state:
             self._tk_widget.config(tristatevalue=int(CheckState.Indeterminate))
         
+        # Ensure visual state matches initial CheckState
+        if self._checkstate_value == CheckState.Checked:
+            self._tk_widget.select()
+        elif self._checkstate_value == CheckState.Indeterminate:
+            self._tk_widget.config(tristatevalue=int(CheckState.Indeterminate))
+        
         # Apply configurations
         self._apply_visual_config()
         
@@ -8012,7 +8393,10 @@ class CheckBox(ControlBase):
         
         config = {}
         if self.Font:
-            config['font'] = self.Font
+            f = self.Font
+            if hasattr(f, '_tk_font'):
+                f = f._tk_font
+            config['font'] = f
         if self.ForeColor:
             config['fg'] = self.ForeColor
         if self.BackColor:
@@ -8259,19 +8643,27 @@ class ToolTip:
     """
     Class for creating tooltips (contextual information on mouse hover).
     
-    Usage - Option 1: tooltip = ToolTip(widget); tooltip.Text = "Help text"
-    Usage - Option 2: tooltip = ToolTip(widget, {'Text': 'Help text', 'Delay': 1000, 'BgColor': 'yellow'})
-    Usage - Option 3: tooltip = ToolTip(widget, {'UseSystemStyles': True})  # Uses system colors
+    Usage - Option 1: tooltip = ToolTip(control); tooltip.Text = "Help text"
+    Usage - Option 2: tooltip = ToolTip(control, {'Text': 'Help text', 'Delay': 1000, 'BgColor': 'yellow'})
+    Usage - Option 3: tooltip = ToolTip(control, {'UseSystemStyles': True})  # Uses system colors
+    
+    Note: Accepts both WinFormPy controls and raw tkinter widgets.
     """
     
-    def __init__(self, widget, props=None):
-        """Initializes a ToolTip for a widget.
+    def __init__(self, control, props=None):
+        """Initializes a ToolTip for a control.
         
         Args:
-            widget: Tkinter widget to associate the tooltip with
+            control: WinFormPy control or Tkinter widget to associate the tooltip with
             props: Optional dictionary with properties (Text, Delay, BgColor, FgColor, BorderColor, BorderWidth, Font)
                    Use {'UseSystemStyles': True} to automatically apply system styles
         """
+        # Extract the underlying tk widget if this is a WinFormPy control
+        if hasattr(control, '_tk_widget') and control._tk_widget:
+            widget = control._tk_widget
+        else:
+            widget = control  # Assume it's already a tkinter widget
+            
         defaults = {
             'Text': "",
             'Delay': 500,
@@ -8825,7 +9217,11 @@ class DomainUpDown(ControlBase):
         if not self._tk_widget: return
         
         config = {}
-        if self.Font: config['font'] = self.Font
+        if self.Font:
+            f = self.Font
+            if hasattr(f, '_tk_font'):
+                f = f._tk_font
+            config['font'] = f
         if self.ForeColor: config['fg'] = self.ForeColor
         if self.BackColor: config['bg'] = self.BackColor
         
@@ -10603,9 +10999,19 @@ class PictureBox(ControlBase):
             try:
                 self._load_image_from_location()
                 # Schedule event on main thread
-                self._tk_widget.after(0, lambda: self.LoadCompleted(self, EventArgs.Empty))
+                if hasattr(self, '_tk_widget') and self._tk_widget:
+                    try:
+                        if self._tk_widget.winfo_exists():
+                            self._tk_widget.after(0, lambda: self.LoadCompleted(self, EventArgs.Empty))
+                    except Exception:
+                        pass
             except Exception as e:
-                self._tk_widget.after(0, lambda: self.Error(self, e))
+                if hasattr(self, '_tk_widget') and self._tk_widget:
+                    try:
+                        if self._tk_widget.winfo_exists():
+                            self._tk_widget.after(0, lambda: self.Error(self, e))
+                    except Exception:
+                        pass
                 
         threading.Thread(target=async_loader, daemon=True).start()
 
@@ -10625,13 +11031,22 @@ class PictureBox(ControlBase):
             
             # Update UI on main thread if called from background
             def update_ui():
-                self._tk_widget.config(image=self.Image)
-                self._apply_properties()
+                if hasattr(self, '_tk_widget') and self._tk_widget:
+                    try:
+                        self._tk_widget.config(image=self.Image)
+                        self._apply_properties()
+                    except Exception:
+                        pass
                 
             if threading.current_thread() is threading.main_thread():
                 update_ui()
             else:
-                self._tk_widget.after(0, update_ui)
+                if hasattr(self, '_tk_widget') and self._tk_widget:
+                    try:
+                        if self._tk_widget.winfo_exists():
+                            self._tk_widget.after(0, update_ui)
+                    except Exception:
+                        pass
                 
         except Exception as e:
             if self.ErrorImage:
@@ -11078,7 +11493,7 @@ class GroupBox(ControlBase):
             borderwidth=borderwidth,
             bg=self.BackColor if self.BackColor else 'SystemButtonFace',
             fg=self.ForeColor if self.ForeColor else 'black',
-            font=self.Font if self.Font else ('TkDefaultFont', 9),
+            font=self.Font._tk_font if (self.Font and hasattr(self.Font, '_tk_font')) else (self.Font if self.Font else ('TkDefaultFont', 9)),
             padx=padx,
             pady=pady,
             labelanchor=self.LabelAnchor,
@@ -13260,7 +13675,8 @@ class TabPage(ControlBase, ScrollableControlMixin):
             control._apply_dock()
         elif hasattr(control, '_anchor') and control._anchor:
             # Recalculate distances for Anchor with the new container
-            control.master.after(0, control._calculate_initial_distances)
+            if hasattr(control, '_schedule_calculate_distances'):
+                control._schedule_calculate_distances()
         
         # Update scroll region if AutoScroll is enabled
             self._update_scroll_region()
@@ -13509,7 +13925,7 @@ class TabControl(ControlBase):
         # Force an update so that the tab text displays correctly
         if hasattr(self, 'master_form') and hasattr(self.master_form, 'Invalidate'):
             self.master_form.Invalidate()
-        self.ControlAdded(tab_page)
+        self.ControlAdded(self, tab_page)
 
     def InsertTab(self, index, tab_page):
         """Insert a TabPage at a specific index."""
@@ -13523,7 +13939,7 @@ class TabControl(ControlBase):
         # ttk.Notebook.insert(index, child, **kw)
         self._tk_widget.insert(index, tab_page._frame, text=tab_page.Text)
         
-        self.ControlAdded(tab_page)
+        self.ControlAdded(self, tab_page)
 
     def RemoveTab(self, tab_page):
         """Remove a TabPage from the TabControl."""
@@ -13531,7 +13947,7 @@ class TabControl(ControlBase):
             index = self.TabPages.index(tab_page)
             self.TabPages.remove(tab_page)
             self._tk_widget.forget(tab_page._frame)
-            self.ControlRemoved(tab_page)
+            self.ControlRemoved(self, tab_page)
             # If it was selected, select another or none
             if self.get_SelectedIndex() == index:
                 if self.TabPages:
@@ -13789,6 +14205,14 @@ class ListBoxObjectCollection:
             if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
                 self.owner._tk_widget.delete(index)
 
+    # List compatibility aliases
+    def append(self, item): return self.Add(item)
+    def extend(self, items): return self.AddRange(items)
+    def clear(self): self.Clear()
+    def remove(self, item): self.Remove(item)
+    def insert(self, index, item): self.Insert(index, item)
+    def index(self, item): return self.IndexOf(item)
+
     def RemoveAt(self, index):
         """Quita el elemento en el índice especificado de la colección."""
         if self.owner.DataSource:
@@ -14031,7 +14455,10 @@ class ListBox(ControlBase):
         # Apply Font, ForeColor, BackColor, Enabled
         config = {}
         if self.Font:
-            config['font'] = self.Font
+            f = self.Font
+            if hasattr(f, '_tk_font'):
+                f = f._tk_font
+            config['font'] = f
         if self.ForeColor:
             config['fg'] = self.ForeColor
         if self.BackColor:
@@ -14698,7 +15125,8 @@ class CheckedListBox(ControlBase):
         
         lbl = tk.Label(row_frame, text=str(item), bg=self.BackColor, anchor='w')
         if self.Font:
-            lbl.config(font=self.Font)
+            f = self.Font._tk_font if hasattr(self.Font, '_tk_font') else self.Font
+            lbl.config(font=f)
         if self.ForeColor:
             lbl.config(fg=self.ForeColor)
         
@@ -19642,6 +20070,239 @@ class Application:
         sys.exit()
 
 
+class Clipboard:
+    """
+    Provides methods to place data on and retrieve data from the system Clipboard.
+    
+    This is a static class similar to System.Windows.Forms.Clipboard in .NET.
+    Uses tkinter's clipboard functionality internally.
+    
+    Example:
+        # Copy text to clipboard
+        Clipboard.SetText("Hello, World!")
+        
+        # Get text from clipboard
+        text = Clipboard.GetText()
+        
+        # Check if clipboard contains text
+        if Clipboard.ContainsText():
+            print(Clipboard.GetText())
+        
+        # Clear clipboard
+        Clipboard.Clear()
+    """
+    
+    _root = None  # Cached root window for clipboard access
+    
+    @staticmethod
+    def _get_root():
+        """Get or create a root window for clipboard access."""
+        if Clipboard._root is None or not Clipboard._root.winfo_exists():
+            # Try to find an existing Tk instance
+            try:
+                Clipboard._root = tk._default_root
+                if Clipboard._root is None:
+                    # Create a hidden root
+                    Clipboard._root = tk.Tk()
+                    Clipboard._root.withdraw()
+            except:
+                Clipboard._root = tk.Tk()
+                Clipboard._root.withdraw()
+        return Clipboard._root
+    
+    @staticmethod
+    def Clear():
+        """Removes all data from the Clipboard."""
+        try:
+            root = Clipboard._get_root()
+            root.clipboard_clear()
+        except Exception:
+            pass
+    
+    @staticmethod
+    def ContainsText():
+        """
+        Indicates whether there is text data on the Clipboard.
+        
+        Returns:
+            bool: True if the Clipboard contains text data; otherwise, False.
+        """
+        try:
+            text = Clipboard.GetText()
+            return text is not None and len(text) > 0
+        except Exception:
+            return False
+    
+    @staticmethod
+    def ContainsImage():
+        """
+        Indicates whether there is image data on the Clipboard.
+        
+        Note: tkinter has limited image clipboard support. This may not work
+        on all platforms.
+        
+        Returns:
+            bool: True if the Clipboard contains image data; otherwise, False.
+        """
+        try:
+            root = Clipboard._get_root()
+            # Try to get image from clipboard (platform-specific)
+            # This is limited in tkinter
+            return False  # Basic implementation - extend if needed
+        except Exception:
+            return False
+    
+    @staticmethod
+    def GetText():
+        """
+        Retrieves text data from the Clipboard.
+        
+        Returns:
+            str: The Clipboard text data, or empty string if no text data exists.
+        """
+        try:
+            root = Clipboard._get_root()
+            return root.clipboard_get()
+        except tk.TclError:
+            # No text on clipboard
+            return ""
+        except Exception:
+            return ""
+    
+    @staticmethod
+    def SetText(text):
+        """
+        Clears the Clipboard and then adds text data to it.
+        
+        Args:
+            text (str): The text to add to the Clipboard.
+        """
+        if text is None:
+            return
+        try:
+            root = Clipboard._get_root()
+            root.clipboard_clear()
+            root.clipboard_append(str(text))
+            # Ensure clipboard persists after app closes (some platforms)
+            root.update()
+        except Exception:
+            pass
+    
+    @staticmethod
+    def GetDataObject():
+        """
+        Retrieves the data that is currently on the system Clipboard.
+        
+        Returns:
+            dict: A dictionary containing clipboard data in various formats.
+        """
+        data = {}
+        try:
+            text = Clipboard.GetText()
+            if text:
+                data['Text'] = text
+                data['UnicodeText'] = text
+        except Exception:
+            pass
+        return data
+    
+    @staticmethod
+    def SetDataObject(data, copy=True):
+        """
+        Places data on the system Clipboard.
+        
+        Args:
+            data: The data to place on the Clipboard. Can be a string or dict.
+            copy (bool): If True, the data remains on Clipboard after app exits.
+        """
+        try:
+            if isinstance(data, str):
+                Clipboard.SetText(data)
+            elif isinstance(data, dict):
+                # Try to get text from dict
+                text = data.get('Text') or data.get('UnicodeText') or data.get('text')
+                if text:
+                    Clipboard.SetText(str(text))
+            else:
+                # Try to convert to string
+                Clipboard.SetText(str(data))
+        except Exception:
+            pass
+    
+    @staticmethod
+    def GetImage():
+        """
+        Retrieves an image from the Clipboard.
+        
+        Note: Image clipboard support is limited in tkinter.
+        Returns None in most cases. For full image support, 
+        consider using PIL/Pillow with platform-specific clipboard libraries.
+        
+        Returns:
+            Image or None: The image data, or None if not available.
+        """
+        # Basic implementation - tkinter doesn't have great image clipboard support
+        # Could be extended with PIL and win32clipboard on Windows
+        return None
+    
+    @staticmethod
+    def SetImage(image):
+        """
+        Clears the Clipboard and then adds an Image to it.
+        
+        Note: Image clipboard support is limited in tkinter.
+        This is a placeholder for future implementation.
+        
+        Args:
+            image: The image to add to the Clipboard.
+        """
+        # Would need PIL and platform-specific code
+        # Placeholder for future implementation
+        pass
+    
+    @staticmethod
+    def GetFileDropList():
+        """
+        Retrieves a collection of file names from the Clipboard.
+        
+        Note: File drop list support is limited in basic tkinter.
+        
+        Returns:
+            list: A list of file paths, or empty list if not available.
+        """
+        try:
+            root = Clipboard._get_root()
+            # Try different clipboard formats
+            try:
+                # Windows file drop format
+                files = root.clipboard_get(type="CF_HDROP")
+                if files:
+                    return files.split('\n')
+            except:
+                pass
+            try:
+                # Unix file URI format
+                files = root.clipboard_get(type="text/uri-list")
+                if files:
+                    return [f.replace('file://', '') for f in files.split('\n') if f]
+            except:
+                pass
+        except Exception:
+            pass
+        return []
+    
+    @staticmethod
+    def ContainsFileDropList():
+        """
+        Indicates whether there is file drop list data on the Clipboard.
+        
+        Returns:
+            bool: True if the Clipboard contains file paths; otherwise, False.
+        """
+        files = Clipboard.GetFileDropList()
+        return len(files) > 0
+
+
 class ErrorProvider:
     """
     Provides a user interface for indicating that a control on a form has an error associated with it.
@@ -20459,3 +21120,750 @@ class DatePicker(ControlBase):
             self._update_display()
             self.CheckedChanged(self, {'Checked': value})
 
+
+# ========== WebBrowser Control (tkinterweb) ==========
+# Based on Microsoft WinForms System.Windows.Forms.WebBrowser
+
+# Lazy import for tkinterweb - will be loaded only when WebBrowser is instantiated
+TKINTERWEB_AVAILABLE = None  # None = not checked yet, True/False after check
+HtmlFrame = None
+
+
+def _ensure_tkinterweb():
+    """Lazy load tkinterweb module. Returns True if available."""
+    global TKINTERWEB_AVAILABLE, HtmlFrame
+    if TKINTERWEB_AVAILABLE is None:
+        try:
+            from tkinterweb import HtmlFrame as _HtmlFrame
+            HtmlFrame = _HtmlFrame
+            TKINTERWEB_AVAILABLE = True
+        except ImportError:
+            TKINTERWEB_AVAILABLE = False
+            HtmlFrame = None
+    return TKINTERWEB_AVAILABLE
+
+
+class WebBrowserReadyState:
+    """
+    Specifies the state of the WebBrowser control.
+    Equivalent to System.Windows.Forms.WebBrowserReadyState
+    """
+    Uninitialized = 0  # No document is currently loaded
+    Loading = 1        # The control is loading a new document
+    Loaded = 2         # The control has loaded and initialized a new document but has not received all document data
+    Interactive = 3    # The control has loaded enough of the document to allow limited user interaction
+    Complete = 4       # The control has finished loading the document
+
+
+class WebBrowserNavigatingEventArgs:
+    """Event arguments for the Navigating event. Equivalent to System.Windows.Forms.WebBrowserNavigatingEventArgs."""
+    def __init__(self, url, target_frame_name=""):
+        self.Url = url
+        self.TargetFrameName = target_frame_name
+        self.Cancel = False
+
+
+class WebBrowserNavigatedEventArgs:
+    """Event arguments for the Navigated event. Equivalent to System.Windows.Forms.WebBrowserNavigatedEventArgs."""
+    def __init__(self, url):
+        self.Url = url
+
+
+class WebBrowserDocumentCompletedEventArgs:
+    """Event arguments for the DocumentCompleted event. Equivalent to System.Windows.Forms.WebBrowserDocumentCompletedEventArgs."""
+    def __init__(self, url):
+        self.Url = url
+
+
+class WebBrowserProgressChangedEventArgs:
+    """Event arguments for the ProgressChanged event. Equivalent to System.Windows.Forms.WebBrowserProgressChangedEventArgs."""
+    def __init__(self, current_progress, maximum_progress):
+        self.CurrentProgress = current_progress
+        self.MaximumProgress = maximum_progress
+
+
+class WebBrowser(ControlBase):
+    """
+    WinForms-style WebBrowser control using tkinterweb.
+    Equivalent to System.Windows.Forms.WebBrowser in .NET.
+    
+    Provides a web browsing control that can display HTML content
+    and navigate to URLs, using the tkinterweb library.
+    
+    Requires: pip install tkinterweb
+    
+    Properties:
+        Url (str): Gets or sets the current URL.
+        DocumentTitle (str): Gets the title of the current document.
+        DocumentText (str): Gets or sets the HTML content of the document.
+        CanGoBack (bool): Gets whether the browser can navigate back.
+        CanGoForward (bool): Gets whether the browser can navigate forward.
+        IsBusy (bool): Gets whether the browser is currently loading.
+        ReadyState (WebBrowserReadyState): Gets the current state of the control.
+        StatusText (str): Gets the status bar text.
+        AllowNavigation (bool): Gets or sets whether navigation is allowed.
+        ScriptErrorsSuppressed (bool): Gets or sets whether script errors are suppressed.
+        ScrollBarsEnabled (bool): Gets or sets whether scroll bars are enabled.
+    
+    Methods:
+        Navigate(url): Navigates to the specified URL.
+        GoBack(): Navigates to the previous page.
+        GoForward(): Navigates to the next page.
+        GoHome(): Navigates to the home page.
+        GoSearch(): Navigates to the default search page.
+        Refresh(): Reloads the current page.
+        Stop(): Stops the current navigation.
+        Print(): Prints the current document.
+        
+    Events:
+        Navigating (WebBrowserNavigatingEventArgs): Occurs before navigation begins.
+        Navigated (WebBrowserNavigatedEventArgs): Occurs after navigation completes.
+        DocumentCompleted (WebBrowserDocumentCompletedEventArgs): Occurs when the document is fully loaded.
+        DocumentTitleChanged: Occurs when the document title changes.
+        StatusTextChanged: Occurs when the status text changes.
+        ProgressChanged (WebBrowserProgressChangedEventArgs): Occurs when download progress changes.
+        CanGoBackChanged: Occurs when CanGoBack property changes.
+        CanGoForwardChanged: Occurs when CanGoForward property changes.
+        NewWindow: Occurs when a new window is about to be opened.
+    
+    Example:
+        >>> browser = WebBrowser(form, {'Dock': 'Fill'})
+        >>> browser.Navigate("https://www.python.org")
+        >>> 
+        >>> def on_navigated(sender, e):
+        ...     print(f"Navigated to: {e.Url}")
+        >>> browser.Navigated = on_navigated
+    """
+    
+    def __init__(self, parent, props=None):
+        """
+        Initialize the WebBrowser control.
+        
+        Args:
+            parent: Parent Form, Panel, or container.
+            props: Dictionary of properties to apply.
+        """
+        # Lazy load tkinterweb
+        if not _ensure_tkinterweb():
+            raise ImportError(
+                "tkinterweb is required for WebBrowser control. "
+                "Install it with: pip install tkinterweb"
+            )
+        
+        # Default values
+        defaults = {
+            'Left': 0,
+            'Top': 0,
+            'Width': 200,
+            'Height': 200,
+            'Name': '',
+            'Visible': True,
+            'Enabled': True,
+            'Url': '',
+            'ScriptErrorsSuppressed': True,
+            'ScrollBarsEnabled': True,
+            'AllowNavigation': True,
+            'Dock': DockStyle.None_,
+            'Anchor': [AnchorStyles.Top, AnchorStyles.Left],
+        }
+
+        # Merge defaults
+        if props:
+            defaults.update(props)
+
+        # Resolve master widget
+        master_widget, parent_container = _resolve_master_widget(parent)
+        
+        # Initialize Base Control
+        super().__init__(master_widget, defaults['Left'], defaults['Top'])
+        self._parent_container = parent_container
+        
+        # State variables
+        self._url = ""
+        self._document_title = ""
+        self._status_text = ""
+        self._ready_state = WebBrowserReadyState.Uninitialized
+        self._is_busy = False
+        self._history = []
+        self._history_index = -1
+        self._navigating_internally = False
+        self._can_go_back = False
+        self._can_go_forward = False
+        
+        # WinForms standard properties
+        self._allow_navigation = defaults['AllowNavigation']
+        self._script_errors_suppressed = defaults['ScriptErrorsSuppressed']
+        self._scroll_bars_enabled = defaults['ScrollBarsEnabled']
+        self._is_web_browser_context_menu_enabled = True
+        self._web_browser_shortcuts_enabled = True
+        
+        # Event handlers
+        self._navigating_handler = lambda sender, e: None
+        self._navigated_handler = lambda sender, e: None
+        self._document_completed_handler = lambda sender, e: None
+        self._document_title_changed_handler = lambda sender, e: None
+        self._status_text_changed_handler = lambda sender, e: None
+        self._progress_changed_handler = lambda sender, e: None
+        self._can_go_back_changed_handler = lambda sender, e: None
+        self._can_go_forward_changed_handler = lambda sender, e: None
+        self._new_window_handler = lambda sender, e: None
+        
+        # Dimensions and properties
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self.Name = defaults['Name']
+        self.Enabled = defaults['Enabled']
+        self._visible = defaults['Visible']
+
+        # Create widget
+        self._tk_widget = self._create_widget(master_widget)
+        
+        # Apply visual configs
+        self._apply_visual_config()
+        
+        # Bind common events
+        self._bind_common_events()
+
+        # Position and Layout
+        self._place_control(self.Width, self.Height)
+        
+        if defaults['Dock']:
+            self.Dock = defaults['Dock']
+        if defaults['Anchor'] is not None:
+            self.Anchor = defaults['Anchor']
+            
+        # Navigate if URL provided
+        if defaults['Url']:
+            self.Navigate(defaults['Url'])
+        
+        # Set initial ready state
+        self._ready_state = WebBrowserReadyState.Complete
+        
+        # Auto Register
+        self._auto_register_with_parent()
+    
+    def _create_widget(self, parent_widget):
+        """Create the HtmlFrame widget."""
+        self._html_frame = HtmlFrame(
+            parent_widget,
+            messages_enabled=False,
+            on_link_click=self._on_link_click,
+            # on_navigate_fail=self._on_navigate_fail, # TODO: Implement failure handler
+        )
+        
+        # Start polling for state changes since callbacks are not fully exposed/documented in v4
+        self._last_title = ""
+        self._check_browser_state()
+        
+        return self._html_frame
+    
+    def _apply_dock(self):
+        """Override dock for WebBrowser to use place with relative sizing.
+        
+        HtmlFrame from tkinterweb needs special handling for proper resizing.
+        We use place() with relwidth/relheight for automatic sizing.
+        """
+        if not self._tk_widget or self._dock == DockStyle.None_:
+            return
+        
+        # Remove any existing geometry management
+        try:
+            self._tk_widget.place_forget()
+        except:
+            pass
+        try:
+            self._tk_widget.pack_forget()
+        except:
+            pass
+        try:
+            self._tk_widget.grid_forget()
+        except:
+            pass
+        
+        # Use place with relative sizing for Fill dock
+        if self._dock == DockStyle.Fill:
+            # Fill entire parent using relative coordinates
+            self._tk_widget.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+        elif self._dock == DockStyle.Top:
+            self._tk_widget.place(x=0, y=0, relwidth=1.0, height=self.Height)
+        elif self._dock == DockStyle.Bottom:
+            self._tk_widget.place(x=0, rely=1.0, anchor='sw', relwidth=1.0, height=self.Height)
+        elif self._dock == DockStyle.Left:
+            self._tk_widget.place(x=0, y=0, width=self.Width, relheight=1.0)
+        elif self._dock == DockStyle.Right:
+            self._tk_widget.place(relx=1.0, y=0, anchor='ne', width=self.Width, relheight=1.0)
+    
+    def _on_dock_resize(self, event=None):
+        """Override: Reapply dock on resize for WebBrowser.
+        
+        We use place() with relative sizing which handles resizing automatically.
+        """
+        if self._dock != DockStyle.None_ and self._tk_widget:
+            self._apply_dock()
+    
+    def _layout_container_dock(self):
+        """Override: Skip container layout for WebBrowser.
+        
+        WebBrowser uses its own place-based docking that handles layout internally.
+        """
+        pass
+
+    def _check_browser_state(self):
+        """Polls for browser state changes (title, loading status)."""
+        if not hasattr(self, '_html_frame') or not self._html_frame:
+            return
+
+        # Check Title
+        try:
+            current_title = self._html_frame.title
+            if current_title != self._last_title:
+                self._last_title = current_title
+                self._on_title_change(current_title)
+        except Exception:
+            pass
+            
+        # Check Loading Status (approximate)
+        # We assume if we were busy, and now we are not, it's done. But TkinterWeb handles threading internally.
+        # We will rely on _on_link_click setting IsBusy=True, and maybe we can use title change as a proxy for progress?
+        # For now, we simulate completion shortly after navigation if no better signal is available.
+        # Ideally, we would hook into internal variables but that's risky.
+        
+        # Schedule next check
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+             self._tk_widget.after(200, self._check_browser_state)
+
+    def _on_link_click(self, url):
+        """Handle link clicks."""
+        self.Navigate(url)
+
+    # Removed _on_done_loading reference from create_widget as it's not supported in v4
+    def _on_done_loading(self):
+        """Handle document load completion."""
+        self._is_busy = False
+        self._ready_state = WebBrowserReadyState.Complete
+        self._update_status("Done")
+        
+        # Fire DocumentCompleted event
+        args = WebBrowserDocumentCompletedEventArgs(self._url)
+        self._document_completed_handler(self, args)
+    
+    def _on_title_change(self, title):
+        """Handle title changes."""
+        self._document_title = title
+        # Fire DocumentTitleChanged event
+        self._document_title_changed_handler(self, EventArgs.Empty)
+        
+        # Also trigger internal completion logic if we were busy
+        if self._is_busy:
+             self._on_done_loading()
+
+        self._ready_state = WebBrowserReadyState.Complete
+        self._update_status("Done")
+        args = WebBrowserDocumentCompletedEventArgs(self._url)
+        self._document_completed_handler(self, args)
+    
+    def _on_title_change(self, title):
+        """Handle title changes."""
+        old_title = self._document_title
+        self._document_title = title
+        if old_title != title:
+            self._document_title_changed_handler(self, None)
+    
+    def _update_status(self, text):
+        """Update status text and fire StatusTextChanged event."""
+        old_status = self._status_text
+        self._status_text = text
+        if old_status != text:
+            self._status_text_changed_handler(self, None)
+    
+    def _update_can_go_back_forward(self):
+        """Update CanGoBack/CanGoForward and fire change events."""
+        old_can_back = self._can_go_back
+        old_can_forward = self._can_go_forward
+        
+        self._can_go_back = self._history_index > 0
+        self._can_go_forward = self._history_index < len(self._history) - 1
+        
+        if old_can_back != self._can_go_back:
+            self._can_go_back_changed_handler(self, None)
+        if old_can_forward != self._can_go_forward:
+            self._can_go_forward_changed_handler(self, None)
+    
+    # ========== Properties ==========
+    
+    @property
+    def Url(self):
+        """Gets the current URL."""
+        return self._url
+    
+    @Url.setter
+    def Url(self, value):
+        """Sets the current URL and navigates to it."""
+        self.Navigate(value)
+    
+    @property
+    def DocumentTitle(self):
+        """Gets the title of the current document."""
+        return self._document_title
+    
+    @property
+    def DocumentText(self):
+        """Gets the HTML content of the document."""
+        try:
+            return self._html_frame.html
+        except:
+            return ""
+    
+    @DocumentText.setter
+    def DocumentText(self, value):
+        """Sets the HTML content of the document."""
+        self._is_busy = True
+        self._ready_state = WebBrowserReadyState.Loading
+        self._url = "about:blank"
+        self._html_frame.load_html(value)
+    
+    @property
+    def CanGoBack(self):
+        """Gets whether the browser can navigate back."""
+        return self._can_go_back
+    
+    @property
+    def CanGoForward(self):
+        """Gets whether the browser can navigate forward."""
+        return self._can_go_forward
+    
+    @property
+    def IsBusy(self):
+        """Gets whether the browser is currently loading."""
+        return self._is_busy
+    
+    @property
+    def ReadyState(self):
+        """Gets the current state of the WebBrowser control."""
+        return self._ready_state
+    
+    @property
+    def StatusText(self):
+        """Gets the text of the status bar."""
+        return self._status_text
+    
+    @property
+    def AllowNavigation(self):
+        """Gets or sets whether the control can navigate to another page."""
+        return self._allow_navigation
+    
+    @AllowNavigation.setter
+    def AllowNavigation(self, value):
+        """Sets whether the control can navigate to another page."""
+        self._allow_navigation = value
+    
+    @property
+    def ScriptErrorsSuppressed(self):
+        """Gets or sets whether script errors are suppressed."""
+        return self._script_errors_suppressed
+    
+    @ScriptErrorsSuppressed.setter
+    def ScriptErrorsSuppressed(self, value):
+        """Sets whether script errors are suppressed."""
+        self._script_errors_suppressed = value
+    
+    @property
+    def ScrollBarsEnabled(self):
+        """Gets or sets whether scroll bars are displayed."""
+        return self._scroll_bars_enabled
+    
+    @ScrollBarsEnabled.setter
+    def ScrollBarsEnabled(self, value):
+        """Sets whether scroll bars are displayed."""
+        self._scroll_bars_enabled = value
+    
+    @property
+    def IsWebBrowserContextMenuEnabled(self):
+        """Gets or sets whether the context menu is enabled."""
+        return self._is_web_browser_context_menu_enabled
+    
+    @IsWebBrowserContextMenuEnabled.setter
+    def IsWebBrowserContextMenuEnabled(self, value):
+        """Sets whether the context menu is enabled."""
+        self._is_web_browser_context_menu_enabled = value
+    
+    @property
+    def WebBrowserShortcutsEnabled(self):
+        """Gets or sets whether keyboard shortcuts are enabled."""
+        return self._web_browser_shortcuts_enabled
+    
+    @WebBrowserShortcutsEnabled.setter
+    def WebBrowserShortcutsEnabled(self, value):
+        """Sets whether keyboard shortcuts are enabled."""
+        self._web_browser_shortcuts_enabled = value
+    
+    @property
+    def HtmlFrame(self):
+        """Gets the underlying HtmlFrame widget (tkinterweb specific)."""
+        return self._html_frame
+    
+    # ========== Events ==========
+    
+    @property
+    def Navigating(self):
+        """Event that occurs before navigation begins."""
+        return self._navigating_handler
+    
+    @Navigating.setter
+    def Navigating(self, handler):
+        """Sets the Navigating event handler."""
+        self._navigating_handler = handler if handler else lambda sender, e: None
+    
+    @property
+    def Navigated(self):
+        """Event that occurs after navigation completes."""
+        return self._navigated_handler
+    
+    @Navigated.setter
+    def Navigated(self, handler):
+        """Sets the Navigated event handler."""
+        self._navigated_handler = handler if handler else lambda sender, e: None
+    
+    @property
+    def DocumentCompleted(self):
+        """Event that occurs when the document is fully loaded."""
+        return self._document_completed_handler
+    
+    @DocumentCompleted.setter
+    def DocumentCompleted(self, handler):
+        """Sets the DocumentCompleted event handler."""
+        self._document_completed_handler = handler if handler else lambda sender, e: None
+    
+    @property
+    def DocumentTitleChanged(self):
+        """Event that occurs when the document title changes."""
+        return self._document_title_changed_handler
+    
+    @DocumentTitleChanged.setter
+    def DocumentTitleChanged(self, handler):
+        """Sets the DocumentTitleChanged event handler."""
+        self._document_title_changed_handler = handler if handler else lambda sender, e: None
+    
+    @property
+    def StatusTextChanged(self):
+        """Event that occurs when the status text changes."""
+        return self._status_text_changed_handler
+    
+    @StatusTextChanged.setter
+    def StatusTextChanged(self, handler):
+        """Sets the StatusTextChanged event handler."""
+        self._status_text_changed_handler = handler if handler else lambda sender, e: None
+    
+    @property
+    def ProgressChanged(self):
+        """Event that occurs when download progress changes."""
+        return self._progress_changed_handler
+    
+    @ProgressChanged.setter
+    def ProgressChanged(self, handler):
+        """Sets the ProgressChanged event handler."""
+        self._progress_changed_handler = handler if handler else lambda sender, e: None
+    
+    @property
+    def CanGoBackChanged(self):
+        """Event that occurs when the CanGoBack property changes."""
+        return self._can_go_back_changed_handler
+    
+    @CanGoBackChanged.setter
+    def CanGoBackChanged(self, handler):
+        """Sets the CanGoBackChanged event handler."""
+        self._can_go_back_changed_handler = handler if handler else lambda sender, e: None
+    
+    @property
+    def CanGoForwardChanged(self):
+        """Event that occurs when the CanGoForward property changes."""
+        return self._can_go_forward_changed_handler
+    
+    @CanGoForwardChanged.setter
+    def CanGoForwardChanged(self, handler):
+        """Sets the CanGoForwardChanged event handler."""
+        self._can_go_forward_changed_handler = handler if handler else lambda sender, e: None
+    
+    @property
+    def NewWindow(self):
+        """Event that occurs when a new browser window is about to be opened."""
+        return self._new_window_handler
+    
+    @NewWindow.setter
+    def NewWindow(self, handler):
+        """Sets the NewWindow event handler."""
+        self._new_window_handler = handler if handler else lambda sender, e: None
+    
+    # ========== Methods ==========
+    
+    def Navigate(self, url, target_frame_name="", post_data=None, additional_headers=""):
+        """
+        Navigates to the specified URL.
+        
+        Args:
+            url (str): The URL to navigate to.
+            target_frame_name (str): The name of the target frame (not used in tkinterweb).
+            post_data (bytes): POST data (not supported in tkinterweb).
+            additional_headers (str): Additional HTTP headers (not supported in tkinterweb).
+        """
+        if not url:
+            return
+        
+        # Check if navigation is allowed
+        if not self._allow_navigation:
+            return
+        
+        # Fire Navigating event
+        args = WebBrowserNavigatingEventArgs(url, target_frame_name)
+        self._navigating_handler(self, args)
+        if args.Cancel:
+            return
+        
+        self._is_busy = True
+        self._url = url
+        
+        # Add to history (if not navigating from history)
+        if not self._navigating_internally:
+            # Remove forward history
+            if self._history_index < len(self._history) - 1:
+                self._history = self._history[:self._history_index + 1]
+            self._history.append(url)
+            self._history_index = len(self._history) - 1
+        
+        # Load the URL
+        try:
+            self._html_frame.load_url(url)
+        except Exception as e:
+            self._is_busy = False
+            error_html = f"""
+            <html>
+            <head><title>Navigation Error</title></head>
+            <body>
+                <h1>Navigation Error</h1>
+                <p>Could not navigate to: {url}</p>
+                <p>Error: {str(e)}</p>
+            </body>
+            </html>
+            """
+            self._html_frame.load_html(error_html)
+        
+        # Update ready state
+        self._ready_state = WebBrowserReadyState.Loading
+        self._update_status(f"Navigating to {url}...")
+        self._update_can_go_back_forward()
+        
+        # Fire Navigated event
+        nav_args = WebBrowserNavigatedEventArgs(url)
+        self._navigated_handler(self, nav_args)
+    
+    def GoBack(self):
+        """Navigates to the previous page in history."""
+        if self.CanGoBack:
+            self._history_index -= 1
+            self._navigating_internally = True
+            self.Navigate(self._history[self._history_index])
+            self._navigating_internally = False
+            self._update_can_go_back_forward()
+    
+    def GoForward(self):
+        """Navigates to the next page in history."""
+        if self.CanGoForward:
+            self._history_index += 1
+            self._navigating_internally = True
+            self.Navigate(self._history[self._history_index])
+            self._navigating_internally = False
+            self._update_can_go_back_forward()
+    
+    def GoHome(self):
+        """Navigates to the home page (Google by default)."""
+        self.Navigate("https://www.google.com")
+    
+    def GoSearch(self):
+        """Navigates to the default search page."""
+        self.Navigate("https://www.google.com")
+    
+    def Refresh(self):
+        """Reloads the current page."""
+        if self._url:
+            self._navigating_internally = True
+            self.Navigate(self._url)
+            self._navigating_internally = False
+    
+    def Stop(self):
+        """Stops the current navigation."""
+        try:
+            self._html_frame.stop()
+        except:
+            pass
+        self._is_busy = False
+        self._ready_state = WebBrowserReadyState.Complete
+        self._update_status("Stopped")
+    
+    def Print(self):
+        """Prints the current document. (Not supported in tkinterweb)"""
+        # tkinterweb does not support printing directly
+        pass
+    
+    def ShowPrintDialog(self):
+        """Shows the print dialog. (Not supported in tkinterweb)"""
+        pass
+    
+    def ShowPrintPreviewDialog(self):
+        """Shows the print preview dialog. (Not supported in tkinterweb)"""
+        pass
+    
+    def ShowSaveAsDialog(self):
+        """Shows the save as dialog. (Not supported in tkinterweb)"""
+        pass
+    
+    def ShowPropertiesDialog(self):
+        """Shows the properties dialog. (Not supported in tkinterweb)"""
+        pass
+    
+    def ShowPageSetupDialog(self):
+        """Shows the page setup dialog. (Not supported in tkinterweb)"""
+        pass
+    
+    def LoadHtml(self, html, base_url=None, add_to_history=False):
+        """
+        Loads HTML content directly into the browser.
+        
+        This is a convenience method equivalent to setting DocumentText.
+        By default, LoadHtml does not add to navigation history.
+        
+        Args:
+            html (str): The HTML content to load.
+            base_url (str, optional): Base URL for resolving relative links.
+            add_to_history (bool, optional): Whether to add to navigation history. Default False.
+        """
+        if not hasattr(self, '_html_frame') or self._html_frame is None:
+            return
+        
+        url = base_url or "about:blank"
+        
+        # Fire Navigating event
+        args = WebBrowserNavigatingEventArgs(url, "")
+        self._navigating_handler(self, args)
+        if args.Cancel:
+            return
+        
+        self._is_busy = True
+        self._ready_state = WebBrowserReadyState.Loading
+        self._url = url
+        
+        # Add to history only if explicitly requested
+        if add_to_history and not self._navigating_internally:
+            if self._history_index < len(self._history) - 1:
+                self._history = self._history[:self._history_index + 1]
+            self._history.append(url)
+            self._history_index = len(self._history) - 1
+        
+        # Load HTML
+        self._html_frame.load_html(html)
+        
+        # Update navigation state
+        self._update_can_go_back_forward()
+        
+        # Fire Navigated event
+        nav_args = WebBrowserNavigatedEventArgs(url)
+        self._navigated_handler(self, nav_args)

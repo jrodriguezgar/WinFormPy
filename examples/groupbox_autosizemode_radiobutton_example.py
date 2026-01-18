@@ -112,8 +112,8 @@ lbl_size_grow = Label(form, {
 
 def adjust_layout():
     """Ajusta la posición de los controles inferiores para evitar solapamiento."""
-    # Forzar actualización de geometría para asegurar que Width/Height son correctos
-    form._root.update_idletasks()
+    # Force geometry update to ensure Width/Height are correct
+    form.UpdateLayout()
     
     # Actualizar etiquetas de tamaño
     lbl_size_shrink.Text = f"Size: {gb_shrink.Width}x{gb_shrink.Height}"
@@ -166,8 +166,7 @@ def adjust_layout():
     ]
     
     for c in controls_to_update:
-        if hasattr(c, '_tk_widget'):
-            c._tk_widget.place(x=c.Left, y=c.Top)
+        c.PerformLayout()
 
     # Ajustar ancho/alto del formulario
     required_width = new_x_right + gb_grow.Width + 40
@@ -182,10 +181,10 @@ def adjust_layout():
         resize_needed = True
         
     if resize_needed:
-        form._root.geometry(f"{form.Width}x{form.Height}")
+        form.SetGeometry(form.Width, form.Height)
     
-    # Forzar repintado
-    form._root.update()
+    # Force repaint
+    form.Update()
 
 # Vincular evento Resize para ajuste automático
 gb_shrink.Resize = adjust_layout
@@ -213,9 +212,8 @@ def add_shrink_horizontal():
     # Buscar el control más a la derecha
     max_right = 0
     for c in gb_shrink.Controls:
-        # Asegurar que usamos valores actualizados
-        if hasattr(c, '_tk_widget'):
-            c._tk_widget.update_idletasks()
+        # Ensure we use updated values
+        c.Refresh()
             
         if hasattr(c, 'Left') and hasattr(c, 'Width'):
             max_right = max(max_right, c.Left + c.Width)
@@ -285,9 +283,8 @@ def add_grow_horizontal():
     # Buscar el control más a la derecha
     max_right = 0
     for c in gb_grow.Controls:
-        # Asegurar que usamos valores actualizados
-        if hasattr(c, '_tk_widget'):
-            c._tk_widget.update_idletasks()
+        # Ensure we use updated values
+        c.Refresh()
             
         if hasattr(c, 'Left') and hasattr(c, 'Width'):
             max_right = max(max_right, c.Left + c.Width)

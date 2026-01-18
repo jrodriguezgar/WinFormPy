@@ -42,6 +42,7 @@ WinFormPy is a complete library designed to help developers familiar with Window
 - **Form management** — UserControl and Form base classes
 - **AutoSize support** — Automatic control resizing with size constraints
 - **CSS styling support** — Enhanced customization options
+- **Precision Border Control** — New `BorderWidth` property for individual pixel-perfect border control (essential for modern flat/Fluent UI)
 - **VB-style properties** — Location, Size, Enabled, Visible, BackColor, Font, etc.
 
 ### Modules
@@ -51,6 +52,8 @@ WinFormPy is a complete library designed to help developers familiar with Window
 | `winformpy`          | Core Windows Forms controls and dialogs         |
 | `winformpy_extended` | Extended controls                               |
 | `winformpy_tools`    | Helper tools and utilities                      |
+| `ui_elements`        | Pre-built, high-level components (WebBrowser, DB Managers) |
+| `templates`           | Full application boilerplates (WinUI 3, Modern Dashboard) |
 | `mauipy`             | MAUI-style architecture (Shell, Pages, Layouts) |
 | `mdipy`              | Multiple Document Interface (MDI) support       |
 
@@ -271,12 +274,14 @@ def on_form_click(self, sender, e):
 
 #### Utilities
 
-| Utility              | Description           |
-| -------------------- | --------------------- |
-| [Timer](#timer)         | Interval-based events |
-| [ToolTip](#tooltip)     | Hover tooltips        |
-| [ImageList](#imagelist) | Image collection      |
-| [Screen](#screen)       | Screen information    |
+| Utility              | Description              |
+| -------------------- | ------------------------ |
+| [Timer](#timer)         | Interval-based events    |
+| [ToolTip](#tooltip)     | Hover tooltips           |
+| [ImageList](#imagelist) | Image collection         |
+| [Screen](#screen)       | Screen information       |
+| [Clipboard](#clipboard) | System clipboard access  |
+| [Application](#application) | Application lifecycle |
 
 #### Extended Controls (`winformpy_extended`)
 
@@ -315,6 +320,47 @@ MAUI-style components provide a modern approach to building cross-platform-like 
 | SearchBarComponent    | Search input                |
 | ChipTag               | Tag/chip display            |
 | StepperControl        | Step increment control      |
+
+#### UI Elements (`ui_elements`)
+
+Pre-built, reusable UI components that can be embedded in your applications:
+
+| Component                                                      | Description                                      |
+| -------------------------------------------------------------- | ------------------------------------------------ |
+| [DBConnectionManager](winformpy/ui_elements/db_connection/)    | Database connection management service layer     |
+| [DBConnectionUI](winformpy/ui_elements/db_connection/)         | Standalone Form for managing DB connections      |
+| [DBConnectionPanel](winformpy/ui_elements/db_connection/)      | Embeddable Panel for DB connection management    |
+| [WebBrowser](winformpy/ui_elements/web_browser/)               | Core web browser control using tkinterweb        |
+| [WebBrowserPanel](winformpy/ui_elements/web_browser/)          | WebBrowser with built-in navigation bar          |
+| [WebBrowserUI](winformpy/ui_elements/web_browser/)             | Modern multi-tab browser with global navigation  |
+
+**Usage Example:**
+
+```python
+# Database Connection Manager
+from winformpy.ui_elements.db_connection import DBConnectionManager, DBConnectionUI
+
+backend = MyStorageBackend()  # Your storage implementation
+manager = DBConnectionManager(backend)
+ui = DBConnectionUI(manager)
+ui.show_dialog()
+
+# Advanced Web Browser with Tabs
+from winformpy.ui_elements.web_browser import WebBrowserUI
+
+browser_app = WebBrowserUI()
+browser_app.NewTab("https://www.github.com")
+browser_app.form.Show()
+```
+
+#### Application Templates (`templates`)
+
+Ready-to-use application scaffolds with modern design systems:
+
+| Template                               | Style         | Features                                         |
+| -------------------------------------- | ------------- | ------------------------------------------------ |
+| [WinUI 3 Template](winformpy/templates/) | Fluent Design | Mica-like backgrounds, thin borders, dark theme  |
+| [Dashboard Template](winformpy/templates/) | Enterprise   | Sidebar navigation, stats cards, response layout |
 
 #### Tools and Managers (`winformpy_tools`)
 
@@ -392,6 +438,53 @@ A complete solution for managing database connections with support for multiple 
 | `list_names()`                   | List all connection names      |
 | `test_connection(data)`          | Test database connectivity     |
 | `validate_connection_data(data)` | Validate connection parameters |
+
+##### WebBrowser Components
+
+A WinForms-style web browser suite based on **System.Windows.Forms.WebBrowser** using tkinterweb for HTML rendering.
+
+| Component                          | Description                                      |
+| ---------------------------------- | ------------------------------------------------ |
+| WebBrowser                         | Core browser control with navigation and events  |
+| WebBrowserPanel                    | Embeddable Panel with navigation bar and status  |
+| WebBrowserUI                       | Full multi-tab application with global nav bar   |
+| WebBrowserReadyState               | Enum for control states                          |
+
+**Modern WebBrowserUI Features:**
+- **Hierarchical Layout**: Global Navigation Bar for all tabs.
+- **Tab Management**: Native `TabControl` integration with dynamic add/close buttons.
+- **Context Menus**: Right-click actions for tab organization.
+- **URL Sync**: Real-time address bar synchronization across active tabs.
+
+**WebBrowser Properties:**
+
+| Property                | Description                           |
+| ----------------------- | ------------------------------------- |
+| `Url`                   | Current URL                           |
+| `DocumentTitle`         | Title of the current document         |
+| `DocumentText`          | HTML content of the document          |
+| `CanGoBack`             | Whether browser can navigate back     |
+| `CanGoForward`          | Whether browser can navigate forward  |
+| `IsBusy`                | Whether browser is loading            |
+| `ReadyState`            | Current state (Complete, Loading...)  |
+| `AllowNavigation`       | Whether navigation is allowed         |
+
+**WebBrowser Methods:**
+
+| Method          | Description                              |
+| --------------- | ---------------------------------------- |
+| `Navigate(url)` | Navigate to specified URL                |
+| `GoBack()`      | Navigate to previous page                |
+| `GoForward()`   | Navigate to next page                    |
+| `GoHome()`      | Navigate to home page                    |
+| `GoSearch()`    | Navigate to search page                  |
+| `Refresh()`     | Reload current page                      |
+| `Stop()`        | Stop current navigation                  |
+
+**Installation:**
+```bash
+pip install tkinterweb
+```
 
 #### System Classes
 
@@ -639,6 +732,48 @@ timer.Interval = 1000  # milliseconds
 timer.Tick = lambda s, e: print("Tick!")
 timer.Start()
 ```
+
+### Clipboard
+
+```python
+from winformpy import Clipboard
+
+# Copy text to clipboard
+Clipboard.SetText("Hello, World!")
+
+# Get text from clipboard
+text = Clipboard.GetText()
+print(text)  # "Hello, World!"
+
+# Check if clipboard contains text
+if Clipboard.ContainsText():
+    print("Clipboard has text:", Clipboard.GetText())
+
+# Clear clipboard
+Clipboard.Clear()
+
+# Get clipboard data object
+data = Clipboard.GetDataObject()
+print(data.get('Text'))
+
+# Set data object
+Clipboard.SetDataObject({'Text': 'Some text'})
+```
+
+**Clipboard Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `SetText(text)` | Copies text to the clipboard |
+| `GetText()` | Returns text from the clipboard |
+| `ContainsText()` | Returns True if clipboard contains text |
+| `Clear()` | Clears all clipboard data |
+| `GetDataObject()` | Returns dict with clipboard data |
+| `SetDataObject(data)` | Sets clipboard data from dict or string |
+| `GetImage()` | Gets image from clipboard (limited support) |
+| `SetImage(image)` | Sets image to clipboard (limited support) |
+| `GetFileDropList()` | Gets list of file paths |
+| `ContainsFileDropList()` | Returns True if clipboard has files |
 
 ### ProgressBar
 
@@ -889,14 +1024,26 @@ WinFormPy/
 │   ├── winformpy_tools.py           # Utilities (FontManager, ColorManager, CSSManager, LayoutManager)
 │   ├── mauipy.py                    # MAUI-style components (Shell, Pages, Layouts)
 │   ├── mdipy.py                     # MDI components (MDIParent, MDIChild)
+│   ├── templates/                   # Application boilerplates
+│   │   ├── winui3_template.py       # Fluent Design / WinUI 3 style
+│   │   └── dashboard_template.py    # Enterprise dashboard style
 │   └── ui_elements/                 # Reusable UI components
-│       └── db_connection/           # Database connection management
+│       ├── db_connection/           # Database connection management
+│       │   ├── __init__.py          # Module exports
+│       │   ├── db_connection_manager.py  # Service layer (CRUD, validation)
+│       │   ├── db_connection_panel.py    # Embeddable Panel component
+│       │   ├── db_connection_ui.py       # Standalone Form with ListView
+│       │   └── README.md            # Component documentation
+│       └── web_browser/             # Web browser suite
 │           ├── __init__.py          # Module exports
-│           ├── db_connection_manager.py  # Service layer (CRUD, validation)
-│           ├── db_connection_panel.py    # Embeddable Panel component
-│           ├── db_connection_ui.py       # Standalone Form with ListView
+│           ├── web_browser.py       # Basic WebBrowser control
+│           ├── web_browser_panel.py # Panel with navigation bar
+│           ├── web_browser_ui.py    # Multi-tab browser application
 │           └── README.md            # Component documentation
 ├── examples/                        # Example applications
+│   └── ui_elements/                 # UI elements examples
+│       ├── db_connection_example.py # Database connection demo
+│       └── web_browser_example.py   # Web browser demo
 ├── guides/                          # Documentation guides
 ├── tests/                           # Unit tests
 ├── pyproject.toml                   # Project configuration
@@ -943,17 +1090,39 @@ The `examples/` directory contains demonstration scripts for different library f
 | [layouts_example.py](examples/layouts_example.py)                                                     | Layout patterns overview                    |
 | [layout_manager_example.py](examples/layout_manager_example.py)                                       | Layout manager usage                        |
 | [maskedtextbox_example.py](examples/maskedtextbox_example.py)                                         | MaskedTextBox control                       |
-| [maui_example.py](examples/maui_example.py)                                                           | MAUI-style shell/pages                      |
-| [mdi_example.py](examples/mdi_example.py)                                                             | MDI forms                                   |
 | [more_controls_example.py](examples/more_controls_example.py)                                         | Additional controls showcase                |
 | [tooltip_example.py](examples/tooltip_example.py)                                                     | ToolTip configuration                       |
 | [winformpy_extended_example.py](examples/winformpy_extended_example.py)                               | Extended APIs demo                          |
+
+### UI Elements Examples
+
+| Example                                                                                               | Description                                 |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| [db_connection_example.py](examples/ui_elements/db_connection_example.py)                             | Database connection manager demo            |
+| [web_browser_example.py](examples/ui_elements/web_browser_example.py)                                 | WebBrowser control demo (requires tkinterweb) |
 
 **Run any example:**
 
 ```bash
 uv run examples/<example_name>.py
 ```
+
+---
+
+## Application Templates
+
+The `templates/` directory contains complete application templates demonstrating real-world usage patterns and modern UI styles:
+
+| Template | Description | Run Command |
+| -------- | ----------- | ----------- |
+| **Studio App** | IDE-style application (like VS Code) with activity bar, sidebar, and editor tabs | `uv run python templates/studio_template.py` |
+| **File Explorer** | Windows 11 File Explorer style app with navigation pane, breadcrumbs, and command bar | `uv run python templates/explorer_template.py` |
+| **Web Browser** | Chrome-style web browser with tabs, address bar, and history (requires `tkinterweb`) | `uv run python templates/browser_template.py` |
+| **MAUI App** | Multi-platform App UI architecture pattern | `uv run python templates/maui_template.py` |
+| **MDI App** | Multiple Document Interface application | `uv run python templates/mdi_template.py` |
+| **Navigation Pane** | Collapsible sidebar (hamburger menu) layout | `uv run python templates/navigation_pane_template.py` |
+| **Navigation Rail** | Slim vertical navigation rail with fixed icons | `uv run python templates/navigation_rail_template.py` |
+| **WinUI 3 Gallery** | WinUI 3 style interactive controls gallery | `uv run python templates/winui3_template.py` |
 
 ---
 

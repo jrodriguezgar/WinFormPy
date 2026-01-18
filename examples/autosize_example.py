@@ -59,19 +59,7 @@ class AutoSizeDemoForm(Form):
 
     def _init_basic_tab(self):
         """Initialize the Basic Controls tab."""
-        # Demo Area (Right) - Create FIRST so it fills remaining space
-        self.panel_demo = Panel(self.tab_basic)
-        self.panel_demo.Dock = DockStyle.Fill
-        self.panel_demo.BackColor = Color.White
-        
-        # Control Panel (Left) - Create SECOND so it docks on top
-        panel_controls = Panel(self.tab_basic)
-        panel_controls.Dock = DockStyle.Left
-        panel_controls.Width = 250
-        panel_controls.BackColor = Color.WhiteSmoke
-        panel_controls.AutoScroll = True
-        
-        # Explanation banner - Create LAST so it docks at the top
+        # 1. Explanation banner (Top)
         lbl_banner = Label(self.tab_basic)
         lbl_banner.Text = "BASIC CONTROLS AUTOSIZE: Toggle AutoSize on/off and change text to see how Label, Button, CheckBox, and TextBox adjust their size automatically. Basic controls always use GrowAndShrink mode."
         lbl_banner.Dock = DockStyle.Top
@@ -81,6 +69,18 @@ class AutoSizeDemoForm(Form):
         lbl_banner.Font = Font("Segoe UI", 9, FontStyle.Bold)
         lbl_banner.TextAlign = ContentAlignment.MiddleLeft
         lbl_banner.Padding = (15, 10, 15, 10)
+
+        # 2. Control Panel (Left)
+        panel_controls = Panel(self.tab_basic)
+        panel_controls.Dock = DockStyle.Left
+        panel_controls.Width = 250
+        panel_controls.BackColor = Color.WhiteSmoke
+        panel_controls.AutoScroll = True
+
+        # 3. Demo Area (Right - Fill)
+        self.panel_demo = Panel(self.tab_basic)
+        self.panel_demo.Dock = DockStyle.Fill
+        self.panel_demo.BackColor = Color.White
         
         lbl_instr = Label(panel_controls)
         lbl_instr.Text = "Control Properties:"
@@ -231,7 +231,7 @@ class AutoSizeDemoForm(Form):
 
         # Control Panel
         panel_controls = Panel(self.tab_groupbox)
-        panel_controls.Top = 90
+        panel_controls.Top = 100
         panel_controls.Left = 10
         panel_controls.Width = 200
         panel_controls.Height = 200
@@ -285,7 +285,7 @@ class AutoSizeDemoForm(Form):
         self.grp_auto = GroupBox(self.tab_groupbox)
         self.grp_auto.Text = "AutoSize GroupBox (GrowAndShrink)"
         self.grp_auto.Left = 230
-        self.grp_auto.Top = 60
+        self.grp_auto.Top = 100
         self.grp_auto.AutoSize = True
         self.grp_auto.AutoSizeMode = AutoSizeMode.GrowAndShrink
         self.grp_auto.BackColor = Color.LightYellow
@@ -301,7 +301,7 @@ class AutoSizeDemoForm(Form):
         # Info Label
         self.lbl_groupbox_info = Label(self.tab_groupbox)
         self.lbl_groupbox_info.Text = "GroupBox Size: 0 x 0"
-        self.lbl_groupbox_info.Top = 250
+        self.lbl_groupbox_info.Top = 320
         self.lbl_groupbox_info.Left = 10
         self.lbl_groupbox_info.AutoSize = True
         self.lbl_groupbox_info.ForeColor = Color.Blue
@@ -311,7 +311,7 @@ class AutoSizeDemoForm(Form):
         self.grp_fixed = GroupBox(self.tab_groupbox)
         self.grp_fixed.Text = "Fixed Size GroupBox (AutoSize=False)"
         self.grp_fixed.Left = 550
-        self.grp_fixed.Top = 60
+        self.grp_fixed.Top = 100
         self.grp_fixed.Width = 250
         self.grp_fixed.Height = 150
         self.grp_fixed.AutoSize = False
