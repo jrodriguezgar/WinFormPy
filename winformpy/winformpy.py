@@ -520,6 +520,25 @@ class ScrollBars(Enum):
     Vertical = 2
     Both = 3
 
+
+class RichTextBoxStreamType(Enum):
+    """Specifies the types of input and output streams used to load and save data in RichTextBox."""
+    RichText = 0           # RTF format stream
+    PlainText = 1          # Plain text stream (OLE objects as text)
+    RichNoOleObjs = 2      # RTF without OLE objects
+    TextTextOleObjs = 3    # Plain text with OLE object representation
+    UnicodePlainText = 4   # Unicode plain text
+
+
+class RichTextBoxFinds(Enum):
+    """Specifies how a text search is carried out in a RichTextBox control."""
+    None_ = 0              # Locate all instances
+    WholeWord = 1          # Match whole words only
+    MatchCase = 2          # Match case
+    NoHighlight = 4        # Do not highlight the search text
+    Reverse = 8            # Search from end to beginning
+
+
 class SelectionMode(Enum):
     None_ = 0
     One = 1
@@ -4058,8 +4077,15 @@ class ControlBase:
                 w = max(0, w)
                 h = max(0, h)
 
+                # Determine which widget to place:
+                # - For TextBox/RichTextBox with scrollbars, use _container_frame
+                # - For other controls, use _tk_widget
+                widget_to_place = ctrl._tk_widget
+                if hasattr(ctrl, '_container_frame') and ctrl._container_frame:
+                    widget_to_place = ctrl._container_frame
+
                 try:
-                    ctrl._tk_widget.place(x=x, y=y, width=w, height=h)
+                    widget_to_place.place(x=x, y=y, width=w, height=h)
                 except tk.TclError:
                     continue
 
@@ -7077,12 +7103,6 @@ class TextBox(ControlBase):
         
         self.set_Visible(self._visible)
         
-        # Apply Dock and Anchor if they were specified in props
-        if 'Dock' in defaults and defaults['Dock']:
-            self.Dock = defaults['Dock']
-        if 'Anchor' in defaults and defaults['Anchor']:
-            self.Anchor = defaults['Anchor']
-        
         # Auto-wire SelectAll on Click if enabled
         if self.SelectAllOnClick:
             def _select_all_on_click(sender=None, e=None):
@@ -7090,7 +7110,16 @@ class TextBox(ControlBase):
             self.Click = _select_all_on_click
             
         # AUTO-REGISTRATION: Automatically add to the parent container
+        # NOTE: This must be done BEFORE applying Dock/Anchor so the control
+        # is in Controls when layout is calculated
         self._auto_register_with_parent()
+        
+        # Apply Dock and Anchor if they were specified in props
+        # NOTE: Must be AFTER auto-registration so control is in Controls
+        if 'Dock' in defaults and defaults['Dock']:
+            self.Dock = defaults['Dock']
+        if 'Anchor' in defaults and defaults['Anchor']:
+            self.Anchor = defaults['Anchor']
 
     def _place_control(self, width=None, height=None):
         """Override to handle container frame for multiline with scrollbars."""
@@ -7471,6 +7500,492 @@ class TextBox(ControlBase):
                 self._tk_widget.edit_undo()
             except:
                 pass
+
+
+class ConsoleTextBox(ControlBase):
+    """
+    Represents a ConsoleTextBox control with support for multiple text colors.
+    
+    This control provides a multi-line text display with:
+    - Support for colored text segments (via tags)
+    - Integrated vertical scrollbar
+    - Read-only mode for output display
+    - Methods for writing colored text
+    
+    Ideal for console-style output, log viewers, or any multi-colored text display.
+    
+    Example:
+        ctb = ConsoleTextBox(form, {
+            'Dock': DockStyle.Fill,
+            'BackColor': '#1E1E1E',
+            'ForeColor': '#CCCCCC',
+            'ReadOnly': True
+        })
+        
+        ctb.WriteLine("Normal text")
+        ctb.WriteLine("Error message", '#FF0000')
+        ctb.WriteLine("Success!", '#00FF00')
+    """
+    
+    def __init__(self, master_form, props=None):
+        """Initializes a ConsoleTextBox.
+
+        Args:
+            master_form: The parent form or container
+            props: Optional dictionary with initial properties:
+                - BackColor: Background color
+                - ForeColor: Default text color
+                - Font: Font object or tuple (family, size)
+                - ReadOnly: If True, text cannot be edited by user
+                - WordWrap: Enable/disable word wrapping
+                - ShowScrollBar: Show vertical scrollbar (default True)
+                - MaxLines: Maximum lines to keep (0 = unlimited)
+                - BorderWidth: Border width (default 0)
+                - Padding: Internal padding (default 8)
+        """
+        defaults = {
+            'Left': 0,
+            'Top': 0,
+            'Width': 400,
+            'Height': 300,
+            'Name': '',
+            'BackColor': '#FFFFFF',
+            'ForeColor': '#000000',
+            'Font': None,
+            'ReadOnly': False,
+            'WordWrap': True,
+            'ShowScrollBar': True,
+            'MaxLines': 0,
+            'BorderWidth': 0,
+            'Padding': 8,
+            'Visible': True,
+            'Enabled': True,
+            'SelectionBackColor': '#264F78',
+            'SelectionForeColor': None,
+            'InsertCursorColor': None
+        }
+        
+        if props:
+            defaults.update(props)
+        
+        # Resolve the Tkinter widget and keep the original parent container
+        master_widget, parent_container = _resolve_master_widget(master_form)
+        super().__init__(master_widget, defaults['Left'], defaults['Top'])
+        
+        # Store the parent container for auto-registration
+        self._parent_container = parent_container
+        
+        # Store properties
+        self.Name = defaults['Name']
+        self.Width = defaults['Width']
+        self.Height = defaults['Height']
+        self._back_color = defaults['BackColor']
+        self._fore_color = defaults['ForeColor']
+        self._font = defaults['Font']
+        self._read_only = defaults['ReadOnly']
+        self._word_wrap = defaults['WordWrap']
+        self._show_scrollbar = defaults['ShowScrollBar']
+        self._max_lines = defaults['MaxLines']
+        self._border_width = defaults['BorderWidth']
+        self._padding = defaults['Padding']
+        self._visible = defaults['Visible']
+        self._enabled = defaults['Enabled']
+        self._selection_back_color = defaults['SelectionBackColor']
+        self._selection_fore_color = defaults['SelectionForeColor']
+        self._insert_cursor_color = defaults['InsertCursorColor'] or self._fore_color
+        
+        # Events
+        self.TextChanged = lambda sender=None, e=None: None
+        
+        # Create the widget
+        self._create_widget()
+        
+        # Apply Dock/Anchor if specified
+        if 'Dock' in defaults and defaults['Dock']:
+            self.Dock = defaults['Dock']
+        if 'Anchor' in defaults and defaults['Anchor']:
+            self.Anchor = defaults['Anchor']
+        
+        # Auto-register with the parent container
+        self._auto_register_with_parent()
+    
+    def _create_widget(self):
+        """Create the underlying Tkinter widgets."""
+        # Container frame for text + scrollbar
+        self._container_frame = tk.Frame(
+            self.master, 
+            bg=self._back_color,
+            borderwidth=self._border_width,
+            highlightthickness=0
+        )
+        
+        # Get font
+        tk_font = None
+        if self._font:
+            if hasattr(self._font, '_tk_font'):
+                tk_font = self._font._tk_font
+            elif hasattr(self._font, 'GetTkFont'):
+                tk_font = self._font.GetTkFont()
+            elif isinstance(self._font, tuple):
+                tk_font = self._font
+        
+        # Text widget
+        wrap_mode = 'word' if self._word_wrap else 'none'
+        self._tk_widget = tk.Text(
+            self._container_frame,
+            wrap=wrap_mode,
+            bg=self._back_color,
+            fg=self._fore_color,
+            insertbackground=self._insert_cursor_color,
+            selectbackground=self._selection_back_color,
+            selectforeground=self._selection_fore_color or self._fore_color,
+            borderwidth=0,
+            highlightthickness=0,
+            padx=self._padding,
+            pady=self._padding,
+            cursor='arrow' if self._read_only else 'xterm'
+        )
+        
+        if tk_font:
+            self._tk_widget.config(font=tk_font)
+        
+        if self._read_only:
+            self._tk_widget.config(state='disabled')
+        
+        # Scrollbar
+        if self._show_scrollbar:
+            self._scrollbar = tk.Scrollbar(self._container_frame, command=self._tk_widget.yview)
+            self._tk_widget.config(yscrollcommand=self._scrollbar.set)
+            self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        else:
+            self._scrollbar = None
+        
+        # Pack text widget
+        self._tk_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Place container
+        self._container_frame.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
+        
+        # Apply visibility
+        self.set_Visible(self._visible)
+    
+    def _place_control(self, width=None, height=None):
+        """Override to handle container frame placement."""
+        x_coord = self.Left
+        y_coord = self.Top
+        place_args = {'x': x_coord, 'y': y_coord, 'in_': self.master}
+        if width is not None:
+            place_args['width'] = width
+        if height is not None:
+            place_args['height'] = height
+        try:
+            self._container_frame.place(**place_args)
+        except tk.TclError:
+            pass
+    
+    def set_Visible(self, value):
+        """Sets the visibility state."""
+        old_visible = getattr(self, '_visible', True)
+        self._visible = value
+        
+        if hasattr(self, '_container_frame') and self._container_frame:
+            if value:
+                self._container_frame.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
+            else:
+                self._container_frame.place_forget()
+    
+    def PerformLayout(self):
+        """Force layout recalculation for the control."""
+        if not hasattr(self, '_container_frame') or not self._container_frame:
+            return
+        
+        # Force geometry update
+        self._container_frame.update_idletasks()
+        
+        # Get current dimensions
+        width = self._container_frame.winfo_width()
+        height = self._container_frame.winfo_height()
+        
+        if width <= 1 or height <= 1:
+            return
+        
+        # Re-place the container with current dimensions
+        self._container_frame.place_configure(width=width, height=height)
+        
+        # Repack internal widgets
+        if self._scrollbar:
+            try:
+                self._scrollbar.pack_forget()
+            except:
+                pass
+            self._scrollbar.pack(side='right', fill='y')
+        
+        try:
+            self._tk_widget.pack_forget()
+        except:
+            pass
+        self._tk_widget.pack(side='left', fill='both', expand=True)
+        
+        self._container_frame.update_idletasks()
+    
+    # =========================================================================
+    # Properties
+    # =========================================================================
+    
+    @property
+    def Text(self):
+        """Gets all text in the RichTextBox."""
+        return self._tk_widget.get('1.0', 'end-1c')
+    
+    @Text.setter
+    def Text(self, value):
+        """Sets all text in the RichTextBox."""
+        was_disabled = self._read_only
+        if was_disabled:
+            self._tk_widget.config(state='normal')
+        self._tk_widget.delete('1.0', 'end')
+        self._tk_widget.insert('1.0', value)
+        if was_disabled:
+            self._tk_widget.config(state='disabled')
+    
+    @property
+    def BackColor(self):
+        """Gets the background color."""
+        return self._back_color
+    
+    @BackColor.setter
+    def BackColor(self, value):
+        """Sets the background color."""
+        self._back_color = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.config(bg=value)
+        if hasattr(self, '_container_frame') and self._container_frame:
+            self._container_frame.config(bg=value)
+    
+    @property
+    def ForeColor(self):
+        """Gets the default foreground color."""
+        return self._fore_color
+    
+    @ForeColor.setter
+    def ForeColor(self, value):
+        """Sets the default foreground color."""
+        self._fore_color = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.config(fg=value, insertbackground=value)
+    
+    @property
+    def ReadOnly(self):
+        """Gets whether the control is read-only."""
+        return self._read_only
+    
+    @ReadOnly.setter
+    def ReadOnly(self, value):
+        """Sets whether the control is read-only."""
+        self._read_only = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.config(state='disabled' if value else 'normal')
+            self._tk_widget.config(cursor='arrow' if value else 'xterm')
+    
+    @property
+    def WordWrap(self):
+        """Gets whether word wrap is enabled."""
+        return self._word_wrap
+    
+    @WordWrap.setter
+    def WordWrap(self, value):
+        """Sets whether word wrap is enabled."""
+        self._word_wrap = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.config(wrap='word' if value else 'none')
+    
+    @property
+    def Font(self):
+        """Gets the font."""
+        return self._font
+    
+    @Font.setter
+    def Font(self, value):
+        """Sets the font."""
+        self._font = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            tk_font = None
+            if hasattr(value, '_tk_font'):
+                tk_font = value._tk_font
+            elif hasattr(value, 'GetTkFont'):
+                tk_font = value.GetTkFont()
+            elif isinstance(value, tuple):
+                tk_font = value
+            if tk_font:
+                self._tk_widget.config(font=tk_font)
+    
+    @property
+    def MaxLines(self):
+        """Gets the maximum number of lines to keep."""
+        return self._max_lines
+    
+    @MaxLines.setter
+    def MaxLines(self, value):
+        """Sets the maximum number of lines to keep."""
+        self._max_lines = value
+        self._trim_lines()
+    
+    @property
+    def Lines(self):
+        """Gets the lines of text."""
+        return self.Text.split('\n')
+    
+    @property
+    def LineCount(self):
+        """Gets the number of lines."""
+        return int(self._tk_widget.index('end-1c').split('.')[0])
+    
+    # =========================================================================
+    # Methods
+    # =========================================================================
+    
+    def Write(self, text, color=None):
+        """
+        Write text without a newline.
+        
+        Args:
+            text: The text to write
+            color: Optional color for this text (e.g., '#FF0000')
+        """
+        was_disabled = self._read_only
+        if was_disabled:
+            self._tk_widget.config(state='normal')
+        
+        if color:
+            # Create a tag for this color
+            tag_name = f'color_{color.replace("#", "").replace("(", "").replace(")", "").replace(",", "_")}'
+            self._tk_widget.tag_configure(tag_name, foreground=color)
+            self._tk_widget.insert('end', text, tag_name)
+        else:
+            self._tk_widget.insert('end', text)
+        
+        if was_disabled:
+            self._tk_widget.config(state='disabled')
+        
+        self._tk_widget.see('end')
+        self._trim_lines()
+        self.TextChanged(self, EventArgs.Empty)
+    
+    def WriteLine(self, text='', color=None):
+        """
+        Write text with a newline.
+        
+        Args:
+            text: The text to write
+            color: Optional color for this text
+        """
+        self.Write(text + '\n', color)
+    
+    def WriteError(self, text):
+        """Write error text (red)."""
+        self.WriteLine(text, '#FF6B6B')
+    
+    def WriteWarning(self, text):
+        """Write warning text (yellow)."""
+        self.WriteLine(text, '#FFD93D')
+    
+    def WriteSuccess(self, text):
+        """Write success text (green)."""
+        self.WriteLine(text, '#6BCB77')
+    
+    def WriteInfo(self, text):
+        """Write info text (blue)."""
+        self.WriteLine(text, '#4D96FF')
+    
+    def Clear(self):
+        """Clear all text."""
+        was_disabled = self._read_only
+        if was_disabled:
+            self._tk_widget.config(state='normal')
+        self._tk_widget.delete('1.0', 'end')
+        if was_disabled:
+            self._tk_widget.config(state='disabled')
+    
+    def ScrollToEnd(self):
+        """Scroll to the end of the text."""
+        self._tk_widget.see('end')
+    
+    def ScrollToStart(self):
+        """Scroll to the start of the text."""
+        self._tk_widget.see('1.0')
+    
+    def AppendText(self, text, color=None):
+        """
+        Append text to the end.
+        
+        Args:
+            text: The text to append
+            color: Optional color
+        """
+        self.Write(text, color)
+    
+    def Focus(self):
+        """Set focus to the control."""
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.focus_set()
+    
+    def SelectAll(self):
+        """Select all text."""
+        self._tk_widget.tag_add('sel', '1.0', 'end')
+    
+    def DeselectAll(self):
+        """Deselect all text."""
+        self._tk_widget.tag_remove('sel', '1.0', 'end')
+    
+    def Copy(self):
+        """Copy selected text to clipboard."""
+        try:
+            self._tk_widget.event_generate('<<Copy>>')
+        except:
+            pass
+    
+    def _trim_lines(self):
+        """Trim to MaxLines if exceeded."""
+        if self._max_lines <= 0:
+            return
+        
+        was_disabled = self._read_only
+        if was_disabled:
+            self._tk_widget.config(state='normal')
+        
+        line_count = self.LineCount
+        if line_count > self._max_lines:
+            excess = line_count - self._max_lines
+            self._tk_widget.delete('1.0', f'{excess + 1}.0')
+        
+        if was_disabled:
+            self._tk_widget.config(state='disabled')
+    
+    def ConfigureTag(self, tag_name, **kwargs):
+        """
+        Configure a text tag for styling.
+        
+        Args:
+            tag_name: Name of the tag
+            **kwargs: Tag configuration (foreground, background, font, etc.)
+        """
+        self._tk_widget.tag_configure(tag_name, **kwargs)
+    
+    def WriteWithTag(self, text, tag_name):
+        """
+        Write text with a specific tag.
+        
+        Args:
+            text: The text to write
+            tag_name: The tag name to apply
+        """
+        was_disabled = self._read_only
+        if was_disabled:
+            self._tk_widget.config(state='normal')
+        self._tk_widget.insert('end', text, tag_name)
+        if was_disabled:
+            self._tk_widget.config(state='disabled')
+        self._tk_widget.see('end')
 
 
 class RadioButton(ControlBase):
@@ -8656,6 +9171,7 @@ class ToolTip:
         Args:
             control: WinFormPy control or Tkinter widget to associate the tooltip with
             props: Optional dictionary with properties (Text, Delay, BgColor, FgColor, BorderColor, BorderWidth, Font)
+                   Can also be a string, which will be used as the Text property.
                    Use {'UseSystemStyles': True} to automatically apply system styles
         """
         # Extract the underlying tk widget if this is a WinFormPy control
@@ -8663,6 +9179,10 @@ class ToolTip:
             widget = control._tk_widget
         else:
             widget = control  # Assume it's already a tkinter widget
+        
+        # Handle string as props (shorthand for Text)
+        if isinstance(props, str):
+            props = {'Text': props}
             
         defaults = {
             'Text': "",
@@ -9675,7 +10195,35 @@ class NumericUpDown(ControlBase):
 class RichTextBox(TextBox):
     """
     Represents a RichTextBox control for displaying and editing formatted text.
+    
+    This control provides a multi-line text editor with support for:
+    - Formatted text (bold, italic, underline, colors)
+    - Selection properties (SelectionColor, SelectionFont, SelectionBold, etc.)
+    - Undo/Redo functionality
+    - Find and Replace
+    - LoadFile/SaveFile operations
+    - Colored text output via Write/WriteLine methods
+    - Zoom functionality
+    
+    Based on Windows Forms RichTextBox control.
+    
+    Example:
+        rtb = RichTextBox(form, {
+            'Dock': DockStyle.Fill,
+            'BackColor': '#FFFFFF',
+            'ForeColor': '#000000'
+        })
+        
+        # Format text via selection
+        rtb.SelectAll()
+        rtb.SelectionFont = Font('Arial', 12, FontStyle.Bold)
+        rtb.SelectionColor = '#0000FF'
+        
+        # Or use Write methods for colored output
+        rtb.WriteLine("Normal text")
+        rtb.WriteLine("Error!", '#FF0000')
     """
+    
     def __init__(self, master_form, props=None):
         defaults = {
             'DetectUrls': False,
@@ -9688,7 +10236,9 @@ class RichTextBox(TextBox):
             'BulletIndent': 0,
             'AutoWordSelection': False,
             'LanguageOption': 0,
-            'Multiline': True
+            'Multiline': True,
+            'MaxLines': 0,  # 0 = unlimited
+            'WordWrap': True
         }
         if props:
             defaults.update(props)
@@ -9815,24 +10365,109 @@ class RichTextBox(TextBox):
     @SelectionProtected.setter
     def SelectionProtected(self, value):
         pass
-
-    @property
-    def Rtf(self):
-        """Gets or sets the text in RTF format (Simplified: returns Text)."""
-        return self.Text
-
-    @Rtf.setter
-    def Rtf(self, value):
-        """Sets the text in RTF format (Simplified: sets Text)."""
-        self.Text = value
         
     @property
     def SelectedRtf(self):
-        return self.SelectedText
+        """
+        Gets the currently selected RTF text.
+        
+        Returns:
+            str: RTF formatted string of the selected text
+        """
+        try:
+            selected_text = self._tk_widget.get("sel.first", "sel.last")
+            if not selected_text:
+                return ""
+            
+            # Get colors for selected text
+            result = []
+            colors = set()
+            
+            pos = self._tk_widget.index("sel.first")
+            end_pos = self._tk_widget.index("sel.last")
+            
+            current_color = None
+            current_text = ""
+            
+            while self._tk_widget.compare(pos, "<", end_pos):
+                char = self._tk_widget.get(pos, f"{pos}+1c")
+                tags = self._tk_widget.tag_names(pos)
+                
+                char_color = None
+                for tag in reversed(tags):
+                    if tag == 'sel':
+                        continue
+                    fg = self._tk_widget.tag_cget(tag, 'foreground')
+                    if fg:
+                        char_color = fg
+                        if fg:
+                            colors.add(fg)
+                        break
+                
+                if char_color != current_color:
+                    if current_text:
+                        result.append((current_text, current_color))
+                    current_text = char
+                    current_color = char_color
+                else:
+                    current_text += char
+                
+                pos = f"{pos}+1c"
+            
+            if current_text:
+                result.append((current_text, current_color))
+            
+            # Generate RTF
+            rtf = r"{\rtf1\ansi\deff0"
+            color_list = list(colors)
+            if color_list:
+                rtf += r"{\colortbl;"
+                for color in color_list:
+                    r_val, g_val, b_val = self._hex_to_rgb(color)
+                    rtf += f"\\red{r_val}\\green{g_val}\\blue{b_val};"
+                rtf += "}"
+            
+            for text, color in result:
+                if color and color in color_list:
+                    color_idx = color_list.index(color) + 1
+                    rtf += f"\\cf{color_idx} "
+                else:
+                    rtf += "\\cf0 "
+                
+                text = text.replace("\\", "\\\\")
+                text = text.replace("{", "\\{")
+                text = text.replace("}", "\\}")
+                text = text.replace("\n", "\\par\n")
+                rtf += text
+            
+            rtf += "}"
+            return rtf
+        except tk.TclError:
+            return ""
 
     @SelectedRtf.setter
     def SelectedRtf(self, value):
-        self.SelectedText = value
+        """
+        Replaces the current selection with RTF formatted text.
+        
+        Args:
+            value: RTF formatted string to insert
+        """
+        import re
+        
+        # Parse RTF to plain text
+        text = value
+        text = re.sub(r'^\{\\rtf1[^}]*\}?', '', text)
+        text = re.sub(r'\}$', '', text)
+        text = re.sub(r'\{\\colortbl[^}]*\}', '', text)
+        text = re.sub(r'\\par\s*', '\n', text)
+        text = re.sub(r'\\[a-z]+\d*\s?', '', text)
+        text = text.replace('\\{', '{')
+        text = text.replace('\\}', '}')
+        text = text.replace('\\\\', '\\')
+        text = re.sub(r'[{}]', '', text)
+        
+        self.SelectedText = text.strip()
 
     @property
     def SelectedText(self):
@@ -9939,27 +10574,179 @@ class RichTextBox(TextBox):
         except tk.TclError:
             pass
 
-    def LoadFile(self, path, file_type="PlainText"):
-        with open(path, 'r') as f:
-            content = f.read()
-            self.Text = content
-            
-    def SaveFile(self, path, file_type="PlainText"):
-        with open(path, 'w') as f:
-            f.write(self.Text)
-            
-    def Find(self, text, start=0, end=-1, options=None):
-        start_idx = f"1.0+{start}c"
-        end_idx = "end" if end == -1 else f"1.0+{end}c"
+    def LoadFile(self, path, file_type=None):
+        """
+        Loads a file into the RichTextBox control.
         
-        pos = self._tk_widget.search(text, start_idx, stopindex=end_idx)
+        Args:
+            path: Path to the file to load
+            file_type: RichTextBoxStreamType or string indicating the format.
+                       Default is RichText for .rtf files, PlainText for others.
+        
+        Raises:
+            FileNotFoundError: If the file does not exist
+            IOError: If an error occurs reading the file
+        """
+        import os
+        
+        # Determine file type from extension if not specified
+        if file_type is None:
+            ext = os.path.splitext(path)[1].lower()
+            if ext == '.rtf':
+                file_type = RichTextBoxStreamType.RichText
+            else:
+                file_type = RichTextBoxStreamType.PlainText
+        
+        # Convert string to enum if needed
+        if isinstance(file_type, str):
+            file_type = RichTextBoxStreamType[file_type]
+        
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        if file_type == RichTextBoxStreamType.RichText or file_type == RichTextBoxStreamType.RichNoOleObjs:
+            self.Rtf = content
+        else:
+            self.Text = content
+    
+    def SaveFile(self, path, file_type=None):
+        """
+        Saves the contents of the RichTextBox to a file.
+        
+        Args:
+            path: Path to save the file
+            file_type: RichTextBoxStreamType or string indicating the format.
+                       Default is RichText for .rtf files, PlainText for others.
+        
+        Raises:
+            IOError: If an error occurs writing the file
+        """
+        import os
+        
+        # Determine file type from extension if not specified
+        if file_type is None:
+            ext = os.path.splitext(path)[1].lower()
+            if ext == '.rtf':
+                file_type = RichTextBoxStreamType.RichText
+            else:
+                file_type = RichTextBoxStreamType.PlainText
+        
+        # Convert string to enum if needed
+        if isinstance(file_type, str):
+            file_type = RichTextBoxStreamType[file_type]
+        
+        with open(path, 'w', encoding='utf-8') as f:
+            if file_type == RichTextBoxStreamType.RichText or file_type == RichTextBoxStreamType.RichNoOleObjs:
+                f.write(self.Rtf)
+            else:
+                f.write(self.Text)
+    
+    def Find(self, text, start=0, options=None):
+        """
+        Searches the text in a RichTextBox for a string.
+        
+        Args:
+            text: The text to locate in the control
+            start: Start position for the search (character index, 0-based)
+            options: RichTextBoxFinds flags or integer flags combined with |
+                     - RichTextBoxFinds.None_: Default search
+                     - RichTextBoxFinds.WholeWord: Match whole words only
+                     - RichTextBoxFinds.MatchCase: Match case  
+                     - RichTextBoxFinds.NoHighlight: Don't highlight found text
+                     - RichTextBoxFinds.Reverse: Search backwards
+        
+        Returns:
+            int: The character index of the first character in the located text,
+                 or -1 if not found
+        """
+        # Parse options
+        match_case = False
+        whole_word = False
+        no_highlight = False
+        reverse = False
+        
+        if options is not None:
+            if isinstance(options, RichTextBoxFinds):
+                options = options.value
+            if options & RichTextBoxFinds.MatchCase.value:
+                match_case = True
+            if options & RichTextBoxFinds.WholeWord.value:
+                whole_word = True
+            if options & RichTextBoxFinds.NoHighlight.value:
+                no_highlight = True
+            if options & RichTextBoxFinds.Reverse.value:
+                reverse = True
+        
+        start_idx = f"1.0+{start}c"
+        
+        if reverse:
+            pos = self._tk_widget.search(text, start_idx, stopindex="1.0", 
+                                         backwards=True, nocase=not match_case)
+        else:
+            pos = self._tk_widget.search(text, start_idx, stopindex="end", 
+                                         nocase=not match_case)
+        
         if pos:
-            end_pos = f"{pos}+{len(text)}c"
-            self.Select(self._index_to_offset(pos), len(text))
+            # Check whole word if required
+            if whole_word:
+                # Get character before and after
+                if self._tk_widget.compare(pos, ">", "1.0"):
+                    char_before = self._tk_widget.get(f"{pos}-1c", pos)
+                    if char_before.isalnum():
+                        # Not a word boundary - search again from next position
+                        return self.Find(text, self._index_to_offset(pos) + 1, options)
+                
+                end_pos = f"{pos}+{len(text)}c"
+                if self._tk_widget.compare(end_pos, "<", "end"):
+                    char_after = self._tk_widget.get(end_pos, f"{end_pos}+1c")
+                    if char_after.isalnum():
+                        return self.Find(text, self._index_to_offset(pos) + 1, options)
+            
+            if not no_highlight:
+                end_pos = f"{pos}+{len(text)}c"
+                self.Select(self._index_to_offset(pos), len(text))
+            
             return self._index_to_offset(pos)
+        
+        return -1
+    
+    def Find2(self, text, start, end, options=None):
+        """
+        Searches for text within a specific range.
+        
+        Args:
+            text: The text to locate in the control
+            start: Start position for the search
+            end: End position for the search (-1 for end of text)
+            options: RichTextBoxFinds flags
+        
+        Returns:
+            int: The character index of the first character in the located text,
+                 or -1 if not found
+        """
+        original_text = self.Text
+        if end == -1:
+            end = len(original_text)
+        
+        # Search within range only
+        search_text = original_text[start:end]
+        
+        match_case = False
+        if options and isinstance(options, RichTextBoxFinds):
+            options = options.value
+        if options and options & RichTextBoxFinds.MatchCase.value:
+            match_case = True
+        
+        if not match_case:
+            idx = search_text.lower().find(text.lower())
+        else:
+            idx = search_text.find(text)
+        
+        if idx >= 0:
+            return start + idx
         return -1
         
-    def CanPaste(self, format):
+    def CanPaste(self, format=None):
         return True
         
     def GetLineFromCharIndex(self, index):
@@ -10001,6 +10788,662 @@ class RichTextBox(TextBox):
             return self._tk_widget.count("1.0", index, "chars")[0]
         except:
             return 0
+    
+    # =========================================================================
+    # Write Methods (Console-style text output)
+    # =========================================================================
+    
+    def Write(self, text, color=None):
+        """
+        Write text at the current position or end without a newline.
+        
+        Args:
+            text: The text to write
+            color: Optional color for this text (e.g., '#FF0000')
+        """
+        if color:
+            # Create a unique tag for this color
+            tag_name = f'color_{self._tag_counter}'
+            self._tag_counter += 1
+            self._tk_widget.tag_configure(tag_name, foreground=color)
+            self._tk_widget.insert('end', text, tag_name)
+        else:
+            self._tk_widget.insert('end', text)
+        
+        self._tk_widget.see('end')
+        self._trim_lines()
+        self.TextChanged(self, EventArgs.Empty if hasattr(self, 'TextChanged') else None)
+    
+    def WriteLine(self, text='', color=None):
+        """
+        Write text with a newline at the end.
+        
+        Args:
+            text: The text to write
+            color: Optional color for this text
+        """
+        self.Write(text + '\n', color)
+    
+    def WriteError(self, text):
+        """Write error text in red."""
+        self.WriteLine(text, '#FF6B6B')
+    
+    def WriteWarning(self, text):
+        """Write warning text in yellow/orange."""
+        self.WriteLine(text, '#FFD93D')
+    
+    def WriteSuccess(self, text):
+        """Write success text in green."""
+        self.WriteLine(text, '#6BCB77')
+    
+    def WriteInfo(self, text):
+        """Write info text in blue."""
+        self.WriteLine(text, '#4D96FF')
+    
+    def AppendText(self, text, color=None):
+        """
+        Append text to the end of the document.
+        
+        Args:
+            text: The text to append
+            color: Optional color for the text
+        """
+        self.Write(text, color)
+    
+    def InsertText(self, index, text, color=None):
+        """
+        Insert text at the specified position.
+        
+        Args:
+            index: Character offset where to insert
+            text: The text to insert
+            color: Optional color for the text
+        """
+        pos = f"1.0+{index}c"
+        if color:
+            tag_name = f'color_{self._tag_counter}'
+            self._tag_counter += 1
+            self._tk_widget.tag_configure(tag_name, foreground=color)
+            self._tk_widget.insert(pos, text, tag_name)
+        else:
+            self._tk_widget.insert(pos, text)
+    
+    # =========================================================================
+    # Text Formatting Properties (Selection-based)
+    # =========================================================================
+    
+    @property
+    def SelectionBold(self):
+        """Gets whether the current selection is bold."""
+        font = self._get_tag_property("font")
+        if font:
+            return 'bold' in str(font).lower()
+        return False
+    
+    @SelectionBold.setter
+    def SelectionBold(self, value):
+        """Sets bold formatting on the current selection."""
+        if value:
+            self._apply_font_style('bold')
+        else:
+            self._remove_font_style('bold')
+    
+    @property
+    def SelectionItalic(self):
+        """Gets whether the current selection is italic."""
+        font = self._get_tag_property("font")
+        if font:
+            return 'italic' in str(font).lower()
+        return False
+    
+    @SelectionItalic.setter
+    def SelectionItalic(self, value):
+        """Sets italic formatting on the current selection."""
+        if value:
+            self._apply_font_style('italic')
+        else:
+            self._remove_font_style('italic')
+    
+    @property
+    def SelectionUnderline(self):
+        """Gets whether the current selection is underlined."""
+        underline = self._get_tag_property("underline")
+        return underline == '1' or underline == True
+    
+    @SelectionUnderline.setter
+    def SelectionUnderline(self, value):
+        """Sets underline formatting on the current selection."""
+        self._apply_tag_property("underline", value)
+    
+    @property
+    def SelectionStrikethrough(self):
+        """Gets whether the current selection has strikethrough."""
+        overstrike = self._get_tag_property("overstrike")
+        return overstrike == '1' or overstrike == True
+    
+    @SelectionStrikethrough.setter
+    def SelectionStrikethrough(self, value):
+        """Sets strikethrough formatting on the current selection."""
+        self._apply_tag_property("overstrike", value)
+    
+    def _apply_font_style(self, style):
+        """Apply a font style (bold, italic) to the selection."""
+        try:
+            current_font = self._tk_widget.tag_cget("sel", "font")
+            if not current_font:
+                current_font = self._tk_widget.cget("font")
+            
+            # Create new font with style
+            import tkinter.font as tkfont
+            try:
+                base_font = tkfont.Font(font=current_font)
+                if style == 'bold':
+                    base_font.configure(weight='bold')
+                elif style == 'italic':
+                    base_font.configure(slant='italic')
+                self._apply_tag_property("font", base_font)
+            except:
+                pass
+        except:
+            pass
+    
+    def _remove_font_style(self, style):
+        """Remove a font style from the selection."""
+        try:
+            current_font = self._tk_widget.tag_cget("sel", "font")
+            if not current_font:
+                current_font = self._tk_widget.cget("font")
+            
+            import tkinter.font as tkfont
+            try:
+                base_font = tkfont.Font(font=current_font)
+                if style == 'bold':
+                    base_font.configure(weight='normal')
+                elif style == 'italic':
+                    base_font.configure(slant='roman')
+                self._apply_tag_property("font", base_font)
+            except:
+                pass
+        except:
+            pass
+    
+    # =========================================================================
+    # Line and Character Properties
+    # =========================================================================
+    
+    @property
+    def Lines(self):
+        """Gets the text as an array of lines."""
+        return self.Text.split('\n')
+    
+    @Lines.setter
+    def Lines(self, value):
+        """Sets the text from an array of lines."""
+        self.Text = '\n'.join(value)
+    
+    @property
+    def LineCount(self):
+        """Gets the number of lines in the text."""
+        return int(self._tk_widget.index('end-1c').split('.')[0])
+    
+    @property
+    def TextLength(self):
+        """Gets the length of the text."""
+        return len(self.Text)
+    
+    @property
+    def MaxLines(self):
+        """Gets the maximum number of lines (0 = unlimited)."""
+        return getattr(self, '_max_lines', 0)
+    
+    @MaxLines.setter
+    def MaxLines(self, value):
+        """Sets the maximum number of lines."""
+        self._max_lines = value
+        self._trim_lines()
+    
+    def GetFirstCharIndexOfCurrentLine(self):
+        """Gets the character index of the first character of the current line."""
+        current_line = self._tk_widget.index("insert").split('.')[0]
+        return self._index_to_offset(f"{current_line}.0")
+    
+    def GetFirstCharIndexFromLine(self, line_number):
+        """Gets the character index of the first character of the specified line."""
+        return self._index_to_offset(f"{line_number + 1}.0")
+    
+    def GetCharIndexFromPosition(self, x, y):
+        """Gets the character index from pixel coordinates."""
+        index = self._tk_widget.index(f"@{x},{y}")
+        return self._index_to_offset(index)
+    
+    # =========================================================================
+    # Clipboard Operations
+    # =========================================================================
+    
+    def Cut(self):
+        """Cut the selected text to the clipboard."""
+        try:
+            self._tk_widget.event_generate('<<Cut>>')
+        except:
+            pass
+    
+    def Copy(self):
+        """Copy the selected text to the clipboard."""
+        try:
+            self._tk_widget.event_generate('<<Copy>>')
+        except:
+            pass
+    
+    def Paste(self):
+        """Paste text from the clipboard."""
+        try:
+            self._tk_widget.event_generate('<<Paste>>')
+        except:
+            pass
+    
+    def Delete(self):
+        """Delete the selected text."""
+        try:
+            self._tk_widget.delete("sel.first", "sel.last")
+        except tk.TclError:
+            pass
+    
+    # =========================================================================
+    # Navigation Methods
+    # =========================================================================
+    
+    def ScrollToCaret(self):
+        """Scroll to make the caret visible."""
+        self._tk_widget.see("insert")
+    
+    def ScrollToEnd(self):
+        """Scroll to the end of the text."""
+        self._tk_widget.see("end")
+    
+    def ScrollToStart(self):
+        """Scroll to the start of the text."""
+        self._tk_widget.see("1.0")
+    
+    def ScrollToLine(self, line_number):
+        """Scroll to make the specified line visible."""
+        self._tk_widget.see(f"{line_number + 1}.0")
+    
+    def GoToLine(self, line_number):
+        """Move the caret to the beginning of the specified line."""
+        self._tk_widget.mark_set("insert", f"{line_number + 1}.0")
+        self._tk_widget.see("insert")
+    
+    # =========================================================================
+    # Clear Methods
+    # =========================================================================
+    
+    def Clear(self):
+        """Clear all text from the control."""
+        self._tk_widget.delete("1.0", "end")
+    
+    def ClearUndo(self):
+        """Clear the undo buffer."""
+        try:
+            self._tk_widget.edit_reset()
+        except:
+            pass
+    
+    # =========================================================================
+    # Private Helper Methods
+    # =========================================================================
+    
+    def _trim_lines(self):
+        """Trim to MaxLines if exceeded."""
+        max_lines = getattr(self, '_max_lines', 0)
+        if max_lines <= 0:
+            return
+        
+        line_count = self.LineCount
+        if line_count > max_lines:
+            excess = line_count - max_lines
+            self._tk_widget.delete('1.0', f'{excess + 1}.0')
+    
+    # =========================================================================
+    # Find and Replace
+    # =========================================================================
+    
+    def FindAndReplace(self, find_text, replace_text, match_case=False, replace_all=False):
+        """
+        Find and replace text in the document.
+        
+        Args:
+            find_text: Text to find
+            replace_text: Text to replace with
+            match_case: Whether to match case
+            replace_all: Replace all occurrences or just the first
+            
+        Returns:
+            Number of replacements made
+        """
+        count = 0
+        nocase = not match_case
+        
+        if replace_all:
+            # Replace all occurrences
+            start = "1.0"
+            while True:
+                pos = self._tk_widget.search(find_text, start, stopindex="end", nocase=nocase)
+                if not pos:
+                    break
+                end_pos = f"{pos}+{len(find_text)}c"
+                self._tk_widget.delete(pos, end_pos)
+                self._tk_widget.insert(pos, replace_text)
+                start = f"{pos}+{len(replace_text)}c"
+                count += 1
+        else:
+            # Replace first occurrence from current position
+            pos = self._tk_widget.search(find_text, "insert", stopindex="end", nocase=nocase)
+            if pos:
+                end_pos = f"{pos}+{len(find_text)}c"
+                self._tk_widget.delete(pos, end_pos)
+                self._tk_widget.insert(pos, replace_text)
+                count = 1
+        
+        return count
+    
+    def FindNext(self, text, match_case=False, search_up=False):
+        """
+        Find the next occurrence of text.
+        
+        Args:
+            text: Text to find
+            match_case: Whether to match case
+            search_up: Search backwards
+            
+        Returns:
+            True if found, False otherwise
+        """
+        nocase = not match_case
+        
+        if search_up:
+            pos = self._tk_widget.search(text, "insert", stopindex="1.0", 
+                                         backwards=True, nocase=nocase)
+        else:
+            pos = self._tk_widget.search(text, "insert+1c", stopindex="end", nocase=nocase)
+        
+        if pos:
+            end_pos = f"{pos}+{len(text)}c"
+            self.Select(self._index_to_offset(pos), len(text))
+            return True
+        return False
+    
+    # =========================================================================
+    # Text Retrieval Methods (Windows Forms compatible)
+    # =========================================================================
+    
+    def GetCharFromPosition(self, pt):
+        """
+        Retrieves the character that is closest to the specified location.
+        
+        Args:
+            pt: A Point (tuple of x, y) representing the location to search
+        
+        Returns:
+            str: The character at the specified location, or empty string
+        """
+        x, y = pt if isinstance(pt, tuple) else (pt.X, pt.Y)
+        index = self._tk_widget.index(f"@{x},{y}")
+        try:
+            return self._tk_widget.get(index, f"{index}+1c")
+        except:
+            return ""
+    
+    # =========================================================================
+    # Extended Text Methods (WinFormPy Extensions)
+    # These methods extend the standard Windows Forms API for additional
+    # functionality needed in Python/Tkinter context.
+    # =========================================================================
+    
+    def GetTextRange(self, start, end):
+        """
+        Get text within a specific range.
+        
+        Args:
+            start: Start character offset (0-based)
+            end: End character offset (0-based)
+            
+        Returns:
+            str: Text within the specified range
+        """
+        start_idx = f"1.0+{start}c"
+        end_idx = f"1.0+{end}c"
+        return self._tk_widget.get(start_idx, end_idx)
+    
+    def GetLineText(self, line_number):
+        """
+        Get the text of a specific line.
+        
+        Args:
+            line_number: Line number (0-based)
+            
+        Returns:
+            str: Text of the specified line (without newline)
+        """
+        line_idx = line_number + 1
+        start = f"{line_idx}.0"
+        end = f"{line_idx}.end"
+        return self._tk_widget.get(start, end)
+    
+    def GetFormattedTextInfo(self):
+        """
+        Get text with formatting information.
+        
+        Returns a list of dictionaries, each containing:
+        - text: The text segment
+        - start: Start position
+        - end: End position  
+        - tags: List of tag names applied
+        - foreground: Foreground color (if any)
+        - background: Background color (if any)
+        - font: Font info (if any)
+        
+        Returns:
+            list: List of formatted text segments
+        """
+        result = []
+        text = self._tk_widget.get("1.0", "end-1c")
+        
+        # Get all tags
+        all_tags = self._tk_widget.tag_names()
+        
+        # Build tag ranges
+        tag_ranges = {}
+        for tag in all_tags:
+            if tag == 'sel':
+                continue
+            ranges = self._tk_widget.tag_ranges(tag)
+            if ranges:
+                tag_ranges[tag] = []
+                for i in range(0, len(ranges), 2):
+                    start = str(ranges[i])
+                    end = str(ranges[i + 1])
+                    tag_ranges[tag].append((start, end))
+        
+        # Build segments - simplified: return each character with its tags
+        # For efficiency, we group consecutive characters with same tags
+        current_pos = "1.0"
+        while self._tk_widget.compare(current_pos, "<", "end-1c"):
+            # Get tags at current position
+            tags_at_pos = list(self._tk_widget.tag_names(current_pos))
+            tags_at_pos = [t for t in tags_at_pos if t != 'sel']
+            
+            # Find extent of this tag combination
+            next_pos = f"{current_pos}+1c"
+            segment_text = self._tk_widget.get(current_pos, next_pos)
+            
+            # Get formatting info
+            segment = {
+                'text': segment_text,
+                'index': current_pos,
+                'tags': tags_at_pos
+            }
+            
+            # Get tag properties
+            for tag in tags_at_pos:
+                fg = self._tk_widget.tag_cget(tag, 'foreground')
+                bg = self._tk_widget.tag_cget(tag, 'background')
+                font = self._tk_widget.tag_cget(tag, 'font')
+                if fg:
+                    segment['foreground'] = fg
+                if bg:
+                    segment['background'] = bg
+                if font:
+                    segment['font'] = font
+            
+            result.append(segment)
+            current_pos = next_pos
+        
+        return result
+    
+    def GetTextWithColors(self):
+        """
+        Get text segments with their colors.
+        
+        Returns a list of tuples: (text, color) where color is the foreground color
+        or None for default colored text.
+        
+        Returns:
+            list: List of (text, color) tuples
+        """
+        result = []
+        current_color = None
+        current_text = ""
+        
+        pos = "1.0"
+        while self._tk_widget.compare(pos, "<", "end-1c"):
+            char = self._tk_widget.get(pos, f"{pos}+1c")
+            tags = self._tk_widget.tag_names(pos)
+            
+            # Find foreground color from tags
+            char_color = None
+            for tag in reversed(tags):
+                if tag == 'sel':
+                    continue
+                fg = self._tk_widget.tag_cget(tag, 'foreground')
+                if fg:
+                    char_color = fg
+                    break
+            
+            # If color changed, start new segment
+            if char_color != current_color:
+                if current_text:
+                    result.append((current_text, current_color))
+                current_text = char
+                current_color = char_color
+            else:
+                current_text += char
+            
+            pos = f"{pos}+1c"
+        
+        # Add final segment
+        if current_text:
+            result.append((current_text, current_color))
+        
+        return result
+    
+    def GenerateRtf(self):
+        """
+        Generate RTF format from the current content with formatting.
+        
+        Returns:
+            str: RTF formatted string
+        """
+        # RTF header
+        rtf = r"{\rtf1\ansi\deff0"
+        
+        # Build color table from used colors
+        colors = set()
+        segments = self.GetTextWithColors()
+        for text, color in segments:
+            if color:
+                colors.add(color)
+        
+        color_list = list(colors)
+        if color_list:
+            rtf += r"{\colortbl;"
+            for color in color_list:
+                r, g, b = self._hex_to_rgb(color)
+                rtf += f"\\red{r}\\green{g}\\blue{b};"
+            rtf += "}"
+        
+        # Add text with formatting
+        rtf += "\n"
+        for text, color in segments:
+            if color and color in color_list:
+                color_idx = color_list.index(color) + 1
+                rtf += f"\\cf{color_idx} "
+            else:
+                rtf += "\\cf0 "
+            
+            # Escape RTF special characters
+            text = text.replace("\\", "\\\\")
+            text = text.replace("{", "\\{")
+            text = text.replace("}", "\\}")
+            text = text.replace("\n", "\\par\n")
+            rtf += text
+        
+        rtf += "}"
+        return rtf
+    
+    def _hex_to_rgb(self, hex_color):
+        """Convert hex color to RGB tuple."""
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    
+    @property
+    def Rtf(self):
+        """
+        Gets the text in RTF format with color formatting.
+        
+        Note: This generates RTF from the Tkinter text widget's tags.
+        For plain text, use the Text property.
+        
+        Returns:
+            str: RTF formatted string
+        """
+        return self.GenerateRtf()
+
+    @Rtf.setter
+    def Rtf(self, value):
+        """
+        Sets the text from RTF format.
+        
+        Note: Basic RTF parsing - extracts plain text and attempts color restoration.
+        For full RTF support, consider using external libraries.
+        """
+        # Basic RTF parser - extract plain text
+        import re
+        
+        # Remove RTF commands, keep text
+        text = value
+        
+        # Remove RTF header/footer
+        text = re.sub(r'^\{\\rtf1[^}]*\}?', '', text)
+        text = re.sub(r'\}$', '', text)
+        
+        # Remove color table
+        text = re.sub(r'\{\\colortbl[^}]*\}', '', text)
+        
+        # Convert \par to newline
+        text = re.sub(r'\\par\s*', '\n', text)
+        
+        # Remove other RTF commands
+        text = re.sub(r'\\[a-z]+\d*\s?', '', text)
+        
+        # Unescape RTF special chars
+        text = text.replace('\\{', '{')
+        text = text.replace('\\}', '}')
+        text = text.replace('\\\\', '\\')
+        
+        # Remove remaining braces
+        text = re.sub(r'[{}]', '', text)
+        
+        self.Text = text.strip()
 
 
 class MaskedTextProvider:

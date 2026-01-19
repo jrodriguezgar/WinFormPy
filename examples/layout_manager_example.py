@@ -8,7 +8,6 @@ This example shows how to use LayoutManager with different distributions and ali
 import sys
 import os
 import importlib.util
-import tkinter as tk
 
 # Load winformpy.py from lib directory
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

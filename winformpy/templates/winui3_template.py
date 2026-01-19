@@ -25,8 +25,6 @@ from winformpy import (
 
 from winformpy_extended import WinUIToggleSwitch, WinUIExpander, ExtendedLabel, WinUITextBox, WinUIProgressBar
 
-import tkinter as tk # Necesario para configuraciones finas si es requerido
-
 # --- Design System (WinUI 3 Theme - Light Mode) ---
 # Colores extraídos de las guías de diseño de Windows 11
 

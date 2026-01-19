@@ -333,6 +333,10 @@ Pre-built, reusable UI components that can be embedded in your applications:
 | [WebBrowser](winformpy/ui_elements/web_browser/)               | Core web browser control using tkinterweb        |
 | [WebBrowserPanel](winformpy/ui_elements/web_browser/)          | WebBrowser with built-in navigation bar          |
 | [WebBrowserUI](winformpy/ui_elements/web_browser/)             | Modern multi-tab browser with global navigation  |
+| [WordProcessorPanel](winformpy/ui_elements/word_processor/)    | Rich text editor with formatting toolbar         |
+| [WordProcessorForm](winformpy/ui_elements/word_processor/)     | Complete word processor with menus               |
+| [ConsolePanel](winformpy/ui_elements/console/)                 | Console/terminal output panel                    |
+| [ChatPanel](winformpy/ui_elements/chat/)                       | Chat interface with message bubbles              |
 
 **Usage Example:**
 
@@ -486,6 +490,80 @@ A WinForms-style web browser suite based on **System.Windows.Forms.WebBrowser** 
 pip install tkinterweb
 ```
 
+##### Word Processor Components
+
+A complete word processor component with RTF support, following Windows Forms standards.
+
+| Component           | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| WordProcessorPanel  | Embeddable Panel with toolbar, editor, status bar   |
+| WordProcessorForm   | Full word processor application with menus          |
+
+**Features:**
+- **Formatting Toolbar**: Bold, Italic, Underline, Strikethrough
+- **Font Control**: Family and size selection
+- **Colors**: Text color and highlight color
+- **Alignment**: Left, Center, Right
+- **Find & Replace**: Search with RichTextBoxFinds options
+- **Status Bar**: Word count, character count, line/column position
+- **RTF Support**: Full RTF format read/write via `RichTextBoxStreamType`
+
+**WordProcessorPanel Properties:**
+
+| Property       | Type        | Description                        |
+| -------------- | ----------- | ---------------------------------- |
+| `Text`         | str         | Plain text content                 |
+| `Rtf`          | str         | RTF formatted content              |
+| `SelectedText` | str         | Selected plain text                |
+| `SelectedRtf`  | str         | Selected RTF text                  |
+| `FilePath`     | str         | Current file path                  |
+| `IsModified`   | bool        | Document modified state            |
+| `Editor`       | RichTextBox | Underlying editor control          |
+| `WordCount`    | int         | Word count                         |
+| `LineCount`    | int         | Line count                         |
+
+**Usage:**
+```python
+from winformpy.ui_elements.word_processor import WordProcessorPanel, WordProcessorForm
+from winformpy import RichTextBoxStreamType
+
+# Embeddable panel
+processor = WordProcessorPanel(form, {'Dock': DockStyle.Fill})
+processor.Open("document.rtf", RichTextBoxStreamType.RichText)
+processor.SaveAs("output.rtf", RichTextBoxStreamType.RichText)
+
+# Or full application
+app = WordProcessorForm()
+app.Show()
+```
+
+##### Console Components
+
+Console-style output panel for logging and terminal-like displays.
+
+| Component    | Description                              |
+| ------------ | ---------------------------------------- |
+| ConsolePanel | Terminal/console output with colors      |
+
+**Usage:**
+```python
+from winformpy.ui_elements.console import ConsolePanel
+
+console = ConsolePanel(form, {'Dock': DockStyle.Fill})
+console.WriteLine("Normal output")
+console.WriteError("Error message")
+console.WriteWarning("Warning message")
+console.WriteSuccess("Success!")
+```
+
+##### Chat Components
+
+Chat interface with message bubbles for chat applications.
+
+| Component | Description                              |
+| --------- | ---------------------------------------- |
+| ChatPanel | Chat interface with message bubbles      |
+
 #### System Classes
 
 | Class        | Description             |
@@ -502,25 +580,27 @@ pip install tkinterweb
 
 #### Enumerations
 
-| Enum                | Description           |
-| ------------------- | --------------------- |
-| AnchorStyles        | Control anchoring     |
-| AutoSizeMode        | AutoSize behavior     |
-| BorderStyle         | Border appearance     |
-| CheckState          | Checkbox state        |
-| ContentAlignment    | Content positioning   |
-| DockStyle           | Docking position      |
-| FlowDirection       | Flow layout direction |
-| FormBorderStyle     | Form border type      |
-| FormStartPosition   | Form initial position |
-| FormWindowState     | Window state          |
-| HorizontalAlignment | Horizontal alignment  |
-| Orientation         | Horizontal/vertical   |
-| PictureBoxSizeMode  | Image sizing mode     |
-| ScrollBars          | Scrollbar visibility  |
-| SelectionMode       | Selection behavior    |
-| TabAlignment        | Tab position          |
-| View                | ListView view mode    |
+| Enum                   | Description                              |
+| ---------------------- | ---------------------------------------- |
+| AnchorStyles           | Control anchoring                        |
+| AutoSizeMode           | AutoSize behavior                        |
+| BorderStyle            | Border appearance                        |
+| CheckState             | Checkbox state                           |
+| ContentAlignment       | Content positioning                      |
+| DockStyle              | Docking position                         |
+| FlowDirection          | Flow layout direction                    |
+| FormBorderStyle        | Form border type                         |
+| FormStartPosition      | Form initial position                    |
+| FormWindowState        | Window state                             |
+| HorizontalAlignment    | Horizontal alignment                     |
+| Orientation            | Horizontal/vertical                      |
+| PictureBoxSizeMode     | Image sizing mode                        |
+| RichTextBoxFinds       | Search options for RichTextBox.Find()    |
+| RichTextBoxStreamType  | File format for RichTextBox Load/Save    |
+| ScrollBars             | Scrollbar visibility                     |
+| SelectionMode          | Selection behavior                       |
+| TabAlignment           | Tab position                             |
+| View                   | ListView view mode                       |
 
 ---
 
@@ -620,6 +700,56 @@ textbox.Multiline = False
 textbox.PasswordChar = "*"
 textbox.TextChanged = lambda s, e: print(textbox.Text)
 ```
+
+### RichTextBox
+
+Enhanced rich text editor control following Windows Forms standards with full RTF support:
+
+```python
+from winformpy import RichTextBox, RichTextBoxStreamType, RichTextBoxFinds
+
+rtb = RichTextBox(form, {'Dock': DockStyle.Fill})
+
+# Text properties (Windows Forms standard)
+rtb.Text = "Plain text content"       # Plain text
+rtf_content = rtb.Rtf                  # Get RTF format
+rtb.Rtf = r"{\rtf1\ansi Hello}"        # Set from RTF
+
+# Selection properties
+rtb.SelectionBold = True
+rtb.SelectionItalic = True
+rtb.SelectionColor = '#FF0000'
+selected = rtb.SelectedText
+selected_rtf = rtb.SelectedRtf
+
+# Colored text output
+rtb.WriteLine("Normal text")
+rtb.WriteError("Error message")        # Red
+rtb.WriteWarning("Warning")            # Yellow
+rtb.WriteSuccess("Success!")           # Green
+rtb.WriteInfo("Information")           # Blue
+
+# File operations with RTF support
+rtb.LoadFile("document.rtf", RichTextBoxStreamType.RichText)
+rtb.SaveFile("output.rtf", RichTextBoxStreamType.RichText)
+
+# Search with options
+pos = rtb.Find("text", 0, RichTextBoxFinds.MatchCase | RichTextBoxFinds.WholeWord)
+```
+
+**RichTextBox Key Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Text` | str | Plain text content |
+| `Rtf` | str | RTF formatted content |
+| `SelectedText` | str | Selected plain text |
+| `SelectedRtf` | str | Selected RTF text |
+| `SelectionBold` | bool | Bold formatting |
+| `SelectionItalic` | bool | Italic formatting |
+| `SelectionColor` | str | Text color |
+| `Lines` | list | Text as line array |
+| `LineCount` | int | Number of lines |
 
 ### ComboBox
 

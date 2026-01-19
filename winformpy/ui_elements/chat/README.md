@@ -449,6 +449,42 @@ chat._show_status = True         # Show read receipts
 
 ---
 
+## 🔗 Rich Text Compatibility
+
+The `ChatPanel` uses WinFormPy's standard controls and can be extended to support rich text formatting in messages. For applications requiring rich text in chat messages:
+
+### Current Implementation
+- Messages are displayed as plain text in chat bubbles
+- The input area uses a standard `TextBox` for message composition
+
+### Integration with RichTextBox
+
+For rich text chat applications, consider using `RichTextBox` for the input area:
+
+```python
+from winformpy import RichTextBox, RichTextBoxFinds
+
+# In custom ChatPanel subclass
+class RichChatPanel(ChatPanel):
+    def _create_input_area(self):
+        # Override to use RichTextBox for input
+        self.txt_input = RichTextBox(self.input_container, {
+            'Dock': DockStyle.Fill
+        })
+```
+
+### Related Components
+
+| Component | Description |
+|-----------|-------------|
+| `RichTextBox` | Rich text editing with formatting support |
+| `WordProcessorPanel` | Full word processor with toolbar |
+| `ConsolePanel` | Console-style output with colored text |
+
+> **See Also**: For rich text editing capabilities, see `RichTextBox` with its `Write()`, `WriteLine()`, and formatting methods in the main WinFormPy documentation.
+
+---
+
 ## 🔗 Related Documentation
 
 - [Container Best Practices](../../../guides/README_Container_Best_Practice.md)
