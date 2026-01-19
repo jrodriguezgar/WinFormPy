@@ -67,9 +67,10 @@ class ChatBubble(Panel):
 
         # Configure text wrapping and calculate height
         req_height = 30  # Default height
+        # Note: Direct tkinter - WinFormPy Label doesn't have wraplength property yet
         if hasattr(self.lbl_text, '_tk_widget') and self.lbl_text._tk_widget:
             self.lbl_text._tk_widget.config(wraplength=bubble_width - 25, justify='left')
-            self.lbl_text._tk_widget.update_idletasks()
+            self.lbl_text.Refresh()
             req_height = self.lbl_text._tk_widget.winfo_reqheight()
         
         # Update bubble and container heights
@@ -84,15 +85,11 @@ class ChatBubble(Panel):
         """Override to ensure bubble stays positioned correctly after FlowLayout places us."""
         super()._place_control(width, height)
         
-        # Re-position the bubble after parent places us
+        # Re-position the bubble after parent places us using WinFormPy properties
         if hasattr(self, '_bubble_left') and hasattr(self, 'bubble') and self.bubble:
-            if hasattr(self.bubble, '_tk_widget') and self.bubble._tk_widget:
-                self.bubble._tk_widget.place(
-                    x=self._bubble_left, 
-                    y=5, 
-                    width=self._bubble_width, 
-                    height=self.bubble.Height
-                )
+            self.bubble.Left = self._bubble_left
+            self.bubble.Top = 5
+            self.bubble.Width = self._bubble_width
 
 
 class ChatPanel(Panel):
@@ -158,9 +155,8 @@ class ChatPanel(Panel):
             'BackColor': '#FFFFFF'
         })
         
-        # Bind Enter key for sending
-        if hasattr(self.txt_input, '_tk_widget') and self.txt_input._tk_widget:
-            self.txt_input._tk_widget.bind("<Return>", self._on_enter_pressed)
+        # Bind Enter key for sending using WinFormPy BindKey
+        self.txt_input.BindKey('Return', self._on_enter_pressed)
     
     def _create_messages_area(self):
         """Create the scrollable messages area using tkinter Canvas."""

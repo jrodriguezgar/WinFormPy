@@ -1,6 +1,5 @@
 import sys
 import os
-import tkinter as tk
 from datetime import datetime
 
 # Add project root to path for direct execution
@@ -9,7 +8,11 @@ _project_root = os.path.abspath(os.path.join(_current_dir, '..', '..', '..'))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from winformpy import Form, Application, Panel, Label, Button, TextBox, DockStyle, FlatStyle, Font, AnchorStyles
+from winformpy import (
+    Form, Application, Panel, Label, Button, TextBox, 
+    DockStyle, FlatStyle, Font, AnchorStyles,
+    ContextMenuStrip, MessageBox, SaveFileDialog, DialogResult
+)
 from winformpy.ui_elements.chat.chat_panel import ChatPanel
 
 
@@ -100,14 +103,17 @@ class ChatUI(Form):
             'BackColor': '#0078D4'
         })
         
-        # Avatar/Status indicator
-        if hasattr(self, '_root') and self._root:
-            self._header_canvas = tk.Canvas(self.header._tk_widget, bg='#0078D4', 
-                                            highlightthickness=0, width=40, height=40)
-            self._header_canvas.place(x=10, y=7)
-            # Draw online indicator
-            self._header_canvas.create_oval(5, 5, 35, 35, fill='#00CC66', outline='#00AA55', width=2)
-            self._header_canvas.create_text(20, 20, text="💬", font=('Segoe UI Emoji', 14))
+        # Avatar/Status indicator using Label with emoji
+        self.lbl_avatar = Label(self.header, {
+            'Text': '💬',
+            'Font': Font("Segoe UI Emoji", 18),
+            'ForeColor': '#00CC66',
+            'BackColor': '#0078D4',
+            'Left': 12,
+            'Top': 10,
+            'Width': 40,
+            'Height': 40
+        })
         
         # Title label
         self.lbl_title = Label(self.header, {
@@ -220,9 +226,8 @@ class ChatUI(Form):
             'Height': 20
         })
         
-        # Bind Enter key for search
-        if hasattr(self.txt_search, '_tk_widget') and self.txt_search._tk_widget:
-            self.txt_search._tk_widget.bind('<Return>', lambda e: self._do_search())
+        # Bind Enter key for search using WinFormPy BindKey
+        self.txt_search.BindKey('Return', lambda s, e: self._do_search())
     
     def _create_emoji_bar(self):
         """Create emoji quick-access bar above input."""
@@ -305,8 +310,7 @@ class ChatUI(Form):
     def _update_time(self):
         """Update footer time display."""
         self.lbl_time.Text = datetime.now().strftime("%H:%M")
-        if hasattr(self, '_root') and self._root:
-            self._root.after(60000, self._update_time)
+        self.InvokeAsync(self._update_time, 60000)
     
     def _position_header_buttons(self):
         """Position header buttons on the right side."""
@@ -343,8 +347,8 @@ class ChatUI(Form):
         """Toggle search bar visibility."""
         self._search_visible = not self._search_visible
         self.search_panel.Height = 45 if self._search_visible else 0
-        if self._search_visible and hasattr(self.txt_search, '_tk_widget'):
-            self.txt_search._tk_widget.focus_set()
+        if self._search_visible:
+            self.txt_search.Focus()
     
     def _toggle_emoji_bar(self, sender=None, e=None):
         """Toggle emoji bar visibility."""
@@ -355,8 +359,7 @@ class ChatUI(Form):
         """Insert emoji into input box."""
         current_text = self.chat_panel.txt_input.Text
         self.chat_panel.txt_input.Text = current_text + emoji
-        if hasattr(self.chat_panel.txt_input, '_tk_widget'):
-            self.chat_panel.txt_input._tk_widget.focus_set()
+        self.chat_panel.txt_input.Focus()
     
     def _do_search(self):
         """Perform search in messages."""
@@ -474,26 +477,20 @@ class ChatUI(Form):
         self._show_settings_menu(sender)
     
     def _show_settings_menu(self, sender):
-        """Show settings popup menu."""
-        if hasattr(self, '_root') and self._root:
-            menu = tk.Menu(self._root, tearoff=0)
-            
-            # Toggle options
-            menu.add_checkbutton(label="Show Avatars", 
-                                  command=lambda: self._toggle_setting('avatars'))
-            menu.add_checkbutton(label="Show Timestamps", 
-                                  command=lambda: self._toggle_setting('timestamps'))
-            menu.add_checkbutton(label="Show Read Status", 
-                                  command=lambda: self._toggle_setting('status'))
-            menu.add_separator()
-            menu.add_command(label="Export Chat...", command=self._export_chat_dialog)
-            menu.add_separator()
-            menu.add_command(label="About", command=self._show_about)
-            
-            # Position near the button
-            x = self.btn_settings.Left + self._root.winfo_x()
-            y = self.btn_settings.Top + self.header.Height + self._root.winfo_y() + 30
-            menu.tk_popup(x, y)
+        """Show settings popup menu using WinFormPy ContextMenuStrip."""
+        menu = ContextMenuStrip()
+        
+        # Toggle options
+        menu.Items.Add("Show Avatars", lambda s, e: self._toggle_setting('avatars'))
+        menu.Items.Add("Show Timestamps", lambda s, e: self._toggle_setting('timestamps'))
+        menu.Items.Add("Show Read Status", lambda s, e: self._toggle_setting('status'))
+        menu.Items.AddSeparator()
+        menu.Items.Add("Export Chat...", lambda s, e: self._export_chat_dialog())
+        menu.Items.AddSeparator()
+        menu.Items.Add("About", lambda s, e: self._show_about())
+        
+        # Show menu near the button
+        menu.Show(self.btn_settings, self.btn_settings.Left, self.btn_settings.Top + self.btn_settings.Height)
     
     def _toggle_setting(self, setting):
         """Toggle a display setting."""
@@ -506,42 +503,39 @@ class ChatUI(Form):
         self.lbl_status.Text = f'  {setting.title()} toggled'
     
     def _export_chat_dialog(self):
-        """Export chat to file."""
+        """Export chat to file using WinFormPy SaveFileDialog."""
         try:
-            from tkinter import filedialog
-            filename = filedialog.asksaveasfilename(
-                defaultextension=".txt",
-                filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
-            )
-            if filename:
-                with open(filename, 'w', encoding='utf-8') as f:
+            dialog = SaveFileDialog()
+            dialog.DefaultExt = ".txt"
+            dialog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
+            dialog.FileName = "chat_export.txt"
+            
+            if dialog.ShowDialog(self) == DialogResult.OK:
+                with open(dialog.FileName, 'w', encoding='utf-8') as f:
                     f.write(self.export_history())
-                self.lbl_status.Text = f'  Exported to {os.path.basename(filename)}'
+                self.lbl_status.Text = f'  Exported to {os.path.basename(dialog.FileName)}'
         except Exception as ex:
             self.lbl_status.Text = f'  Export failed: {str(ex)}'
     
     def _show_about(self):
-        """Show about dialog."""
-        if hasattr(self, '_root') and self._root:
-            from tkinter import messagebox
-            messagebox.showinfo(
-                "About ChatUI",
-                "WinFormPy ChatUI\n\n"
-                "A Messenger-style chat interface component.\n\n"
-                "Features:\n"
-                "• Message bubbles with avatars\n"
-                "• Timestamps and read status\n"
-                "• Typing indicator\n"
-                "• Emoji picker\n"
-                "• Search in conversation\n"
-                "• Context menu (right-click)\n"
-                "• Export chat history"
-            )
+        """Show about dialog using WinFormPy MessageBox."""
+        MessageBox.Show(
+            "WinFormPy ChatUI\n\n"
+            "A Messenger-style chat interface component.\n\n"
+            "Features:\n"
+            "• Message bubbles with avatars\n"
+            "• Timestamps and read status\n"
+            "• Typing indicator\n"
+            "• Emoji picker\n"
+            "• Search in conversation\n"
+            "• Context menu (right-click)\n"
+            "• Export chat history",
+            "About ChatUI"
+        )
     
     def after(self, ms, func):
         """Schedule a function to run after ms milliseconds."""
-        if hasattr(self, '_root') and self._root:
-            self._root.after(ms, func)
+        self.InvokeAsync(func, ms)
     
     # ===== Public API =====
     

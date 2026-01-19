@@ -497,9 +497,8 @@ class WebBrowserUI(Form):
         # Setup right-click context menu on tabs
         self._setup_tab_context_menu()
         
-        # Bind resize to update button positions
-        if hasattr(self, '_root') and self._root:
-            self._root.bind('<Configure>', lambda e: self._on_window_resize())
+        # Bind resize using WinFormPy Form event
+        self.Resize = lambda s, e: self._on_window_resize()
     
     def _create_tab_buttons(self):
         """Create floating buttons for tab management (+ and x) on the tab bar."""
@@ -589,12 +588,12 @@ class WebBrowserUI(Form):
         
         try:
             notebook = self._tab_control._tk_widget
-            # Get notebook width
-            notebook.update_idletasks()
+            # Refresh to get accurate dimensions
+            self._tab_control.Refresh()
             nb_width = notebook.winfo_width()
             
             # Place on the right side of the tab header area
-            # The frame needs to be placed using place() for absolute positioning
+            # Note: Direct tkinter - tk.Frame needs place() for positioning
             self._tab_buttons_frame.place(x=nb_width - 150, y=2, width=145, height=26)
         except Exception:
             pass

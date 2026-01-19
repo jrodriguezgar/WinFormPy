@@ -28,8 +28,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from winformpy import (
-    Form, Panel, Button, Label, TextBox, TabControl, TabPage,
-    TreeView, ListBox, AnchorStyles
+    Form, Panel, Button, Label, TextBox, RichTextBox, TabControl, TabPage,
+    TreeView, ListBox, AnchorStyles, RichTextBoxStreamType
 )
 
 
@@ -122,13 +122,14 @@ class DocumentTab:
             'BackColor': StudioColors.EDITOR_BG
         })
         
-        # Text editor (using TextBox as multiline)
-        self.editor = TextBox(self.editor_container, {
+        # Text editor (using RichTextBox for enhanced editing)
+        self.editor = RichTextBox(self.editor_container, {
             'Dock': 'Fill',
             'BackColor': StudioColors.EDITOR_BG,
             'ForeColor': StudioColors.EDITOR_TEXT,
             'Text': self._content,
-            'Multiline': True
+            'WordWrap': False,
+            'Font': ('Consolas', 11)
         })
         
         # Handle text changes (use *args to handle variable argument calls)
@@ -148,12 +149,46 @@ class DocumentTab:
     def Content(self, value):
         self.editor.Text = value
     
+    @property
+    def Rtf(self):
+        """Gets the content in RTF format."""
+        return self.editor.Rtf
+    
+    @Rtf.setter
+    def Rtf(self, value):
+        """Sets the content from RTF format."""
+        self.editor.Rtf = value
+    
     def save(self):
         """Mark the document as saved."""
         self.is_modified = False
         self.tab_page.Text = self._get_tab_title()
-
-
+    
+    def load_file(self, path, file_type=None):
+        """
+        Load content from a file using RichTextBox.LoadFile.
+        
+        Args:
+            path: Path to the file to load.
+            file_type: RichTextBoxStreamType or None for auto-detect.
+        """
+        self.editor.LoadFile(path, file_type)
+        self.title = os.path.basename(path)
+        self.tab_page.Text = self._get_tab_title()
+        self.is_modified = False
+    
+    def save_file(self, path, file_type=None):
+        """
+        Save content to a file using RichTextBox.SaveFile.
+        
+        Args:
+            path: Path to save the file.
+            file_type: RichTextBoxStreamType or None for auto-detect.
+        """
+        self.editor.SaveFile(path, file_type)
+        self.title = os.path.basename(path)
+        self.tab_page.Text = self._get_tab_title()
+        self.is_modified = False
 class StudioApp:
     """Main Studio Application with IDE style."""
     
