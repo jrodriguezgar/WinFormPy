@@ -719,6 +719,297 @@ grid.ShowToolbar = True   # Show
 grid.ShowPagination = False
 ```
 
+## Inline CRUD (Edit in Row)
+
+DataGridPanel supports inline CRUD operations, allowing users to create, edit, and delete records directly in the grid rows.
+
+### Enabling CRUD
+
+```python
+from winformpy.ui_elements.data_grid import DataGridPanel, DataGridManager, SelectionMode
+
+grid = DataGridPanel(form, props={
+    'Dock': DockStyle.Fill,
+    'AllowEdit': True,           # Enable inline editing
+    'AllowAdd': True,            # Show ➕ Add button in toolbar
+    'AllowDelete': True,         # Show 🗑️ delete button per row
+    'ShowActionColumn': True,    # Show Actions column with edit/delete buttons
+    'ActionColumnWidth': 80      # Width of actions column (default: 100)
+}, manager=manager)
+```
+
+### CRUD Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `AllowEdit` | `bool` | `False` | Enable inline editing (✏️ button per row) |
+| `AllowAdd` | `bool` | `False` | Show ➕ Add button in toolbar for new records |
+| `AllowDelete` | `bool` | `False` | Enable row deletion (🗑️ button per row) |
+| `ShowActionColumn` | `bool` | `False` | Show the Actions column with Edit/Delete buttons |
+| `ActionColumnWidth` | `int` | `100` | Width of the Actions column in pixels |
+
+### CRUD Events
+
+```python
+# Record created (after successful insert)
+grid.RecordCreated = lambda s, e: print(f"Created: {e['record']}")
+
+# Record updated (after successful update)
+grid.RecordUpdated = lambda s, e: print(f"Updated: {e['record']}")
+
+# Record deleted (after successful delete)
+grid.RecordDeleted = lambda s, e: print(f"Deleted: {e['record']}")
+
+# Edit started (row entered edit mode)
+grid.EditStarted = lambda s, e: print(f"Editing row {e['index']}")
+
+# Edit cancelled
+grid.EditCancelled = lambda s, e: print(f"Edit cancelled for row {e['index']}")
+```
+
+### CRUD Methods
+
+```python
+# Start editing a specific row
+grid.BeginEdit(index=2)      # Edit row at index 2
+grid.BeginEdit()             # Edit selected row
+
+# Start adding a new row
+grid.BeginAdd()              # Adds empty row in edit mode
+
+# Save current edit
+success = grid.SaveEdit()    # Returns True if saved successfully
+
+# Cancel current edit
+grid.CancelEdit()            # Restores original values
+
+# Delete a record
+grid.DeleteRecord(index=3)   # Delete row at index 3
+grid.DeleteRecord()          # Delete selected row
+
+# Check edit state
+if grid.IsEditing:
+    print(f"Currently editing row {grid.EditingRowIndex}")
+```
+
+### Visual Behavior
+
+When CRUD is enabled:
+
+1. **Normal Mode**:
+   - Each row shows ✏️ (edit) and 🗑️ (delete) buttons in the Actions column
+   - Toolbar shows ➕ button for adding new records
+
+2. **Edit Mode** (when editing a row):
+   - Cell values become editable TextBox/CheckBox widgets
+   - Actions column shows ✓ (save) and ✗ (cancel) buttons
+   - Row background changes to light yellow
+
+3. **Add Mode** (when adding new record):
+   - New row appears at the bottom with empty fields
+   - Each field shows placeholder text with column header
+   - Same ✓/✗ buttons for save/cancel
+
+### Implementing a CRUD Backend
+
+Your backend must implement CRUD methods:
+
+```python
+from winformpy.ui_elements.data_grid import DataGridBackend
+
+class MyCrudBackend(DataGridBackend):
+    def __init__(self, data):
+        self._data = data
+        self._next_id = max(r['id'] for r in data) + 1
+    
+    # Required: Indicate CRUD support
+    def supports_crud(self) -> bool:
+        return True
+    
+    # Required: Primary key field name
+    def get_primary_key(self) -> str:
+        return "id"
+    
+    # Create new record
+    def create_record(self, record: dict) -> dict:
+        new_record = record.copy()
+        new_record['id'] = self._next_id
+        self._next_id += 1
+        self._data.append(new_record)
+        return new_record
+    
+    # Update existing record
+    def update_record(self, pk_value, changes: dict) -> bool:
+        for i, r in enumerate(self._data):
+            if r['id'] == pk_value:
+                self._data[i].update(changes)
+                return True
+        return False
+    
+    # Delete record
+    def delete_record(self, pk_value) -> bool:
+        for i, r in enumerate(self._data):
+            if r['id'] == pk_value:
+                self._data.pop(i)
+                return True
+        return False
+    
+    # Optional: Validation before save
+    def validate_record(self, record: dict, is_new: bool = False) -> tuple:
+        if not record.get('name'):
+            return False, "Name is required"
+        return True, ""
+    
+    # ... also implement get_columns() and fetch_data()
+```
+
+### Complete CRUD Example
+
+```python
+from winformpy.winformpy import Form, DockStyle
+from winformpy.ui_elements.data_grid import (
+    DataGridPanel, DataGridManager, DataGridBackend,
+    ColumnDefinition, DataRequest, DataResponse, PageInfo, DataType, SortOrder
+)
+
+class ProductBackend(DataGridBackend):
+    """In-memory backend with CRUD support."""
+    
+    def __init__(self):
+        self._next_id = 4
+        self._data = [
+            {"id": 1, "name": "Laptop", "price": 999.99, "stock": 50},
+            {"id": 2, "name": "Mouse", "price": 29.99, "stock": 200},
+            {"id": 3, "name": "Keyboard", "price": 79.99, "stock": 150},
+        ]
+        self._columns = [
+            ColumnDefinition("id", "ID", DataType.INTEGER, width=60),
+            ColumnDefinition("name", "Product", DataType.STRING, width=180),
+            ColumnDefinition("price", "Price", DataType.CURRENCY, width=100),
+            ColumnDefinition("stock", "Stock", DataType.INTEGER, width=80),
+        ]
+    
+    def get_columns(self):
+        return self._columns
+    
+    def fetch_data(self, request: DataRequest) -> DataResponse:
+        # Simple fetch (add sorting/filtering as needed)
+        return DataResponse(
+            records=self._data.copy(),
+            page_info=PageInfo(1, len(self._data), len(self._data), 1)
+        )
+    
+    def supports_crud(self) -> bool:
+        return True
+    
+    def get_primary_key(self) -> str:
+        return "id"
+    
+    def create_record(self, record):
+        new_record = record.copy()
+        new_record["id"] = self._next_id
+        self._next_id += 1
+        # Convert types
+        new_record["price"] = float(new_record.get("price", 0))
+        new_record["stock"] = int(new_record.get("stock", 0))
+        self._data.append(new_record)
+        return new_record
+    
+    def update_record(self, pk_value, changes):
+        for i, r in enumerate(self._data):
+            if r["id"] == pk_value:
+                changes["price"] = float(changes.get("price", r["price"]))
+                changes["stock"] = int(changes.get("stock", r["stock"]))
+                self._data[i].update(changes)
+                return True
+        return False
+    
+    def delete_record(self, pk_value):
+        for i, r in enumerate(self._data):
+            if r["id"] == pk_value:
+                self._data.pop(i)
+                return True
+        return False
+
+
+# Create application
+form = Form({'Text': 'Product Inventory', 'Width': 800, 'Height': 500})
+form.ApplyLayout()
+
+backend = ProductBackend()
+manager = DataGridManager(backend)
+
+grid = DataGridPanel(form, props={
+    'Dock': DockStyle.Fill,
+    'AllowEdit': True,
+    'AllowAdd': True,
+    'AllowDelete': True,
+    'ShowActionColumn': True,
+    'ActionColumnWidth': 80
+}, manager=manager)
+
+# Event handlers
+grid.RecordCreated = lambda s, e: print(f"✅ Created: {e['record']['name']}")
+grid.RecordUpdated = lambda s, e: print(f"✅ Updated: {e['record']['name']}")
+grid.RecordDeleted = lambda s, e: print(f"🗑️ Deleted: {e['record']['name']}")
+
+manager.refresh()
+form.ShowDialog()
+```
+
+### Running the CRUD Demo
+
+```bash
+python winformpy/ui_elements/data_grid/data_grid_panel.py
+# Select option 2: CRUD Inline DataGrid
+```
+
+## Selection Modes
+
+Control how rows can be selected using the `SelectionMode` property:
+
+```python
+from winformpy.ui_elements.data_grid import DataGridPanel, SelectionMode
+
+# No selection allowed
+grid = DataGridPanel(form, props={
+    'SelectionMode': SelectionMode.NONE
+}, manager=manager)
+
+# Single row selection only (default behavior before multi-select)
+grid = DataGridPanel(form, props={
+    'SelectionMode': SelectionMode.SINGLE
+}, manager=manager)
+
+# Multiple selection with Ctrl+Click and Shift+Click (default)
+grid = DataGridPanel(form, props={
+    'SelectionMode': SelectionMode.MULTIPLE
+}, manager=manager)
+```
+
+### SelectionMode Values
+
+| Mode | Description |
+|------|-------------|
+| `NONE` | No selection - clicking rows only fires `RowClick` event |
+| `SINGLE` | Only one row can be selected at a time |
+| `MULTIPLE` | Multiple rows with Ctrl+Click (toggle) and Shift+Click (range) |
+
+### Selection Properties and Methods
+
+```python
+# Get selected records
+records = grid.selected_records      # List of record dictionaries
+indices = grid.selected_indices      # List of row indices
+record = grid.selected_record        # First selected record (convenience)
+
+# Selection methods
+grid.SelectAll()                     # Select all visible rows
+grid.ClearSelection()                # Clear all selections
+grid.SelectRecord(5)                 # Select row at index 5
+grid.ToggleRecordSelection(5)        # Toggle selection of row 5
+```
+
 ## File Structure
 
 ```

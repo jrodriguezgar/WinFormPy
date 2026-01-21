@@ -477,18 +477,24 @@ class RecordFormPanel(Panel):
         # If backend is connected, perform insert
         if self._backend:
             self._backend.insert(values)
+            print(f"✅ Record inserted: {values}")
     
     def _on_update_click(self, sender, e):
         """Handle Update button click."""
         values = self.get_values()
         
+        # Merge with original record to ensure primary key is included
+        record_to_update = self._record.copy() if self._record else {}
+        record_to_update.update(values)
+        
         # Fire events for manual handling (including legacy SaveClick)
-        self.UpdateClick(self, {'values': values})
-        self.SaveClick(self, {'values': values})
+        self.UpdateClick(self, {'values': record_to_update})
+        self.SaveClick(self, {'values': record_to_update})
         
         # If backend is connected, perform update
         if self._backend:
-            self._backend.update(values)
+            self._backend.update(record_to_update)
+            print(f"✅ Record updated: {record_to_update}")
     
     def _on_delete_click(self, sender, e):
         """Handle Delete button click."""
@@ -503,6 +509,7 @@ class RecordFormPanel(Panel):
         # If backend is connected, perform delete
         if self._backend:
             self._backend.delete(record_to_delete)
+            print(f"🗑️ Record deleted: {record_to_delete}")
     
     def _position_action_buttons(self):
         """Position action buttons based on panel width."""

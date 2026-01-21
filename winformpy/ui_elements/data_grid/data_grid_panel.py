@@ -167,6 +167,15 @@ class DataGridPanel(Panel):
         self._selection_mode = selection_mode
         self._show_row_checkboxes = props.pop('ShowRowCheckboxes', False)
         
+        # CRUD configuration
+        self._allow_edit = props.pop('AllowEdit', False)
+        self._allow_add = props.pop('AllowAdd', False)
+        self._allow_delete = props.pop('AllowDelete', False)
+        self._show_action_column = props.pop('ShowActionColumn', False)
+        self._action_column_width = props.pop('ActionColumnWidth', 100)
+        self._editing_row_index = None  # Index of row currently being edited
+        self._is_adding_row = False  # True if adding a new row
+        
         # Extract sub-properties before passing to parent
         self._toolbar_props = props.pop('Toolbar', {}) if props else {}
         self._header_props = props.pop('Header', {}) if props else {}
@@ -226,6 +235,13 @@ class DataGridPanel(Panel):
         self.SelectionChanged: Callable[[object, Dict], None] = lambda s, e: None
         self.DataLoaded: Callable[[object, Dict], None] = lambda s, e: None
         self.DataLoadError: Callable[[object, Dict], None] = lambda s, e: None
+        
+        # CRUD event handlers
+        self.RecordCreated: Callable[[object, Dict], None] = lambda s, e: None
+        self.RecordUpdated: Callable[[object, Dict], None] = lambda s, e: None
+        self.RecordDeleted: Callable[[object, Dict], None] = lambda s, e: None
+        self.EditStarted: Callable[[object, Dict], None] = lambda s, e: None
+        self.EditCancelled: Callable[[object, Dict], None] = lambda s, e: None
         
         # Action button events (for picker mode)
         self.OkClick: Callable[[object, Dict], None] = lambda s, e: None
@@ -315,9 +331,23 @@ class DataGridPanel(Panel):
         self._show_label = None
         self._page_size_box = None
         self._page_size_btn = None
+        self._add_btn = None
         
         # Track current X position for dynamic layout
         current_x = 10
+        
+        # Add button (for CRUD - placed first on left)
+        if self._allow_add:
+            self._add_btn = Button(self._toolbar, {
+                'Text': '➕',
+                'Left': current_x, 'Top': 12,
+                'Width': 32, 'Height': 28,
+                'Font': Font('Segoe UI', 12),
+                'BackColor': '#4CAF50',
+                'ForeColor': '#FFFFFF'
+            })
+            self._add_btn.Click = lambda s, e: self.BeginAdd()
+            current_x += 40
         
         # Search controls (ShowSearch controls icon, box, search button, and clear button)
         if self._show_search:
@@ -567,6 +597,19 @@ class DataGridPanel(Panel):
             
             self._column_headers.append(header)
             x += col.width
+        
+        # Add action column header if enabled
+        if self._show_action_column:
+            action_header = Label(self._header_panel, {
+                'Text': 'Actions',
+                'Left': x, 'Top': 0,
+                'Width': self._action_column_width,
+                'Height': self._header_height,
+                'Font': Font('Segoe UI', 10, FontStyle.Bold),
+                'ForeColor': self.COLORS['header_text'],
+                'BackColor': self.COLORS['header_bg']
+            })
+            self._column_headers.append(action_header)
     
     def _on_header_hover(self, header: Label, entering: bool):
         """Handle header hover effect."""
@@ -609,9 +652,14 @@ class DataGridPanel(Panel):
             if idx in self.manager.selected_indices:
                 bg_color = self.COLORS['row_selected']
             
+            # Calculate row width including action column if shown
+            row_width = sum(c.width for c in columns)
+            if self._show_action_column:
+                row_width += self._action_column_width
+            
             row_panel = Panel(self._rows_panel, {
                 'Left': 0, 'Top': y,
-                'Width': sum(c.width for c in columns),
+                'Width': row_width,
                 'Height': self._row_height,
                 'BackColor': bg_color
             })
@@ -642,6 +690,32 @@ class DataGridPanel(Panel):
                 widgets.append(cell)
                 x += col.width
             
+            # Add action buttons if enabled
+            action_buttons = []
+            if self._show_action_column:
+                btn_y = (self._row_height - 24) // 2
+                
+                if self._allow_edit:
+                    edit_btn = Button(row_panel, {
+                        'Text': '✏️',
+                        'Left': x + 5, 'Top': btn_y,
+                        'Width': 28, 'Height': 24,
+                        'Font': Font('Segoe UI', 9)
+                    })
+                    edit_btn.Click = lambda s, e, i=idx: self.BeginEdit(i)
+                    action_buttons.append(edit_btn)
+                    x += 30
+                
+                if self._allow_delete:
+                    delete_btn = Button(row_panel, {
+                        'Text': '🗑️',
+                        'Left': x + 5, 'Top': btn_y,
+                        'Width': 28, 'Height': 24,
+                        'Font': Font('Segoe UI', 9)
+                    })
+                    delete_btn.Click = lambda s, e, i=idx: self.DeleteRecord(i)
+                    action_buttons.append(delete_btn)
+            
             # Row events
             row_panel.MouseEnter = lambda s, e, rp=row_panel, i=idx: self._on_row_hover(rp, i, True)
             row_panel.MouseLeave = lambda s, e, rp=row_panel, i=idx: self._on_row_hover(rp, i, False)
@@ -658,6 +732,7 @@ class DataGridPanel(Panel):
             self._row_widgets.append({
                 'panel': row_panel,
                 'widgets': widgets,
+                'action_buttons': action_buttons,
                 'record': record,
                 'index': idx
             })
@@ -1034,6 +1109,419 @@ class DataGridPanel(Panel):
         self._detail_panel = panel
 
     # =========================================================================
+    # CRUD Properties and Methods
+    # =========================================================================
+    
+    @property
+    def AllowEdit(self) -> bool:
+        """Get whether inline editing is allowed."""
+        return self._allow_edit
+    
+    @AllowEdit.setter
+    def AllowEdit(self, value: bool):
+        """Set whether inline editing is allowed."""
+        self._allow_edit = value
+    
+    @property
+    def AllowAdd(self) -> bool:
+        """Get whether adding new rows is allowed."""
+        return self._allow_add
+    
+    @AllowAdd.setter
+    def AllowAdd(self, value: bool):
+        """Set whether adding new rows is allowed."""
+        self._allow_add = value
+    
+    @property
+    def AllowDelete(self) -> bool:
+        """Get whether deleting rows is allowed."""
+        return self._allow_delete
+    
+    @AllowDelete.setter
+    def AllowDelete(self, value: bool):
+        """Set whether deleting rows is allowed."""
+        self._allow_delete = value
+    
+    @property
+    def ShowActionColumn(self) -> bool:
+        """Get whether the action column (Edit/Save/Delete buttons) is shown."""
+        return self._show_action_column
+    
+    @ShowActionColumn.setter
+    def ShowActionColumn(self, value: bool):
+        """Set whether the action column is shown."""
+        if self._show_action_column == value:
+            return
+        self._show_action_column = value
+        self._rebuild_grid()
+    
+    @property
+    def IsEditing(self) -> bool:
+        """Check if a row is currently being edited."""
+        return self._editing_row_index is not None
+    
+    @property
+    def EditingRowIndex(self) -> Optional[int]:
+        """Get the index of the row currently being edited."""
+        return self._editing_row_index
+    
+    def BeginEdit(self, index: int = None):
+        """
+        Begin editing a row. If no index specified, edits the selected row.
+        
+        Args:
+            index: The row index to edit. If None, uses selected row.
+        """
+        if not self._allow_edit:
+            return
+        
+        if index is None:
+            indices = self.manager.selected_indices
+            if not indices:
+                return
+            index = indices[0]
+        
+        if index < 0 or index >= len(self.manager.records):
+            return
+        
+        # Cancel any current edit first
+        if self._editing_row_index is not None:
+            self.CancelEdit()
+        
+        self._editing_row_index = index
+        self._is_adding_row = False
+        record = self.manager.records[index]
+        
+        # Convert row to edit mode
+        self._convert_row_to_edit_mode(index)
+        
+        self.EditStarted(self, {'index': index, 'record': record})
+    
+    def BeginAdd(self):
+        """Begin adding a new row."""
+        if not self._allow_add:
+            return
+        
+        # Cancel any current edit first
+        if self._editing_row_index is not None:
+            self.CancelEdit()
+        
+        # Create empty record with default values
+        columns = self.manager.columns
+        new_record = {}
+        for col in columns:
+            if col.data_type.value in ('integer', 'float', 'currency', 'percentage'):
+                new_record[col.name] = 0
+            elif col.data_type.value == 'boolean':
+                new_record[col.name] = False
+            else:
+                new_record[col.name] = ''
+        
+        self._is_adding_row = True
+        self._editing_row_index = len(self.manager.records)  # New row at end
+        
+        # Add temporary row to UI
+        self._add_edit_row(new_record)
+        
+        self.EditStarted(self, {'index': self._editing_row_index, 'record': new_record, 'is_new': True})
+    
+    def SaveEdit(self) -> bool:
+        """
+        Save the current edit.
+        
+        Returns:
+            True if save was successful, False otherwise.
+        """
+        if self._editing_row_index is None:
+            return False
+        
+        # Get values from edit widgets
+        row_data = self._row_widgets[self._editing_row_index] if self._editing_row_index < len(self._row_widgets) else None
+        if not row_data or 'edit_widgets' not in row_data:
+            return False
+        
+        # Collect values from edit widgets
+        new_values = {}
+        columns = [c for c in self.manager.columns if c.visible]
+        edit_widgets = row_data.get('edit_widgets', [])
+        
+        for i, col in enumerate(columns):
+            if i < len(edit_widgets):
+                widget = edit_widgets[i]
+                # Check for CheckBox first (has both Text and Checked)
+                if hasattr(widget, 'Checked') and isinstance(widget, CheckBox):
+                    new_values[col.name] = widget.Checked
+                elif hasattr(widget, 'Text'):
+                    new_values[col.name] = widget.Text
+        
+        # Validate
+        backend = self.manager.backend
+        is_valid, error_msg = backend.validate_record(new_values, is_new=self._is_adding_row)
+        if not is_valid:
+            print(f"Validation error: {error_msg}")  # TODO: Show in UI
+            return False
+        
+        try:
+            if self._is_adding_row:
+                # Create new record
+                created = backend.create_record(new_values)
+                self._editing_row_index = None
+                self._is_adding_row = False
+                self.manager.refresh()
+                self.RecordCreated(self, {'record': created})
+            else:
+                # Update existing record
+                pk = backend.get_primary_key()
+                if pk:
+                    original = self.manager.records[self._editing_row_index]
+                    pk_value = original.get(pk)
+                    success = backend.update_record(pk_value, new_values)
+                    if success:
+                        self._editing_row_index = None
+                        self.manager.refresh()
+                        self.RecordUpdated(self, {'record': new_values})
+                    else:
+                        return False
+                else:
+                    # No primary key - just update in place
+                    self._editing_row_index = None
+                    self.manager.refresh()
+            return True
+        except Exception as e:
+            print(f"Save error: {e}")  # TODO: Show in UI
+            return False
+    
+    def CancelEdit(self):
+        """Cancel the current edit and restore original values."""
+        if self._editing_row_index is None:
+            return
+        
+        was_adding = self._is_adding_row
+        index = self._editing_row_index
+        
+        self._editing_row_index = None
+        self._is_adding_row = False
+        
+        # Rebuild rows to restore normal display
+        self._build_rows()
+        
+        self.EditCancelled(self, {'index': index, 'was_adding': was_adding})
+    
+    def DeleteRecord(self, index: int = None) -> bool:
+        """
+        Delete a record. If no index specified, deletes the selected row.
+        
+        Args:
+            index: The row index to delete. If None, uses selected row.
+            
+        Returns:
+            True if delete was successful, False otherwise.
+        """
+        if not self._allow_delete:
+            print("❌ Delete failed: AllowDelete is False")
+            return False
+        
+        if index is None:
+            indices = self.manager.selected_indices
+            if not indices:
+                print("❌ Delete failed: No row selected")
+                return False
+            index = indices[0]
+        
+        if index < 0 or index >= len(self.manager.records):
+            print(f"❌ Delete failed: Invalid index {index}")
+            return False
+        
+        backend = self.manager.backend
+        if not backend.supports_crud():
+            print("❌ Delete failed: Backend does not support CRUD")
+            return False
+        
+        try:
+            pk = backend.get_primary_key()
+            if pk:
+                record = self.manager.records[index]
+                pk_value = record.get(pk)
+                print(f"🗑️ Deleting record with {pk}={pk_value}...")
+                success = backend.delete_record(pk_value)
+                if success:
+                    self.manager.refresh()
+                    self.RecordDeleted(self, {'record': record})
+                    print(f"✅ Record deleted successfully")
+                    return True
+                else:
+                    print(f"❌ Delete failed: Backend returned False")
+            else:
+                print("❌ Delete failed: No primary key defined")
+            return False
+        except Exception as e:
+            print(f"Delete error: {e}")  # TODO: Show in UI
+            return False
+    
+    def _convert_row_to_edit_mode(self, index: int):
+        """Convert a row from display to edit mode."""
+        if index >= len(self._row_widgets):
+            return
+        
+        row_data = self._row_widgets[index]
+        row_panel = row_data['panel']
+        record = row_data['record']
+        columns = [c for c in self.manager.columns if c.visible]
+        
+        # Change background to indicate editing
+        row_panel.BackColor = '#FFF8E1'  # Light yellow for editing
+        
+        # Destroy existing cell widgets and action buttons
+        for widget in row_data.get('widgets', []):
+            if hasattr(widget, '_tk_widget') and widget._tk_widget:
+                widget._tk_widget.destroy()
+        for btn in row_data.get('action_buttons', []):
+            if hasattr(btn, '_tk_widget') and btn._tk_widget:
+                btn._tk_widget.destroy()
+        
+        # Create edit widgets
+        edit_widgets = []
+        x = 0
+        for col in columns:
+            value = record.get(col.name, '')
+            
+            if col.data_type == DataType.BOOLEAN:
+                # Use checkbox for boolean (no text label)
+                edit_widget = CheckBox(row_panel, {
+                    'Text': '',
+                    'Left': x + (col.width // 2) - 10, 'Top': (self._row_height - 20) // 2,
+                    'Width': 20,
+                    'Height': 20,
+                    'Checked': bool(value)
+                })
+            else:
+                # Use textbox for other types
+                edit_widget = TextBox(row_panel, {
+                    'Text': str(value) if value is not None else '',
+                    'Left': x + 2, 'Top': 3,
+                    'Width': col.width - 4,
+                    'Height': self._row_height - 6,
+                    'Font': Font('Segoe UI', 9)
+                })
+            
+            edit_widgets.append(edit_widget)
+            x += col.width
+        
+        # Add Save/Cancel buttons in action column area
+        edit_action_buttons = []
+        if self._show_action_column:
+            btn_y = (self._row_height - 24) // 2
+            
+            save_btn = Button(row_panel, {
+                'Text': '✓',
+                'Left': x + 5, 'Top': btn_y,
+                'Width': 28, 'Height': 24,
+                'Font': Font('Segoe UI', 10),
+                'BackColor': '#4CAF50',
+                'ForeColor': '#FFFFFF'
+            })
+            save_btn.Click = lambda s, e: self.SaveEdit()
+            edit_action_buttons.append(save_btn)
+            
+            cancel_btn = Button(row_panel, {
+                'Text': '✗',
+                'Left': x + 38, 'Top': btn_y,
+                'Width': 28, 'Height': 24,
+                'Font': Font('Segoe UI', 10),
+                'BackColor': '#F44336',
+                'ForeColor': '#FFFFFF'
+            })
+            cancel_btn.Click = lambda s, e: self.CancelEdit()
+            edit_action_buttons.append(cancel_btn)
+        
+        row_data['edit_widgets'] = edit_widgets
+        row_data['edit_action_buttons'] = edit_action_buttons
+        row_data['widgets'] = []  # Clear display widgets
+        row_data['action_buttons'] = []  # Clear normal action buttons
+    
+    def _add_edit_row(self, record: Dict):
+        """Add a new row in edit mode for adding a new record."""
+        columns = [c for c in self.manager.columns if c.visible]
+        y = len(self._row_widgets) * self._row_height
+        
+        # Calculate row width including action column
+        row_width = sum(c.width for c in columns)
+        if self._show_action_column:
+            row_width += self._action_column_width
+        
+        row_panel = Panel(self._rows_panel, {
+            'Left': 0, 'Top': y,
+            'Width': row_width,
+            'Height': self._row_height,
+            'BackColor': '#FFFDE7'  # Light yellow for new row
+        })
+        
+        # Create edit widgets
+        edit_widgets = []
+        x = 0
+        for col in columns:
+            value = record.get(col.name, '')
+            
+            if col.data_type == DataType.BOOLEAN:
+                # Checkbox sin texto
+                edit_widget = CheckBox(row_panel, {
+                    'Text': '',
+                    'Left': x + (col.width // 2) - 10, 'Top': (self._row_height - 20) // 2,
+                    'Width': 20,
+                    'Height': 20,
+                    'Checked': bool(value)
+                })
+            else:
+                edit_widget = TextBox(row_panel, {
+                    'Text': str(value) if value is not None else '',
+                    'Left': x + 2, 'Top': 3,
+                    'Width': col.width - 4,
+                    'Height': self._row_height - 6,
+                    'Font': Font('Segoe UI', 9),
+                    'PlaceholderText': col.header
+                })
+            
+            edit_widgets.append(edit_widget)
+            x += col.width
+        
+        # Add Save/Cancel buttons for new row
+        edit_action_buttons = []
+        if self._show_action_column:
+            btn_y = (self._row_height - 24) // 2
+            
+            save_btn = Button(row_panel, {
+                'Text': '✓',
+                'Left': x + 5, 'Top': btn_y,
+                'Width': 28, 'Height': 24,
+                'Font': Font('Segoe UI', 10),
+                'BackColor': '#4CAF50',
+                'ForeColor': '#FFFFFF'
+            })
+            save_btn.Click = lambda s, e: self.SaveEdit()
+            edit_action_buttons.append(save_btn)
+            
+            cancel_btn = Button(row_panel, {
+                'Text': '✗',
+                'Left': x + 38, 'Top': btn_y,
+                'Width': 28, 'Height': 24,
+                'Font': Font('Segoe UI', 10),
+                'BackColor': '#F44336',
+                'ForeColor': '#FFFFFF'
+            })
+            cancel_btn.Click = lambda s, e: self.CancelEdit()
+            edit_action_buttons.append(cancel_btn)
+        
+        self._row_widgets.append({
+            'panel': row_panel,
+            'widgets': [],
+            'edit_widgets': edit_widgets,
+            'edit_action_buttons': edit_action_buttons,
+            'action_buttons': [],
+            'record': record,
+            'index': len(self._row_widgets)
+        })
+
+    # =========================================================================
     # Column Visibility Methods
     # =========================================================================
     
@@ -1389,5 +1877,182 @@ if __name__ == "__main__":
         # Run application
         form.ShowDialog()
     
-    # Run the demo
-    demo_basic()
+    # =========================================================================
+    # Demo 2: CRUD Inline DataGrid
+    # =========================================================================
+    class CrudDemoBackend(DataGridBackend):
+        """Demo backend that supports CRUD operations."""
+        
+        def __init__(self):
+            """Initialize with some sample products."""
+            self._next_id = 6
+            self._data = [
+                {"id": 1, "name": "Laptop", "category": "Electronics", "price": 999.99, "stock": 50, "active": True},
+                {"id": 2, "name": "Mouse", "category": "Electronics", "price": 29.99, "stock": 200, "active": True},
+                {"id": 3, "name": "Keyboard", "category": "Electronics", "price": 79.99, "stock": 150, "active": True},
+                {"id": 4, "name": "Monitor", "category": "Electronics", "price": 349.99, "stock": 75, "active": True},
+                {"id": 5, "name": "Headphones", "category": "Audio", "price": 149.99, "stock": 100, "active": False},
+            ]
+            self._columns = [
+                ColumnDefinition("id", "ID", DataType.INTEGER, width=60, align="right"),
+                ColumnDefinition("name", "Product Name", DataType.STRING, width=180),
+                ColumnDefinition("category", "Category", DataType.STRING, width=120),
+                ColumnDefinition("price", "Price", DataType.CURRENCY, width=100, align="right"),
+                ColumnDefinition("stock", "Stock", DataType.INTEGER, width=80, align="right"),
+                ColumnDefinition("active", "Active", DataType.BOOLEAN, width=70, align="center"),
+            ]
+        
+        def get_columns(self) -> List[ColumnDefinition]:
+            return self._columns
+        
+        def fetch_data(self, request: DataRequest) -> DataResponse:
+            filtered = self._data.copy()
+            
+            # Apply search
+            if request.search_text:
+                search_lower = request.search_text.lower()
+                filtered = [r for r in filtered 
+                           if search_lower in r.get("name", "").lower() or
+                              search_lower in r.get("category", "").lower()]
+            
+            # Apply sorting
+            if request.sort_column and request.sort_order != SortOrder.NONE:
+                reverse = request.sort_order == SortOrder.DESCENDING
+                filtered.sort(key=lambda x: (x.get(request.sort_column) is None, 
+                                            x.get(request.sort_column)), reverse=reverse)
+            
+            total = len(filtered)
+            total_pages = max(1, (total + request.page_size - 1) // request.page_size)
+            current_page = min(request.page, total_pages)
+            start = (current_page - 1) * request.page_size
+            end = start + request.page_size
+            
+            return DataResponse(
+                records=filtered[start:end],
+                page_info=PageInfo(current_page=current_page, page_size=request.page_size,
+                                  total_records=total, total_pages=total_pages),
+                columns=self._columns
+            )
+        
+        # CRUD Methods
+        def supports_crud(self) -> bool:
+            return True
+        
+        def get_primary_key(self) -> str:
+            return "id"
+        
+        def create_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
+            new_record = record.copy()
+            new_record["id"] = self._next_id
+            self._next_id += 1
+            # Convert types
+            if "price" in new_record:
+                try:
+                    new_record["price"] = float(new_record["price"])
+                except: new_record["price"] = 0.0
+            if "stock" in new_record:
+                try:
+                    new_record["stock"] = int(new_record["stock"])
+                except: new_record["stock"] = 0
+            self._data.append(new_record)
+            print(f"✅ Created: {new_record}")
+            return new_record
+        
+        def update_record(self, primary_key_value: Any, changes: Dict[str, Any]) -> bool:
+            for i, record in enumerate(self._data):
+                if record.get("id") == primary_key_value:
+                    # Convert types
+                    if "price" in changes:
+                        try:
+                            changes["price"] = float(changes["price"])
+                        except: changes["price"] = record.get("price", 0.0)
+                    if "stock" in changes:
+                        try:
+                            changes["stock"] = int(changes["stock"])
+                        except: changes["stock"] = record.get("stock", 0)
+                    self._data[i].update(changes)
+                    print(f"✅ Updated ID {primary_key_value}: {changes}")
+                    return True
+            return False
+        
+        def delete_record(self, primary_key_value: Any) -> bool:
+            for i, record in enumerate(self._data):
+                if record.get("id") == primary_key_value:
+                    deleted = self._data.pop(i)
+                    print(f"🗑️ Deleted: {deleted.get('name')} (ID: {primary_key_value})")
+                    return True
+            return False
+        
+        def validate_record(self, record: Dict[str, Any], is_new: bool = False) -> tuple:
+            if not record.get("name"):
+                return False, "Product name is required"
+            if not record.get("category"):
+                return False, "Category is required"
+            return True, ""
+    
+    def demo_crud():
+        """CRUD Inline DataGrid demo."""
+        form = Form()
+        form.Text = "DataGrid CRUD Demo - Product Inventory"
+        form.Width = 900
+        form.Height = 500
+        form.StartPosition = 'CenterScreen'
+        form.ApplyLayout()
+        
+        # Create CRUD-enabled backend
+        backend = CrudDemoBackend()
+        manager = DataGridManager(backend)
+        
+        # Create data grid with CRUD enabled
+        grid = DataGridPanel(form, props={
+            'Dock': DockStyle.Fill,
+            'AllowEdit': True,
+            'AllowAdd': True,
+            'AllowDelete': True,
+            'ShowActionColumn': True,
+            'ActionColumnWidth': 80
+        }, manager=manager)
+        
+        # CRUD Event handlers
+        grid.RecordCreated = lambda s, e: print(f"Event: RecordCreated - {e.get('record', {}).get('name')}")
+        grid.RecordUpdated = lambda s, e: print(f"Event: RecordUpdated - {e.get('record', {}).get('name')}")
+        grid.RecordDeleted = lambda s, e: print(f"Event: RecordDeleted - {e.get('record', {}).get('name')}")
+        grid.EditStarted = lambda s, e: print(f"Event: EditStarted - Row {e.get('index')}")
+        grid.EditCancelled = lambda s, e: print(f"Event: EditCancelled - Row {e.get('index')}")
+        
+        # Load data
+        manager.refresh()
+        
+        # Instructions
+        print("=" * 60)
+        print("DataGrid CRUD Demo - Product Inventory")
+        print("=" * 60)
+        print("\nCRUD Features:")
+        print("  - Click ➕ Add button to add a new product")
+        print("  - Click ✏️ (edit) to edit a row inline")
+        print("  - Click 🗑️ (delete) to delete a row")
+        print("  - When editing: ✓ to save, ✗ to cancel")
+        print("=" * 60)
+        
+        form.ShowDialog()
+    
+    # Menu to choose demo
+    def main():
+        print("\n" + "=" * 50)
+        print("DataGridPanel Demos")
+        print("=" * 50)
+        print("1. Basic DataGrid with events")
+        print("2. CRUD Inline DataGrid")
+        print("=" * 50)
+        
+        choice = input("Select demo (1-2): ").strip()
+        
+        if choice == "1":
+            demo_basic()
+        elif choice == "2":
+            demo_crud()
+        else:
+            print("Invalid choice. Running basic demo...")
+            demo_basic()
+    
+    main()
