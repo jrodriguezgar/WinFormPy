@@ -1,4 +1,4 @@
-# WinFormPy
+﻿# WinFormPy
 
 **A comprehensive Python library that maps Windows Forms/VB syntax and objects to Tkinter**
 
@@ -28,7 +28,9 @@
 
 ## Overview
 
-WinFormPy is a complete library designed to help developers familiar with Windows Forms (VB6/VB.NET) transition their applications to Python using Tkinter. It provides a familiar API that closely mimics Windows Forms controls, properties, events, and behaviors.
+Following Windows Forms object model, WinFormPy is built on the principle of simplicity and encapsulation. The framework leverages its established user base and provides an intuitive way to encapsulate and manage visual object logic, making GUI development straightforward and maintainable.
+
+Additionally, WinFormPy is a complete library to help developers familiar with Windows Forms (VB6/VB.NET) transition their applications to Python using Tkinter. It provides a familiar API that closely mimics Windows Forms controls, properties, events, and behaviors.
 
 ---
 
@@ -47,15 +49,15 @@ WinFormPy is a complete library designed to help developers familiar with Window
 
 ### Modules
 
-| Module                 | Description                                     |
-| ---------------------- | ----------------------------------------------- |
-| `winformpy`          | Core Windows Forms controls and dialogs         |
-| `winformpy_extended` | Extended controls                               |
-| `winformpy_tools`    | Helper tools and utilities                      |
+| Module                 | Description                                                |
+| ---------------------- | ---------------------------------------------------------- |
+| `winformpy`          | Core Windows Forms controls and dialogs                    |
+| `winformpy_extended` | Extended controls                                          |
+| `winformpy_tools`    | Helper tools and utilities                                 |
 | `ui_elements`        | Pre-built, high-level components (WebBrowser, DB Managers) |
-| `templates`           | Full application boilerplates (WinUI 3, Modern Dashboard) |
-| `mauipy`             | MAUI-style architecture (Shell, Pages, Layouts) |
-| `mdipy`              | Multiple Document Interface (MDI) support       |
+| `templates`          | Full application boilerplates (WinUI 3, Modern Dashboard)  |
+| `mauipy`             | MAUI-style architecture (Shell, Pages, Layouts)            |
+| `mdipy`              | Multiple Document Interface (MDI) support                  |
 
 ---
 
@@ -125,6 +127,7 @@ if __name__ == "__main__":
 ## Event Handling
 
 WinFormPy follows the standard .NET/Windows Forms event pattern. All event handlers receive two parameters:
+
 1. `sender`: The object that raised the event.
 2. `e`: An `EventArgs` object containing event data.
 
@@ -148,7 +151,7 @@ The `EventArgs` object provides properties that map to the underlying event deta
 def on_form_click(self, sender, e):
     # e.X and e.Y are relative to the control
     print(f"Mouse clicked at: {e.X}, {e.Y}")
-    
+  
     # Check for modifiers
     if e.Control:
         print("Control key was pressed")
@@ -156,15 +159,15 @@ def on_form_click(self, sender, e):
 
 ### Event Arguments Properties
 
-| Property | Description |
-| --- | --- |
-| `X`, `Y` | Mouse coordinates relative to the sender |
-| `Button` | Mouse button number (1=Left, 2=Middle, 3=Right) |
-| `KeyChar` | The character correspond to the key press |
-| `KeyCode` | The Tkinter keysym string (e.g. 'Return', 'Escape') |
-| `Shift`, `Control`, `Alt` | Boolean flags for modifier keys |
-| `Data` | Extra data for complex controls (e.g. `NewIndex` in TabControl) |
-| `Cancel` | Used in events like `FormClosing` to prevent the action |
+| Property                        | Description                                                      |
+| ------------------------------- | ---------------------------------------------------------------- |
+| `X`, `Y`                    | Mouse coordinates relative to the sender                         |
+| `Button`                      | Mouse button number (1=Left, 2=Middle, 3=Right)                  |
+| `KeyChar`                     | The character correspond to the key press                        |
+| `KeyCode`                     | The Tkinter keysym string (e.g. 'Return', 'Escape')              |
+| `Shift`, `Control`, `Alt` | Boolean flags for modifier keys                                  |
+| `Data`                        | Extra data for complex controls (e.g.`NewIndex` in TabControl) |
+| `Cancel`                      | Used in events like `FormClosing` to prevent the action        |
 
 ---
 
@@ -274,14 +277,14 @@ def on_form_click(self, sender, e):
 
 #### Utilities
 
-| Utility              | Description              |
-| -------------------- | ------------------------ |
-| [Timer](#timer)         | Interval-based events    |
-| [ToolTip](#tooltip)     | Hover tooltips           |
-| [ImageList](#imagelist) | Image collection         |
-| [Screen](#screen)       | Screen information       |
-| [Clipboard](#clipboard) | System clipboard access  |
-| [Application](#application) | Application lifecycle |
+| Utility                  | Description             |
+| ------------------------ | ----------------------- |
+| [Timer](#timer)             | Interval-based events   |
+| [ToolTip](#tooltip)         | Hover tooltips          |
+| [ImageList](#imagelist)     | Image collection        |
+| [Screen](#screen)           | Screen information      |
+| [Clipboard](#clipboard)     | System clipboard access |
+| [Application](#application) | Application lifecycle   |
 
 #### Extended Controls (`winformpy_extended`)
 
@@ -323,48 +326,106 @@ MAUI-style components provide a modern approach to building cross-platform-like 
 
 #### UI Elements (`ui_elements`)
 
-Pre-built, reusable UI components that can be embedded in your applications:
+Pre-built, **architecture-agnostic** UI components that can be embedded in your applications. All components that require external operations (storage, API calls, etc.) delegate to **external backends** provided by you, keeping the UI layer completely decoupled from specific implementations.
 
-| Component                                                      | Description                                      |
-| -------------------------------------------------------------- | ------------------------------------------------ |
-| [DBConnectionManager](winformpy/ui_elements/db_connection/)    | Database connection management service layer     |
-| [DBConnectionUI](winformpy/ui_elements/db_connection/)         | Standalone Form for managing DB connections      |
-| [DBConnectionPanel](winformpy/ui_elements/db_connection/)      | Embeddable Panel for DB connection management    |
-| [WebBrowser](winformpy/ui_elements/web_browser/)               | Core web browser control using tkinterweb        |
-| [WebBrowserPanel](winformpy/ui_elements/web_browser/)          | WebBrowser with built-in navigation bar          |
-| [WebBrowserUI](winformpy/ui_elements/web_browser/)             | Modern multi-tab browser with global navigation  |
-| [WordProcessorPanel](winformpy/ui_elements/word_processor/)    | Rich text editor with formatting toolbar         |
-| [WordProcessorForm](winformpy/ui_elements/word_processor/)     | Complete word processor with menus               |
-| [ConsolePanel](winformpy/ui_elements/console/)                 | Console/terminal output panel                    |
-| [ChatPanel](winformpy/ui_elements/chat/)                       | Chat interface with message bubbles              |
+> ⚠️ **Important**: Backend implementations are **NOT part of WinFormPy**. You must provide your own storage, API, or service implementations.
+
+| Component                                                | Description                                   | Backend Required     |
+| -------------------------------------------------------- | --------------------------------------------- | -------------------- |
+| [ChatPanel](winformpy/ui_elements/chat/)                    | Chat interface with message bubbles           | `ChatBackend`      |
+| [ConsolePanel](winformpy/ui_elements/console/)              | Console/terminal with pluggable I/O           | `ConsoleIOBackend` |
+| [DataGridPanel](winformpy/ui_elements/data_grid/)           | Tabular data with pagination, sorting, search | `DataGridBackend`  |
+| [DBConnectionManager](winformpy/ui_elements/db_connection/) | Database connection management service layer  | `StorageBackend`   |
+| [DBConnectionUI](winformpy/ui_elements/db_connection/)      | Standalone Form for managing DB connections   | `StorageBackend`   |
+| [DBConnectionPanel](winformpy/ui_elements/db_connection/)   | Embeddable Panel for DB connection management | `StorageBackend`   |
+| [EmailPanel](winformpy/ui_elements/email_client/)           | Email client interface                        | `EmailBackend`     |
+| [LoginPanel](winformpy/ui_elements/login/)                  | Authentication with password change           | `LoginBackend`     |
+| [WebBrowser](winformpy/ui_elements/web_browser/)            | Core web browser control using tkinterweb     | None                 |
+| [WebBrowserPanel](winformpy/ui_elements/web_browser/)       | WebBrowser with built-in navigation bar       | None                 |
+| [WordProcessorPanel](winformpy/ui_elements/word_processor/) | Rich text editor with formatting toolbar      | None                 |
+
+Each UI Element module includes:
+
+- **Panel**: Embeddable component (`*Panel`)
+- **Manager**: Service layer coordinating UI and backend (`*Manager`)
+- **Backend**: Abstract base class for your implementation (`*Backend`)
+- **Built-in demo**: Run the module directly to see it in action
+
+**Running Built-in Demos:**
+
+Each UI Element has self-contained demos you can run directly:
+
+```bash
+# Data Grid demos
+python winformpy/ui_elements/data_grid/data_grid_panel.py   # Embeddable panel demo
+python winformpy/ui_elements/data_grid/data_grid_ui.py      # Standalone form demo
+
+# Login demos  
+python winformpy/ui_elements/login/login_panel.py           # Embeddable panel demo
+python winformpy/ui_elements/login/login_ui.py              # Standalone form demo
+
+# Chat demos
+python winformpy/ui_elements/chat/chat_panel.py             # Embeddable panel demo
+python winformpy/ui_elements/chat/chat_ui.py                # Standalone form demo
+
+# Web Browser demos
+python winformpy/ui_elements/web_browser/web_browser_panel.py  # Panel with nav bar
+python winformpy/ui_elements/web_browser/web_browser_ui.py     # Full browser demo
+
+# Email Client demos
+python winformpy/ui_elements/email_client/email_panel.py    # Embeddable panel demo
+python winformpy/ui_elements/email_client/email_ui.py       # Standalone form demo
+
+# Database Connection demos
+python winformpy/ui_elements/db_connection/db_connection_panel.py  # Panel demo
+python winformpy/ui_elements/db_connection/db_connection_ui.py     # Form demo
+
+# Word Processor demo
+python winformpy/ui_elements/word_processor/word_processor_panel.py
+```
 
 **Usage Example:**
 
 ```python
-# Database Connection Manager
-from winformpy.ui_elements.db_connection import DBConnectionManager, DBConnectionUI
+# DataGrid with custom backend
+from winformpy.ui_elements.data_grid import DataGridPanel, DataGridManager, DataGridBackend
 
-backend = MyStorageBackend()  # Your storage implementation
-manager = DBConnectionManager(backend)
-ui = DBConnectionUI(manager)
-ui.show_dialog()
+class MyDatabaseBackend(DataGridBackend):
+    def get_columns(self):
+        return [...]
+    def fetch_data(self, request):
+        return DataResponse(...)
 
-# Advanced Web Browser with Tabs
-from winformpy.ui_elements.web_browser import WebBrowserUI
+backend = MyDatabaseBackend(connection)
+manager = DataGridManager(backend)
+grid = DataGridPanel(form, props={'Dock': DockStyle.Fill}, manager=manager)
+manager.refresh()
 
-browser_app = WebBrowserUI()
-browser_app.NewTab("https://www.github.com")
-browser_app.form.Show()
+# Login Panel with custom authentication
+from winformpy.ui_elements.login import LoginPanel, LoginBackend
+
+class MyAuthBackend(LoginBackend):
+    def authenticate(self, username, password):
+        return AuthResult(success=True, user_data={...})
+
+login = LoginPanel(form, backend=MyAuthBackend())
+login.LoginSuccess = lambda state: print(f"Welcome {state.username}")
 ```
 
 #### Application Templates (`templates`)
 
 Ready-to-use application scaffolds with modern design systems:
 
-| Template                               | Style         | Features                                         |
-| -------------------------------------- | ------------- | ------------------------------------------------ |
-| [WinUI 3 Template](winformpy/templates/) | Fluent Design | Mica-like backgrounds, thin borders, dark theme  |
-| [Dashboard Template](winformpy/templates/) | Enterprise   | Sidebar navigation, stats cards, response layout |
+| Template                                                                    | Style           | Description                          |
+| --------------------------------------------------------------------------- | --------------- | ------------------------------------ |
+| [studio_template.py](winformpy/templates/studio_template.py)                   | IDE/VS Code     | Activity bar, sidebar, editor tabs   |
+| [explorer_template.py](winformpy/templates/explorer_template.py)               | Windows 11      | File explorer with navigation pane   |
+| [browser_template.py](winformpy/templates/browser_template.py)                 | Chrome-style    | Tabbed browser (requires tkinterweb) |
+| [winui3_template.py](winformpy/templates/winui3_template.py)                   | WinUI 3/Fluent  | Interactive controls gallery         |
+| [navigation_pane_template.py](winformpy/templates/navigation_pane_template.py) | Hamburger menu  | Collapsible sidebar navigation       |
+| [navigation_rail_template.py](winformpy/templates/navigation_rail_template.py) | Material Design | Slim vertical navigation rail        |
+| [maui_template.py](winformpy/templates/maui_template.py)                       | .NET MAUI       | Multi-platform App UI pattern        |
+| [mdi_template.py](winformpy/templates/mdi_template.py)                         | Classic MDI     | Multiple Document Interface          |
 
 #### Tools and Managers (`winformpy_tools`)
 
@@ -414,7 +475,27 @@ Ready-to-use application scaffolds with modern design systems:
 
 #### UI Elements (`ui_elements`)
 
-UI Elements are pre-built, reusable high-level components that combine multiple controls to provide complete functionality for common application needs. These components are designed to be easily integrated into your applications, saving development time.
+UI Elements are pre-built, **architecture-agnostic**, reusable high-level components that combine multiple controls to provide complete functionality for common application needs. These components are designed to be easily integrated into your applications, saving development time.
+
+**Architecture Pattern:**
+
+```
+┌──────────────────────────────────────────┐
+│  UI Layer (Panel / Form)                 │
+│    → Visual components, user interaction │
+├──────────────────────────────────────────┤
+│  Service Layer (Manager)                 │
+│    → Business logic, validation, events  │
+│    → Delegates operations to backend     │
+├──────────────────────────────────────────┤
+│  ⚠️ EXTERNAL (not part of WinFormPy)     │
+│  Backend Implementation                  │
+│    → Must be provided by YOU             │
+│    → Connects to external services/APIs  │
+└──────────────────────────────────────────┘
+```
+
+This pattern ensures UI Elements work with **any backend** — file storage, REST APIs, databases, cloud services, etc.
 
 ##### Database Connection Components
 
@@ -447,14 +528,15 @@ A complete solution for managing database connections with support for multiple 
 
 A WinForms-style web browser suite based on **System.Windows.Forms.WebBrowser** using tkinterweb for HTML rendering.
 
-| Component                          | Description                                      |
-| ---------------------------------- | ------------------------------------------------ |
-| WebBrowser                         | Core browser control with navigation and events  |
-| WebBrowserPanel                    | Embeddable Panel with navigation bar and status  |
-| WebBrowserUI                       | Full multi-tab application with global nav bar   |
-| WebBrowserReadyState               | Enum for control states                          |
+| Component            | Description                                     |
+| -------------------- | ----------------------------------------------- |
+| WebBrowser           | Core browser control with navigation and events |
+| WebBrowserPanel      | Embeddable Panel with navigation bar and status |
+| WebBrowserUI         | Full multi-tab application with global nav bar  |
+| WebBrowserReadyState | Enum for control states                         |
 
 **Modern WebBrowserUI Features:**
+
 - **Hierarchical Layout**: Global Navigation Bar for all tabs.
 - **Tab Management**: Native `TabControl` integration with dynamic add/close buttons.
 - **Context Menus**: Right-click actions for tab organization.
@@ -462,30 +544,31 @@ A WinForms-style web browser suite based on **System.Windows.Forms.WebBrowser** 
 
 **WebBrowser Properties:**
 
-| Property                | Description                           |
-| ----------------------- | ------------------------------------- |
-| `Url`                   | Current URL                           |
-| `DocumentTitle`         | Title of the current document         |
-| `DocumentText`          | HTML content of the document          |
-| `CanGoBack`             | Whether browser can navigate back     |
-| `CanGoForward`          | Whether browser can navigate forward  |
-| `IsBusy`                | Whether browser is loading            |
-| `ReadyState`            | Current state (Complete, Loading...)  |
-| `AllowNavigation`       | Whether navigation is allowed         |
+| Property            | Description                          |
+| ------------------- | ------------------------------------ |
+| `Url`             | Current URL                          |
+| `DocumentTitle`   | Title of the current document        |
+| `DocumentText`    | HTML content of the document         |
+| `CanGoBack`       | Whether browser can navigate back    |
+| `CanGoForward`    | Whether browser can navigate forward |
+| `IsBusy`          | Whether browser is loading           |
+| `ReadyState`      | Current state (Complete, Loading...) |
+| `AllowNavigation` | Whether navigation is allowed        |
 
 **WebBrowser Methods:**
 
-| Method          | Description                              |
-| --------------- | ---------------------------------------- |
-| `Navigate(url)` | Navigate to specified URL                |
-| `GoBack()`      | Navigate to previous page                |
-| `GoForward()`   | Navigate to next page                    |
-| `GoHome()`      | Navigate to home page                    |
-| `GoSearch()`    | Navigate to search page                  |
-| `Refresh()`     | Reload current page                      |
-| `Stop()`        | Stop current navigation                  |
+| Method            | Description               |
+| ----------------- | ------------------------- |
+| `Navigate(url)` | Navigate to specified URL |
+| `GoBack()`      | Navigate to previous page |
+| `GoForward()`   | Navigate to next page     |
+| `GoHome()`      | Navigate to home page     |
+| `GoSearch()`    | Navigate to search page   |
+| `Refresh()`     | Reload current page       |
+| `Stop()`        | Stop current navigation   |
 
 **Installation:**
+
 ```bash
 pip install tkinterweb
 ```
@@ -494,12 +577,13 @@ pip install tkinterweb
 
 A complete word processor component with RTF support, following Windows Forms standards.
 
-| Component           | Description                                         |
-| ------------------- | --------------------------------------------------- |
-| WordProcessorPanel  | Embeddable Panel with toolbar, editor, status bar   |
-| WordProcessorForm   | Full word processor application with menus          |
+| Component          | Description                                       |
+| ------------------ | ------------------------------------------------- |
+| WordProcessorPanel | Embeddable Panel with toolbar, editor, status bar |
+| WordProcessorForm  | Full word processor application with menus        |
 
 **Features:**
+
 - **Formatting Toolbar**: Bold, Italic, Underline, Strikethrough
 - **Font Control**: Family and size selection
 - **Colors**: Text color and highlight color
@@ -510,19 +594,20 @@ A complete word processor component with RTF support, following Windows Forms st
 
 **WordProcessorPanel Properties:**
 
-| Property       | Type        | Description                        |
-| -------------- | ----------- | ---------------------------------- |
-| `Text`         | str         | Plain text content                 |
-| `Rtf`          | str         | RTF formatted content              |
-| `SelectedText` | str         | Selected plain text                |
-| `SelectedRtf`  | str         | Selected RTF text                  |
-| `FilePath`     | str         | Current file path                  |
-| `IsModified`   | bool        | Document modified state            |
-| `Editor`       | RichTextBox | Underlying editor control          |
-| `WordCount`    | int         | Word count                         |
-| `LineCount`    | int         | Line count                         |
+| Property         | Type        | Description               |
+| ---------------- | ----------- | ------------------------- |
+| `Text`         | str         | Plain text content        |
+| `Rtf`          | str         | RTF formatted content     |
+| `SelectedText` | str         | Selected plain text       |
+| `SelectedRtf`  | str         | Selected RTF text         |
+| `FilePath`     | str         | Current file path         |
+| `IsModified`   | bool        | Document modified state   |
+| `Editor`       | RichTextBox | Underlying editor control |
+| `WordCount`    | int         | Word count                |
+| `LineCount`    | int         | Line count                |
 
 **Usage:**
+
 ```python
 from winformpy.ui_elements.word_processor import WordProcessorPanel, WordProcessorForm
 from winformpy import RichTextBoxStreamType
@@ -541,11 +626,12 @@ app.Show()
 
 Console-style output panel for logging and terminal-like displays.
 
-| Component    | Description                              |
-| ------------ | ---------------------------------------- |
-| ConsolePanel | Terminal/console output with colors      |
+| Component    | Description                         |
+| ------------ | ----------------------------------- |
+| ConsolePanel | Terminal/console output with colors |
 
 **Usage:**
+
 ```python
 from winformpy.ui_elements.console import ConsolePanel
 
@@ -556,13 +642,118 @@ console.WriteWarning("Warning message")
 console.WriteSuccess("Success!")
 ```
 
+##### DataGrid Components
+
+Tabular data display with pagination, sorting, search, and selection capabilities.
+
+| Component          | Description                                 |
+| ------------------ | ------------------------------------------- |
+| DataGridPanel      | Embeddable data grid with full features     |
+| DataGridForm       | Standalone window with data grid            |
+| DataGridPickerForm | Record selector dialog                      |
+| DataGridManager    | State and operations handler                |
+| DataGridBackend    | Abstract base class for backends (external) |
+
+##### Record Form Components
+
+Auto-generated forms for viewing and editing individual records.
+
+| Component        | Description                    |
+| ---------------- | ------------------------------ |
+| RecordFormPanel  | Embeddable record editor panel |
+| RecordFormDialog | Standalone view/edit dialog    |
+
+**Usage:**
+
+```python
+from winformpy.ui_elements.record_form import RecordFormPanel, RecordFormDialog
+from winformpy.ui_elements.data_grid import ColumnDefinition, DataType
+
+columns = [
+    ColumnDefinition("name", "Name", DataType.STRING),
+    ColumnDefinition("email", "Email", DataType.STRING),
+    ColumnDefinition("salary", "Salary", DataType.CURRENCY),
+]
+record = {"name": "John", "email": "john@example.com", "salary": 50000}
+
+# As dialog
+dialog = RecordFormDialog(columns, record, title="Edit Record")
+if dialog.ShowDialog() == DialogResult.OK:
+    save(dialog.get_values())
+
+# As embedded panel
+panel = RecordFormPanel(form, props={
+    'Dock': DockStyle.Fill,
+    'Columns': columns,
+    'Record': record,
+    'ShowActionButtons': True
+})
+```
+
+**Usage (DataGrid):**
+
+```python
+from winformpy.ui_elements.data_grid import (
+    DataGridPanel, DataGridManager, DataGridBackend,
+    ColumnDefinition, DataRequest, DataResponse, PageInfo, DataType
+)
+
+class MyDatabaseBackend(DataGridBackend):
+    def get_columns(self):
+        return [
+            ColumnDefinition("id", "ID", DataType.INTEGER, width=60),
+            ColumnDefinition("name", "Name", DataType.STRING, width=200),
+            ColumnDefinition("salary", "Salary", DataType.CURRENCY, width=100),
+        ]
+  
+    def fetch_data(self, request):
+        # Your database query with pagination
+        return DataResponse(records=data, page_info=PageInfo(...))
+
+backend = MyDatabaseBackend()
+manager = DataGridManager(backend)
+grid = DataGridPanel(form, props={'Dock': DockStyle.Fill}, manager=manager)
+manager.refresh()
+```
+
 ##### Chat Components
 
 Chat interface with message bubbles for chat applications.
 
-| Component | Description                              |
-| --------- | ---------------------------------------- |
-| ChatPanel | Chat interface with message bubbles      |
+| Component | Description                         |
+| --------- | ----------------------------------- |
+| ChatPanel | Chat interface with message bubbles |
+
+##### Login Components
+
+Authentication component with login and password change functionality.
+
+| Component          | Description                                 |
+| ------------------ | ------------------------------------------- |
+| LoginPanel         | Embeddable login panel                      |
+| LoginForm          | Standalone login dialog                     |
+| ChangePasswordForm | Password change dialog                      |
+| LoginManager       | State and event management                  |
+| LoginBackend       | Abstract base class for backends (external) |
+
+**Usage:**
+
+```python
+from winformpy.ui_elements.login import LoginForm, LoginBackend, AuthResult, PasswordChangeResult
+
+class MyBackend(LoginBackend):
+    def authenticate(self, username, password):
+        if check_credentials(username, password):
+            return AuthResult(success=True, username=username)
+        return AuthResult(success=False, error="Invalid credentials")
+  
+    def change_password(self, username, old_pw, new_pw):
+        return PasswordChangeResult(success=True)
+
+login = LoginForm(backend=MyBackend())
+if login.ShowDialog():
+    print(f"Welcome, {login.authenticated_user.display_name}!")
+```
 
 #### System Classes
 
@@ -580,27 +771,27 @@ Chat interface with message bubbles for chat applications.
 
 #### Enumerations
 
-| Enum                   | Description                              |
-| ---------------------- | ---------------------------------------- |
-| AnchorStyles           | Control anchoring                        |
-| AutoSizeMode           | AutoSize behavior                        |
-| BorderStyle            | Border appearance                        |
-| CheckState             | Checkbox state                           |
-| ContentAlignment       | Content positioning                      |
-| DockStyle              | Docking position                         |
-| FlowDirection          | Flow layout direction                    |
-| FormBorderStyle        | Form border type                         |
-| FormStartPosition      | Form initial position                    |
-| FormWindowState        | Window state                             |
-| HorizontalAlignment    | Horizontal alignment                     |
-| Orientation            | Horizontal/vertical                      |
-| PictureBoxSizeMode     | Image sizing mode                        |
-| RichTextBoxFinds       | Search options for RichTextBox.Find()    |
-| RichTextBoxStreamType  | File format for RichTextBox Load/Save    |
-| ScrollBars             | Scrollbar visibility                     |
-| SelectionMode          | Selection behavior                       |
-| TabAlignment           | Tab position                             |
-| View                   | ListView view mode                       |
+| Enum                  | Description                           |
+| --------------------- | ------------------------------------- |
+| AnchorStyles          | Control anchoring                     |
+| AutoSizeMode          | AutoSize behavior                     |
+| BorderStyle           | Border appearance                     |
+| CheckState            | Checkbox state                        |
+| ContentAlignment      | Content positioning                   |
+| DockStyle             | Docking position                      |
+| FlowDirection         | Flow layout direction                 |
+| FormBorderStyle       | Form border type                      |
+| FormStartPosition     | Form initial position                 |
+| FormWindowState       | Window state                          |
+| HorizontalAlignment   | Horizontal alignment                  |
+| Orientation           | Horizontal/vertical                   |
+| PictureBoxSizeMode    | Image sizing mode                     |
+| RichTextBoxFinds      | Search options for RichTextBox.Find() |
+| RichTextBoxStreamType | File format for RichTextBox Load/Save |
+| ScrollBars            | Scrollbar visibility                  |
+| SelectionMode         | Selection behavior                    |
+| TabAlignment          | Tab position                          |
+| View                  | ListView view mode                    |
 
 ---
 
@@ -739,17 +930,17 @@ pos = rtb.Find("text", 0, RichTextBoxFinds.MatchCase | RichTextBoxFinds.WholeWor
 
 **RichTextBox Key Properties:**
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `Text` | str | Plain text content |
-| `Rtf` | str | RTF formatted content |
-| `SelectedText` | str | Selected plain text |
-| `SelectedRtf` | str | Selected RTF text |
-| `SelectionBold` | bool | Bold formatting |
-| `SelectionItalic` | bool | Italic formatting |
-| `SelectionColor` | str | Text color |
-| `Lines` | list | Text as line array |
-| `LineCount` | int | Number of lines |
+| Property            | Type | Description           |
+| ------------------- | ---- | --------------------- |
+| `Text`            | str  | Plain text content    |
+| `Rtf`             | str  | RTF formatted content |
+| `SelectedText`    | str  | Selected plain text   |
+| `SelectedRtf`     | str  | Selected RTF text     |
+| `SelectionBold`   | bool | Bold formatting       |
+| `SelectionItalic` | bool | Italic formatting     |
+| `SelectionColor`  | str  | Text color            |
+| `Lines`           | list | Text as line array    |
+| `LineCount`       | int  | Number of lines       |
 
 ### ComboBox
 
@@ -892,18 +1083,18 @@ Clipboard.SetDataObject({'Text': 'Some text'})
 
 **Clipboard Methods:**
 
-| Method | Description |
-|--------|-------------|
-| `SetText(text)` | Copies text to the clipboard |
-| `GetText()` | Returns text from the clipboard |
-| `ContainsText()` | Returns True if clipboard contains text |
-| `Clear()` | Clears all clipboard data |
-| `GetDataObject()` | Returns dict with clipboard data |
-| `SetDataObject(data)` | Sets clipboard data from dict or string |
-| `GetImage()` | Gets image from clipboard (limited support) |
-| `SetImage(image)` | Sets image to clipboard (limited support) |
-| `GetFileDropList()` | Gets list of file paths |
-| `ContainsFileDropList()` | Returns True if clipboard has files |
+| Method                     | Description                                 |
+| -------------------------- | ------------------------------------------- |
+| `SetText(text)`          | Copies text to the clipboard                |
+| `GetText()`              | Returns text from the clipboard             |
+| `ContainsText()`         | Returns True if clipboard contains text     |
+| `Clear()`                | Clears all clipboard data                   |
+| `GetDataObject()`        | Returns dict with clipboard data            |
+| `SetDataObject(data)`    | Sets clipboard data from dict or string     |
+| `GetImage()`             | Gets image from clipboard (limited support) |
+| `SetImage(image)`        | Sets image to clipboard (limited support)   |
+| `GetFileDropList()`      | Gets list of file paths                     |
+| `ContainsFileDropList()` | Returns True if clipboard has files         |
 
 ### ProgressBar
 
@@ -1223,13 +1414,7 @@ The `examples/` directory contains demonstration scripts for different library f
 | [more_controls_example.py](examples/more_controls_example.py)                                         | Additional controls showcase                |
 | [tooltip_example.py](examples/tooltip_example.py)                                                     | ToolTip configuration                       |
 | [winformpy_extended_example.py](examples/winformpy_extended_example.py)                               | Extended APIs demo                          |
-
-### UI Elements Examples
-
-| Example                                                                                               | Description                                 |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| [db_connection_example.py](examples/ui_elements/db_connection_example.py)                             | Database connection manager demo            |
-| [web_browser_example.py](examples/ui_elements/web_browser_example.py)                                 | WebBrowser control demo (requires tkinterweb) |
+| [word_processor_example.py](examples/word_processor_example.py)                                       | Rich text editor                            |
 
 **Run any example:**
 
@@ -1237,22 +1422,29 @@ The `examples/` directory contains demonstration scripts for different library f
 uv run examples/<example_name>.py
 ```
 
+> **Note:** Each UI Element module (in `winformpy/ui_elements/`) includes its own runnable demo when executed directly. For example:
+>
+> ```bash
+> uv run winformpy/ui_elements/data_grid/data_grid_panel.py
+> uv run winformpy/ui_elements/login/login_panel.py
+> ```
+
 ---
 
 ## Application Templates
 
-The `templates/` directory contains complete application templates demonstrating real-world usage patterns and modern UI styles:
+The `winformpy/templates/` directory contains complete application templates demonstrating real-world usage patterns and modern UI styles:
 
-| Template | Description | Run Command |
-| -------- | ----------- | ----------- |
-| **Studio App** | IDE-style application (like VS Code) with activity bar, sidebar, and editor tabs | `uv run python templates/studio_template.py` |
-| **File Explorer** | Windows 11 File Explorer style app with navigation pane, breadcrumbs, and command bar | `uv run python templates/explorer_template.py` |
-| **Web Browser** | Chrome-style web browser with tabs, address bar, and history (requires `tkinterweb`) | `uv run python templates/browser_template.py` |
-| **MAUI App** | Multi-platform App UI architecture pattern | `uv run python templates/maui_template.py` |
-| **MDI App** | Multiple Document Interface application | `uv run python templates/mdi_template.py` |
-| **Navigation Pane** | Collapsible sidebar (hamburger menu) layout | `uv run python templates/navigation_pane_template.py` |
-| **Navigation Rail** | Slim vertical navigation rail with fixed icons | `uv run python templates/navigation_rail_template.py` |
-| **WinUI 3 Gallery** | WinUI 3 style interactive controls gallery | `uv run python templates/winui3_template.py` |
+| Template                  | Description                                                                            | Run Command                                                |
+| ------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **Studio App**      | IDE-style application (like VS Code) with activity bar, sidebar, and editor tabs       | `uv run winformpy/templates/studio_template.py`          |
+| **File Explorer**   | Windows 11 File Explorer style app with navigation pane, breadcrumbs, and command bar  | `uv run winformpy/templates/explorer_template.py`        |
+| **Web Browser**     | Chrome-style web browser with tabs, address bar, and history (requires `tkinterweb`) | `uv run winformpy/templates/browser_template.py`         |
+| **MAUI App**        | Multi-platform App UI architecture pattern                                             | `uv run winformpy/templates/maui_template.py`            |
+| **MDI App**         | Multiple Document Interface application                                                | `uv run winformpy/templates/mdi_template.py`             |
+| **Navigation Pane** | Collapsible sidebar (hamburger menu) layout                                            | `uv run winformpy/templates/navigation_pane_template.py` |
+| **Navigation Rail** | Slim vertical navigation rail with fixed icons                                         | `uv run winformpy/templates/navigation_rail_template.py` |
+| **WinUI 3 Gallery** | WinUI 3 style interactive controls gallery                                             | `uv run winformpy/templates/winui3_template.py`          |
 
 ---
 

@@ -1,11 +1,11 @@
-"""
+﻿"""
 Email UI - Complete email client form.
 
 This module provides a standalone email client form that uses
 EmailPanel for the main interface.
 
 Architecture:
-    EmailPrimitives (low-level ops)
+    EmailBackend (low-level ops)
         ↓ used by
     EmailManager (business logic)
         ↓ used by
@@ -31,11 +31,11 @@ from winformpy.winformpy import (
 try:
     from .email_manager import EmailManager, EmailEventType
     from .email_panel import EmailPanel
-    from .email_primitives import EmailAccount, EmailMessage
+    from .email_backend import EmailAccount, EmailMessage
 except ImportError:
     from email_manager import EmailManager, EmailEventType
     from email_panel import EmailPanel
-    from email_primitives import EmailAccount, EmailMessage
+    from email_backend import EmailAccount, EmailMessage
 
 
 class EmailForm(Form):

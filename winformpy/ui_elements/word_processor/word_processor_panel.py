@@ -97,7 +97,21 @@ class WordProcessorPanel(Panel):
                 - EditorForeColor: Editor text color
                 - ToolbarBackColor: Toolbar background color
                 - ReadOnly: Make editor read-only (default False)
+                
+                Sub-properties for internal WinFormPy controls:
+                - 'Toolbar': {'Height': 40, 'BackColor': '#F5F5F5', ...}
+                - 'Editor': {'BackColor': '#FFF', 'ForeColor': '#000', 'Font': ..., ...}
+                - 'StatusBar': {'Height': 25, 'BackColor': '#E8E8E8', 'ForeColor': '#333', ...}
+                - 'FindBar': {'Height': 35, 'BackColor': '#FFF8DC', ...}
+                - 'ToolbarButton': {'BackColor': '#FFF', 'Width': 32, 'Height': 28, ...}
         """
+        # Extract sub-properties for internal controls
+        self._toolbar_props = props.pop('Toolbar', {}) if props else {}
+        self._editor_props = props.pop('Editor', {}) if props else {}
+        self._statusbar_props = props.pop('StatusBar', {}) if props else {}
+        self._findbar_props = props.pop('FindBar', {}) if props else {}
+        self._toolbar_button_props = props.pop('ToolbarButton', {}) if props else {}
+        
         defaults = {
             'Width': 800,
             'Height': 600,
@@ -126,10 +140,10 @@ class WordProcessorPanel(Panel):
         self._show_find_bar = defaults['ShowFindBar']
         self._default_font = defaults['DefaultFont']
         self._default_font_size = defaults['DefaultFontSize']
-        self._editor_back_color = defaults['EditorBackColor']
-        self._editor_fore_color = defaults['EditorForeColor']
-        self._toolbar_back_color = defaults['ToolbarBackColor']
-        self._status_bar_back_color = defaults['StatusBarBackColor']
+        self._editor_back_color = self._editor_props.get('BackColor', defaults['EditorBackColor'])
+        self._editor_fore_color = self._editor_props.get('ForeColor', defaults['EditorForeColor'])
+        self._toolbar_back_color = self._toolbar_props.get('BackColor', defaults['ToolbarBackColor'])
+        self._status_bar_back_color = self._statusbar_props.get('BackColor', defaults['StatusBarBackColor'])
         self._read_only = defaults['ReadOnly']
         
         # Document state
@@ -187,16 +201,22 @@ class WordProcessorPanel(Panel):
     
     def _create_toolbar(self):
         """Create the formatting toolbar."""
+        # Apply Toolbar sub-properties
+        toolbar_height = self._toolbar_props.get('Height', 40)
+        toolbar_padding = self._toolbar_props.get('Padding', 4)
+        
         self._toolbar = Panel(self, {
             'Dock': DockStyle.Top,
-            'Height': 40,
+            'Height': toolbar_height,
             'BackColor': self._toolbar_back_color,
-            'Padding': 4
+            'Padding': toolbar_padding
         })
         
         x_pos = 8
-        button_height = 28
-        button_width = 32
+        # Apply ToolbarButton sub-properties
+        button_height = self._toolbar_button_props.get('Height', 28)
+        button_width = self._toolbar_button_props.get('Width', 32)
+        button_bg = self._toolbar_button_props.get('BackColor', self.TOOLBAR_BUTTON_BG)
         combo_height = 24
         
         # Bold button
@@ -206,7 +226,7 @@ class WordProcessorPanel(Panel):
             'Top': 6,
             'Width': button_width,
             'Height': button_height,
-            'BackColor': self.TOOLBAR_BUTTON_BG,
+            'BackColor': button_bg,
             'Font': Font('Segoe UI', 10, FontStyle.Bold)
         })
         self._btn_bold.ToolTipText = 'Bold (Ctrl+B)'
@@ -220,7 +240,7 @@ class WordProcessorPanel(Panel):
             'Top': 6,
             'Width': button_width,
             'Height': button_height,
-            'BackColor': self.TOOLBAR_BUTTON_BG,
+            'BackColor': button_bg,
             'Font': Font('Segoe UI', 10, FontStyle.Italic)
         })
         self._btn_italic.ToolTipText = 'Italic (Ctrl+I)'
@@ -234,7 +254,7 @@ class WordProcessorPanel(Panel):
             'Top': 6,
             'Width': button_width,
             'Height': button_height,
-            'BackColor': self.TOOLBAR_BUTTON_BG
+            'BackColor': button_bg
         })
         self._btn_underline.ToolTipText = 'Underline (Ctrl+U)'
         self._btn_underline.Click = lambda s, e: self._toggle_underline()
@@ -247,7 +267,7 @@ class WordProcessorPanel(Panel):
             'Top': 6,
             'Width': button_width,
             'Height': button_height,
-            'BackColor': self.TOOLBAR_BUTTON_BG
+            'BackColor': button_bg
         })
         self._btn_strike.ToolTipText = 'Strikethrough'
         self._btn_strike.Click = lambda s, e: self._toggle_strikethrough()
@@ -397,10 +417,14 @@ class WordProcessorPanel(Panel):
     
     def _create_find_bar(self):
         """Create the find/replace bar."""
+        # Apply FindBar sub-properties
+        findbar_height = self._findbar_props.get('Height', 35)
+        findbar_bg = self._findbar_props.get('BackColor', '#FFF8DC')
+        
         self._find_bar = Panel(self, {
             'Dock': DockStyle.Top,
-            'Height': 35,
-            'BackColor': '#FFF8DC',
+            'Height': findbar_height,
+            'BackColor': findbar_bg,
             'Visible': self._show_find_bar
         })
         
@@ -411,7 +435,7 @@ class WordProcessorPanel(Panel):
             'Top': 8,
             'Width': 35,
             'Height': 20,
-            'BackColor': '#FFF8DC'
+            'BackColor': findbar_bg
         })
         
         # Find textbox
@@ -496,9 +520,13 @@ class WordProcessorPanel(Panel):
     
     def _create_status_bar(self):
         """Create the status bar."""
+        # Apply StatusBar sub-properties
+        statusbar_height = self._statusbar_props.get('Height', 24)
+        statusbar_fg = self._statusbar_props.get('ForeColor', self.STATUS_FG)
+        
         self._status_bar = Panel(self, {
             'Dock': DockStyle.Bottom,
-            'Height': 24,
+            'Height': statusbar_height,
             'BackColor': self._status_bar_back_color
         })
         
@@ -509,7 +537,7 @@ class WordProcessorPanel(Panel):
             'Top': 4,
             'Width': 100,
             'Height': 16,
-            'ForeColor': self.STATUS_FG,
+            'ForeColor': statusbar_fg,
             'BackColor': self._status_bar_back_color
         })
         
@@ -520,7 +548,7 @@ class WordProcessorPanel(Panel):
             'Top': 4,
             'Width': 120,
             'Height': 16,
-            'ForeColor': self.STATUS_FG,
+            'ForeColor': statusbar_fg,
             'BackColor': self._status_bar_back_color
         })
         
@@ -531,7 +559,7 @@ class WordProcessorPanel(Panel):
             'Top': 4,
             'Width': 80,
             'Height': 16,
-            'ForeColor': self.STATUS_FG,
+            'ForeColor': statusbar_fg,
             'BackColor': self._status_bar_back_color
         })
         
@@ -559,17 +587,24 @@ class WordProcessorPanel(Panel):
     
     def _create_editor(self):
         """Create the RichTextBox editor."""
-        editor_font = Font(self._default_font, self._default_font_size)
+        # Apply Editor sub-properties
+        editor_font = self._editor_props.get('Font', Font(self._default_font, self._default_font_size))
+        editor_wordwrap = self._editor_props.get('WordWrap', True)
+        editor_padding = self._editor_props.get('Padding', None)
         
-        self._editor = RichTextBox(self, {
+        editor_props = {
             'Dock': DockStyle.Fill,
             'BackColor': self._editor_back_color,
             'ForeColor': self._editor_fore_color,
             'Font': editor_font,
-            'WordWrap': True,
+            'WordWrap': editor_wordwrap,
             'ReadOnly': self._read_only,
             'ScrollBars': 'both'
-        })
+        }
+        if editor_padding is not None:
+            editor_props['Padding'] = editor_padding
+        
+        self._editor = RichTextBox(self, editor_props)
     
     def _bind_events(self):
         """Bind editor events."""

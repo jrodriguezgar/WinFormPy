@@ -1,4 +1,4 @@
-"""
+﻿"""
 Console I/O Layer - Abstract communication interface for ConsolePanel.
 
 This module provides the communication layer that separates the console UI
@@ -79,14 +79,14 @@ class InputCommand:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-class ConsoleIOBase(ABC):
+class ConsoleIOBackend(ABC):
     """
     Abstract base class for console I/O implementations.
     
     Subclass this to create custom backends for the console.
     
     Example:
-        class MyCustomIO(ConsoleIOBase):
+        class MyCustomIO(ConsoleIOBackend):
             def send_command(self, command):
                 # Process command
                 self.on_output(OutputMessage("Result", OutputType.NORMAL))
@@ -189,7 +189,7 @@ class ConsoleIOBase(ABC):
                 self._command_history.append(command)
 
 
-class LocalConsoleIO(ConsoleIOBase):
+class LocalConsoleIO(ConsoleIOBackend):
     """
     Local command processing I/O layer.
     
@@ -299,7 +299,7 @@ class LocalConsoleIO(ConsoleIOBase):
         return sorted(set(self._commands.keys()))
 
 
-class SubprocessConsoleIO(ConsoleIOBase):
+class SubprocessConsoleIO(ConsoleIOBackend):
     """
     Subprocess-based I/O layer for executing shell commands.
     
@@ -387,7 +387,7 @@ class SubprocessConsoleIO(ConsoleIOBase):
         self.on_disconnected()
 
 
-class CallbackConsoleIO(ConsoleIOBase):
+class CallbackConsoleIO(ConsoleIOBackend):
     """
     Simple callback-based I/O layer.
     
@@ -448,7 +448,7 @@ class CallbackConsoleIO(ConsoleIOBase):
 # Factory function
 # =============================================================================
 
-def create_console_io(io_type: str = 'local', **kwargs) -> ConsoleIOBase:
+def create_console_io(io_type: str = 'local', **kwargs) -> ConsoleIOBackend:
     """
     Factory function to create I/O layer instances.
     
@@ -457,7 +457,7 @@ def create_console_io(io_type: str = 'local', **kwargs) -> ConsoleIOBase:
         **kwargs: Additional arguments for the I/O class
     
     Returns:
-        ConsoleIOBase instance
+        ConsoleIOBackend instance
     
     Example:
         io = create_console_io('subprocess', shell='powershell')

@@ -1324,6 +1324,7 @@ class Rectangle:
 class ScrollableControlMixin:
     """
     Mixin to add scrolling capabilities to a control (Panel, TabPage, etc.).
+    Scrollbars are only shown when content exceeds visible area.
     """
 
     def _init_scroll_properties(self, defaults):
@@ -1339,11 +1340,14 @@ class ScrollableControlMixin:
         self._h_scrollbar = None
         self._scroll_frame = None
         self._scroll_frame_id = None
-        self._container = None # The container where children are added
+        self._container = None  # The container where children are added
+        self._v_scrollbar_visible = False
+        self._h_scrollbar_visible = False
 
     def _setup_scroll_infrastructure(self, parent_widget, bg_color):
         """
         Sets up the infrastructure for scrolling: Canvas + Scrollbars + Frame.
+        Scrollbars are hidden by default and shown only when needed.
         
         Args:
             parent_widget: The widget that will contain the canvas (usually self._tk_widget)
@@ -1354,28 +1358,24 @@ class ScrollableControlMixin:
             self._container = parent_widget
             return
 
-        # Create a container frame for canvas and scrollbars if parent is not already a frame we can pack into
-        # But usually parent_widget is a Frame or LabelFrame.
-        
-        # Create Canvas
+        # Create Canvas (fills the space, scrollbars will overlay when needed)
         self._canvas = tk.Canvas(parent_widget, bg=bg_color, highlightthickness=0)
         self._canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        # Create Scrollbars
+        # Create Scrollbars (initially hidden)
         self._v_scrollbar = tk.Scrollbar(parent_widget, orient=tk.VERTICAL, command=self._canvas.yview)
-        self._v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # Don't pack yet - will be shown when needed
         
         self._h_scrollbar = tk.Scrollbar(parent_widget, orient=tk.HORIZONTAL, command=self._canvas.xview)
-        self._h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        # Don't pack yet - will be shown when needed
         
-        # Configure Canvas
-        self._canvas.configure(yscrollcommand=self._v_scrollbar.set, xscrollcommand=self._h_scrollbar.set)
+        # Configure Canvas scroll commands
+        self._canvas.configure(yscrollcommand=self._on_v_scroll, xscrollcommand=self._on_h_scroll)
         
         # Create inner Frame (the actual container for controls)
         self._scroll_frame = tk.Frame(self._canvas, bg=bg_color)
         
         # Create window in canvas
-        # We start with a default size, it will be updated by _update_scroll_region
         self._scroll_frame_id = self._canvas.create_window((0, 0), window=self._scroll_frame, anchor="nw")
         
         # Set _container to the inner frame so controls are added there
@@ -1392,14 +1392,71 @@ class ScrollableControlMixin:
         # Initial update
         self._update_scroll_region()
 
+    def _on_v_scroll(self, first, last):
+        """Handle vertical scrollbar updates and visibility."""
+        if self._v_scrollbar:
+            self._v_scrollbar.set(first, last)
+            self._update_scrollbar_visibility()
+    
+    def _on_h_scroll(self, first, last):
+        """Handle horizontal scrollbar updates and visibility."""
+        if self._h_scrollbar:
+            self._h_scrollbar.set(first, last)
+            self._update_scrollbar_visibility()
+    
+    def _update_scrollbar_visibility(self):
+        """Show/hide scrollbars based on whether they are needed."""
+        if not self._canvas:
+            return
+        
+        # Check if vertical scrollbar is needed
+        v_needed = False
+        h_needed = False
+        
+        if self._v_scrollbar:
+            try:
+                scroll_info = self._v_scrollbar.get()
+                # get() returns (first, last) - 2 values
+                if len(scroll_info) >= 2:
+                    v_first, v_last = float(scroll_info[0]), float(scroll_info[1])
+                    v_needed = not (v_first <= 0.0 and v_last >= 1.0)
+            except (tk.TclError, ValueError, TypeError):
+                pass
+        
+        if self._h_scrollbar:
+            try:
+                scroll_info = self._h_scrollbar.get()
+                if len(scroll_info) >= 2:
+                    h_first, h_last = float(scroll_info[0]), float(scroll_info[1])
+                    h_needed = not (h_first <= 0.0 and h_last >= 1.0)
+            except (tk.TclError, ValueError, TypeError):
+                pass
+        
+        # Update vertical scrollbar visibility
+        if v_needed and not self._v_scrollbar_visible:
+            self._v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            self._v_scrollbar_visible = True
+        elif not v_needed and self._v_scrollbar_visible:
+            self._v_scrollbar.pack_forget()
+            self._v_scrollbar_visible = False
+        
+        # Update horizontal scrollbar visibility
+        if h_needed and not self._h_scrollbar_visible:
+            self._h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+            self._h_scrollbar_visible = True
+        elif not h_needed and self._h_scrollbar_visible:
+            self._h_scrollbar.pack_forget()
+            self._h_scrollbar_visible = False
+
     def _on_scroll_frame_configure(self, event):
         """Update scroll region when the inner frame changes size."""
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+        self._update_scrollbar_visibility()
 
     def _on_canvas_configure(self, event):
-        """Resize the inner frame to match the canvas width (if we want to fit width)."""
-        # For now, we don't force width to allow horizontal scrolling if needed
-        pass
+        """Handle canvas resize - update scrollbar visibility."""
+        # When canvas size changes, we need to re-evaluate if scrollbars are needed
+        self._update_scrollbar_visibility()
 
     def UpdateScroll(self):
         """Updates the scroll region based on the current controls.
@@ -1465,6 +1522,9 @@ class ScrollableControlMixin:
         
         # Update scrollregion
         self._canvas.configure(scrollregion=(0, 0, req_width, req_height))
+        
+        # Update scrollbar visibility after changing scroll region
+        self._update_scrollbar_visibility()
 
     def _bind_mouse_wheel(self, widget):
         """Bind mouse wheel events for scrolling."""
@@ -3843,7 +3903,18 @@ class ControlBase:
         try:
             if self.master and self.master.winfo_exists():
                 if self._tk_widget and self._tk_widget.winfo_exists():
-                    self.master.after(50, self._safe_calculate_distances)
+                    # Use a lambda wrapper to prevent TclError when widget is destroyed
+                    def safe_callback(widget_ref=self._tk_widget, method=self._safe_calculate_distances):
+                        try:
+                            if widget_ref and widget_ref.winfo_exists():
+                                method()
+                        except tk.TclError:
+                            pass
+                        except Exception:
+                            pass
+                    self.master.after(50, safe_callback)
+        except tk.TclError:
+            pass
         except Exception:
             pass
     
@@ -3853,6 +3924,9 @@ class ControlBase:
             if self.master and self.master.winfo_exists():
                 if self._tk_widget and self._tk_widget.winfo_exists():
                     self._calculate_initial_distances()
+        except tk.TclError:
+            # Widget was destroyed, ignore
+            pass
         except Exception:
             pass
 
@@ -3865,9 +3939,6 @@ class ControlBase:
         if event and hasattr(event, 'widget'):
             if event.widget != self.master and not self._is_ancestor(event.widget, self.master):
                 return
-        
-        # DEBUG: Check for recursion
-        # print(f"DEBUG: _on_container_resize {self} Anchor={self._anchor}")
 
         # Get new container size
         new_width = self.master.winfo_width()
@@ -3930,9 +4001,7 @@ class ControlBase:
                 self.Top = int(new_top)
                 self.Width = int(new_width_ctrl)
                 self.Height = int(new_height_ctrl)
-                
-                # print(f"DEBUG: Resized {self.Name} to {self.Left},{self.Top} {self.Width}x{self.Height}")
-                
+
                 # Reposition with the new size
                 self._tk_widget.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
         except tk.TclError:
@@ -4214,7 +4283,6 @@ class ControlBase:
             if value != DockStyle.None_:
                 # Register the resize binding if it does not exist
                 if not hasattr(self, '_dock_resize_bound'):
-                    # print(f"DEBUG: Binding <Configure> for {self.Name} on {self.master}")
                     self.master.bind('<Configure>', self._on_dock_resize, add='+')
                     self._dock_resize_bound = True
                 # Apply dock immediately
@@ -5086,6 +5154,20 @@ class Form(ScrollableControlMixin):
         else:
             self._root = tk.Tk()
         
+        # Suppress "invalid command name" errors from after callbacks on destroyed widgets
+        # This happens at the Tcl level, so we need to override bgerror
+        self._root.report_callback_exception = self._suppress_after_errors
+        try:
+            # Override Tcl bgerror to suppress "invalid command name" errors silently
+            self._root.tk.call('proc', 'bgerror', 'err', '''
+                if {[string match "*invalid command name*" $err]} {
+                    return
+                }
+                puts stderr $err
+            ''')
+        except tk.TclError:
+            pass
+        
         # Main VB properties
         self.Name = defaults['Name'] or "Form1"
         self._text_value = defaults['Title']
@@ -5629,6 +5711,18 @@ class Form(ScrollableControlMixin):
                 self.DialogResult = DialogResult.Cancel
             self._root.destroy()
             self.FormClosed(self, EventArgs())
+    
+    def _suppress_after_errors(self, exc_type, exc_value, exc_tb):
+        """Suppress 'invalid command name' errors from after callbacks on destroyed widgets."""
+        # Check if it's a TclError about invalid command name (from after callbacks)
+        if exc_type == tk.TclError:
+            error_msg = str(exc_value)
+            if 'invalid command name' in error_msg:
+                # Silently ignore - this happens when after() callbacks fire on destroyed widgets
+                return
+        # For other exceptions, use default behavior (print traceback)
+        import traceback
+        traceback.print_exception(exc_type, exc_value, exc_tb)
     
     def Close(self):
         """Closes the form."""
@@ -7010,17 +7104,26 @@ class TextBox(ControlBase):
                 self._container_frame = tk.Frame(self.master, width=self.Width, height=self.Height)
                 self._tk_widget = tk.Text(self._container_frame, wrap=wrap_mode)
                 
+                # Initialize scrollbar tracking for auto-hide
+                self._v_scrollbar = None
+                self._h_scrollbar = None
+                self._v_scrollbar_visible = False
+                self._h_scrollbar_visible = False
+                
                 if show_vertical:
-                    vscroll = tk.Scrollbar(self._container_frame, command=self._tk_widget.yview)
-                    self._tk_widget.config(yscrollcommand=vscroll.set)
-                    vscroll.pack(side=tk.RIGHT, fill=tk.Y)
+                    self._v_scrollbar = tk.Scrollbar(self._container_frame, command=self._tk_widget.yview)
+                    self._tk_widget.config(yscrollcommand=self._on_v_scroll_update)
+                    # Don't pack initially - auto-hide
                 
                 if show_horizontal:
-                    hscroll = tk.Scrollbar(self._container_frame, orient='horizontal', command=self._tk_widget.xview)
-                    self._tk_widget.config(xscrollcommand=hscroll.set)
-                    hscroll.pack(side=tk.BOTTOM, fill=tk.X)
+                    self._h_scrollbar = tk.Scrollbar(self._container_frame, orient='horizontal', command=self._tk_widget.xview)
+                    self._tk_widget.config(xscrollcommand=self._on_h_scroll_update)
+                    # Don't pack initially - auto-hide
                 
                 self._tk_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                
+                # Bind configure event to check scrollbar visibility
+                self._tk_widget.bind('<Configure>', self._on_textbox_configure)
             else:
                 self._container_frame = None
                 self._tk_widget = tk.Text(self.master, height=self.Height//15, wrap=wrap_mode)
@@ -7149,10 +7252,63 @@ class TextBox(ControlBase):
         self.TextChanged(self, EventArgs.Empty)
         # Reset modified flag
         self._tk_widget.edit_modified(False)
+        # Update scrollbar visibility after text change
+        self._update_textbox_scrollbar_visibility()
 
     def _on_text_changed_entry(self, *args):
         """Handler for TextChanged event (Entry widget)."""
         self.TextChanged(self, EventArgs.Empty)
+
+    def _on_v_scroll_update(self, first, last):
+        """Handle vertical scrollbar updates for auto-hide behavior."""
+        if hasattr(self, '_v_scrollbar') and self._v_scrollbar:
+            self._v_scrollbar.set(first, last)
+            self._update_textbox_scrollbar_visibility()
+    
+    def _on_h_scroll_update(self, first, last):
+        """Handle horizontal scrollbar updates for auto-hide behavior."""
+        if hasattr(self, '_h_scrollbar') and self._h_scrollbar:
+            self._h_scrollbar.set(first, last)
+            self._update_textbox_scrollbar_visibility()
+    
+    def _on_textbox_configure(self, event=None):
+        """Handle textbox resize - update scrollbar visibility."""
+        self._tk_widget.after_idle(self._update_textbox_scrollbar_visibility)
+    
+    def _update_textbox_scrollbar_visibility(self):
+        """Show/hide scrollbars based on whether they are needed (auto-hide behavior)."""
+        if not hasattr(self, '_container_frame') or not self._container_frame:
+            return
+        
+        # Check vertical scrollbar
+        if hasattr(self, '_v_scrollbar') and self._v_scrollbar:
+            try:
+                first, last = self._v_scrollbar.get()
+                v_needed = not (float(first) <= 0.0 and float(last) >= 1.0)
+                
+                if v_needed and not getattr(self, '_v_scrollbar_visible', False):
+                    self._v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, before=self._tk_widget)
+                    self._v_scrollbar_visible = True
+                elif not v_needed and getattr(self, '_v_scrollbar_visible', False):
+                    self._v_scrollbar.pack_forget()
+                    self._v_scrollbar_visible = False
+            except (tk.TclError, ValueError):
+                pass
+        
+        # Check horizontal scrollbar
+        if hasattr(self, '_h_scrollbar') and self._h_scrollbar:
+            try:
+                first, last = self._h_scrollbar.get()
+                h_needed = not (float(first) <= 0.0 and float(last) >= 1.0)
+                
+                if h_needed and not getattr(self, '_h_scrollbar_visible', False):
+                    self._h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+                    self._h_scrollbar_visible = True
+                elif not h_needed and getattr(self, '_h_scrollbar_visible', False):
+                    self._h_scrollbar.pack_forget()
+                    self._h_scrollbar_visible = False
+            except (tk.TclError, ValueError):
+                pass
 
     def _on_mouse_move(self, event):
         """Handler for MouseMove event."""
@@ -7652,22 +7808,53 @@ class ConsoleTextBox(ControlBase):
         if self._read_only:
             self._tk_widget.config(state='disabled')
         
-        # Scrollbar
+        # Scrollbar (auto-hide behavior - only shown when needed)
+        self._scrollbar = None
+        self._scrollbar_visible = False
         if self._show_scrollbar:
             self._scrollbar = tk.Scrollbar(self._container_frame, command=self._tk_widget.yview)
-            self._tk_widget.config(yscrollcommand=self._scrollbar.set)
-            self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        else:
-            self._scrollbar = None
+            self._tk_widget.config(yscrollcommand=self._on_scroll_update)
+            # Don't pack initially - will be shown when needed
         
         # Pack text widget
         self._tk_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Bind configure event to check scrollbar visibility
+        self._tk_widget.bind('<Configure>', self._on_text_configure)
         
         # Place container
         self._container_frame.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
         
         # Apply visibility
         self.set_Visible(self._visible)
+    
+    def _on_scroll_update(self, first, last):
+        """Handle scroll updates and auto-hide scrollbar."""
+        if self._scrollbar:
+            self._scrollbar.set(first, last)
+            self._update_scrollbar_visibility()
+    
+    def _on_text_configure(self, event=None):
+        """Handle text widget resize - update scrollbar visibility."""
+        self._tk_widget.after_idle(self._update_scrollbar_visibility)
+    
+    def _update_scrollbar_visibility(self):
+        """Show/hide scrollbar based on whether it's needed."""
+        if not self._scrollbar or not self._show_scrollbar:
+            return
+        
+        try:
+            first, last = self._scrollbar.get()
+            needed = not (float(first) <= 0.0 and float(last) >= 1.0)
+            
+            if needed and not self._scrollbar_visible:
+                self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y, before=self._tk_widget)
+                self._scrollbar_visible = True
+            elif not needed and self._scrollbar_visible:
+                self._scrollbar.pack_forget()
+                self._scrollbar_visible = False
+        except (tk.TclError, ValueError):
+            pass
     
     def _place_control(self, width=None, height=None):
         """Override to handle container frame placement."""
@@ -7712,19 +7899,15 @@ class ConsoleTextBox(ControlBase):
         # Re-place the container with current dimensions
         self._container_frame.place_configure(width=width, height=height)
         
-        # Repack internal widgets
-        if self._scrollbar:
-            try:
-                self._scrollbar.pack_forget()
-            except:
-                pass
-            self._scrollbar.pack(side='right', fill='y')
-        
+        # Repack text widget
         try:
             self._tk_widget.pack_forget()
         except:
             pass
         self._tk_widget.pack(side='left', fill='both', expand=True)
+        
+        # Update scrollbar visibility (auto-hide behavior)
+        self._update_scrollbar_visibility()
         
         self._container_frame.update_idletasks()
     
@@ -15911,17 +16094,46 @@ class ListBox(ControlBase):
         if config:
             self._tk_widget.config(**config)
             
-        # Scrollbars (Basic implementation - placeholder for full frame support)
-        if self._scroll_always_visible:
-            vscroll = tk.Scrollbar(self.master, command=self._tk_widget.yview)
-            self._tk_widget.config(yscrollcommand=vscroll.set)
-            vscroll.place(x=self.Left+self.Width-15, y=self.Top, height=self.Height)
-            if self.MultiColumn:  # For multi-column, add horizontal scroll
-                hscroll = tk.Scrollbar(self.master, orient='horizontal', command=self._tk_widget.xview)
-                self._tk_widget.config(xscrollcommand=hscroll.set)
-                hscroll.place(x=self.Left, y=self.Top+self.Height-15, width=self.Width)
-             
-        self._place_control(self.Width, self.Height)
+        # Scrollbars (auto-hide behavior - only shown when needed)
+        self._v_scrollbar = None
+        self._h_scrollbar = None
+        self._v_scrollbar_visible = False
+        self._h_scrollbar_visible = False
+        self._show_scrollbars = self._scroll_always_visible or True  # Always create scrollbars but auto-hide
+        
+        if self._show_scrollbars:
+            # Create container frame for listbox and scrollbars
+            self._container_frame = tk.Frame(self.master, width=self.Width, height=self.Height)
+            
+            # Move listbox to container
+            self._tk_widget = tk.Listbox(self._container_frame)
+            self._tk_widget.config(selectmode=selectmode_map.get(self._selection_mode, 'browse'))
+            
+            # Re-apply config
+            if config:
+                self._tk_widget.config(**config)
+            
+            # Vertical scrollbar (auto-hide)
+            self._v_scrollbar = tk.Scrollbar(self._container_frame, command=self._tk_widget.yview)
+            self._tk_widget.config(yscrollcommand=self._on_listbox_v_scroll)
+            # Don't pack initially
+            
+            # Horizontal scrollbar (auto-hide)
+            if self.MultiColumn:
+                self._h_scrollbar = tk.Scrollbar(self._container_frame, orient='horizontal', command=self._tk_widget.xview)
+                self._tk_widget.config(xscrollcommand=self._on_listbox_h_scroll)
+                # Don't pack initially
+            
+            self._tk_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            
+            # Bind configure event
+            self._tk_widget.bind('<Configure>', self._on_listbox_configure)
+            
+            # Place container
+            self._container_frame.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
+        else:
+            self._container_frame = None
+            self._place_control(self.Width, self.Height)
         self.set_Visible(self._visible)
         
         # Bind common events
@@ -16176,6 +16388,62 @@ class ListBox(ControlBase):
         if bbox:
             return (bbox[0], bbox[1], bbox[2], bbox[3])
         return (0,0,0,0)
+
+    def _on_listbox_v_scroll(self, first, last):
+        """Handle vertical scrollbar updates for auto-hide behavior."""
+        if hasattr(self, '_v_scrollbar') and self._v_scrollbar:
+            self._v_scrollbar.set(first, last)
+            self._update_listbox_scrollbar_visibility()
+    
+    def _on_listbox_h_scroll(self, first, last):
+        """Handle horizontal scrollbar updates for auto-hide behavior."""
+        if hasattr(self, '_h_scrollbar') and self._h_scrollbar:
+            self._h_scrollbar.set(first, last)
+            self._update_listbox_scrollbar_visibility()
+    
+    def _on_listbox_configure(self, event=None):
+        """Handle listbox resize - update scrollbar visibility."""
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.after_idle(self._update_listbox_scrollbar_visibility)
+    
+    def _update_listbox_scrollbar_visibility(self):
+        """Show/hide scrollbars based on whether they are needed (auto-hide behavior)."""
+        if not hasattr(self, '_container_frame') or not self._container_frame:
+            return
+        
+        # Check vertical scrollbar
+        if hasattr(self, '_v_scrollbar') and self._v_scrollbar:
+            try:
+                first, last = self._v_scrollbar.get()
+                v_needed = not (float(first) <= 0.0 and float(last) >= 1.0)
+                
+                # If ScrollAlwaysVisible, always show; otherwise auto-hide
+                if self._scroll_always_visible:
+                    v_needed = True
+                
+                if v_needed and not getattr(self, '_v_scrollbar_visible', False):
+                    self._v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, before=self._tk_widget)
+                    self._v_scrollbar_visible = True
+                elif not v_needed and getattr(self, '_v_scrollbar_visible', False):
+                    self._v_scrollbar.pack_forget()
+                    self._v_scrollbar_visible = False
+            except (tk.TclError, ValueError):
+                pass
+        
+        # Check horizontal scrollbar
+        if hasattr(self, '_h_scrollbar') and self._h_scrollbar:
+            try:
+                first, last = self._h_scrollbar.get()
+                h_needed = not (float(first) <= 0.0 and float(last) >= 1.0)
+                
+                if h_needed and not getattr(self, '_h_scrollbar_visible', False):
+                    self._h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+                    self._h_scrollbar_visible = True
+                elif not h_needed and getattr(self, '_h_scrollbar_visible', False):
+                    self._h_scrollbar.pack_forget()
+                    self._h_scrollbar_visible = False
+            except (tk.TclError, ValueError):
+                pass
 
     def _on_selected_index_changed(self, event=None):
         e = EventArgs(event)

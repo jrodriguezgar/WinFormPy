@@ -1,6 +1,24 @@
-# Email Client UI Element
+﻿# Email Client UI Element
 
 A complete email client component for WinFormPy applications with a three-layer architecture.
+
+> ⚠️ **Architecture-agnostic**: This component delegates email operations to an **external backend** (`EmailBackend`). You provide the IMAP/SMTP, Gmail API, or custom email service implementation.
+
+> **📦 Component Structure**: This module provides:
+> - `EmailPanel` - Embeddable panel for any Form/Panel
+> - `EmailForm` - Standalone form that **uses EmailPanel internally**
+
+## Quick Demo
+
+Run the built-in demos to see the component in action:
+
+```bash
+# Embeddable panel demo (with mock data)
+python winformpy/ui_elements/email_client/email_panel.py
+
+# Standalone form demo
+python winformpy/ui_elements/email_client/email_ui.py
+```
 
 ## Architecture
 
@@ -25,24 +43,82 @@ A complete email client component for WinFormPy applications with a three-layer 
 │  • Event handling              • Background sync                │
 │  • Compose/Reply/Forward       • State management               │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
+                           │ delegates
+┌──────────────────────────▼──────────────────────────────────────┐
 │                   Primitives Layer                               │
-│                   EmailPrimitives                                │
+│                   EmailBackend (Base Class)                   │
 │                                                                  │
-│  • IMAP connection             • Message retrieval              │
-│  • SMTP sending                • Folder operations              │
-│  • Flag management             • Attachment handling            │
-│  • Search queries              • IDLE support                   │
+│  • Abstract interface for email operations                      │
+│  • Default stub implementations                                 │
+│  • Override methods for actual backends                         │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ implemented by
+┌──────────────────────────▼──────────────────────────────────────┐
+│  ⚠️ EXTERNAL (not part of this project)                         │
+│  Concrete Backend Implementation                                 │
+│                                                                  │
+│  • IMAPBackend (using imaplib/imapclient)                       │
+│  • GmailAPIBackend (using Google API)                           │
+│  • GraphAPIBackend (using Microsoft Graph)                      │
+│  • Any custom email service implementation                      │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+**⚠️ IMPORTANT**: The concrete backend implementation is **NOT part of this project**. 
+It must be provided externally by the application.
+
+## 📋 EmailBackend Contract (External)
+
+The external backend must subclass `EmailBackend` and implement the required methods:
+
+```python
+from winformpy.ui_elements.email_client import EmailBackend, EmailAccount
+
+class MyEmailBackend(EmailBackend):
+    """Required interface for the Email Backend (external)."""
+    
+    # === Connection Methods ===
+    
+    def connect(self) -> bool:
+        """Connect to email server. Returns True if successful."""
+        pass
+    
+    def disconnect(self) -> None:
+        """Disconnect from email server."""
+        pass
+    
+    # === Folder Methods ===
+    
+    def get_folders(self) -> list:
+        """Get list of EmailFolder objects."""
+        pass
+    
+    def get_message_count(self, folder: str) -> tuple:
+        """Returns (total_count, unread_count)."""
+        pass
+    
+    # === Message Methods ===
+    
+    def get_message_list(self, folder: str, start: int, limit: int) -> list:
+        """Get list of EmailMessage objects (headers only)."""
+        pass
+    
+    def get_message(self, uid: int, folder: str) -> EmailMessage | None:
+        """Get full message including body and attachments."""
+        pass
+    
+    def send_message(self, message: EmailMessage) -> bool:
+        """Send an email. Returns True if successful."""
+        pass
+    
+    # ... other methods as needed
 ```
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| `email_primitives.py` | Low-level email operations (IMAP/SMTP abstraction) |
+| `email_primitives.py` | Base class for email backends (IMAP/SMTP abstraction) |
 | `email_manager.py` | Business logic, state management, events |
 | `email_panel.py` | Embeddable email panel component |
 | `email_ui.py` | Standalone email client form |
@@ -95,18 +171,20 @@ form.Show()
 
 ## Components
 
-### EmailPrimitives
+### EmailBackend (Base Class for External Backends)
 
-Low-level operations abstraction. Override for custom implementations.
+⚠️ **This is an abstraction layer.** Override methods to connect to actual email services.
 
 ```python
-from winformpy.ui_elements.email_client import EmailPrimitives, EmailAccount
+from winformpy.ui_elements.email_client import EmailBackend, EmailAccount
 
-class MyEmailBackend(EmailPrimitives):
-    """Custom email backend implementation."""
+class IMAPBackend(EmailBackend):
+    """
+    Example IMAP backend implementation (EXTERNAL - not part of WinFormPy).
+    Uses Python's imaplib for actual email operations.
+    """
     
     def connect(self) -> bool:
-        # Implement actual IMAP connection
         import imaplib
         self._imap = imaplib.IMAP4_SSL(
             self._account.incoming_server,
@@ -119,10 +197,78 @@ class MyEmailBackend(EmailPrimitives):
         self._connected = True
         return True
     
+    def disconnect(self) -> None:
+        if self._imap:
+            self._imap.logout()
+        self._connected = False
+    
+    def get_folders(self):
+        status, folders = self._imap.list()
+        # Parse and return EmailFolder objects
+        ...
+    
     def get_message_list(self, folder="INBOX", start=0, limit=50):
-        # Implement message retrieval
         self._imap.select(folder)
-        # ... parse and return messages
+        status, data = self._imap.search(None, 'ALL')
+        # Parse and return EmailMessage objects
+        ...
+    
+    def send_message(self, message):
+        import smtplib
+        from email.mime.text import MIMEText
+        
+        smtp = smtplib.SMTP(
+            self._account.outgoing_server,
+            self._account.outgoing_port
+        )
+        smtp.starttls()
+        smtp.login(
+            self._account.outgoing_username,
+            self._account.outgoing_password
+        )
+        # Send message
+        smtp.send_message(msg)
+        smtp.quit()
+        return True
+
+# Usage with EmailManager
+account = EmailAccount(email="user@example.com", ...)
+backend = IMAPBackend(account)
+manager = EmailManager(primitives=backend)
+```
+
+### Gmail API Backend Example (External)
+
+```python
+from winformpy.ui_elements.email_client import EmailBackend
+
+class GmailAPIBackend(EmailBackend):
+    """
+    Example Gmail API backend (EXTERNAL - not part of WinFormPy).
+    Uses Google API client for Gmail operations.
+    """
+    
+    def __init__(self, credentials_path):
+        super().__init__()
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+        
+        creds = Credentials.from_authorized_user_file(credentials_path)
+        self.service = build('gmail', 'v1', credentials=creds)
+    
+    def connect(self) -> bool:
+        # OAuth already handled in __init__
+        self._connected = True
+        return True
+    
+    def get_message_list(self, folder="INBOX", start=0, limit=50):
+        results = self.service.users().messages().list(
+            userId='me', 
+            labelIds=[folder],
+            maxResults=limit
+        ).execute()
+        # Convert to EmailMessage objects
+        ...
 ```
 
 ### EmailManager
@@ -339,27 +485,51 @@ results = manager.get_messages(filter_=filter_)
 
 ## Extending
 
-### Custom Primitives Backend
+### Using Custom Backend with EmailManager
 
 ```python
-class IMAPClientBackend(EmailPrimitives):
-    """Implementation using imapclient library."""
-    
-    def connect(self):
-        from imapclient import IMAPClient
-        self._client = IMAPClient(self._account.incoming_server)
-        self._client.login(
-            self._account.incoming_username,
-            self._account.incoming_password
-        )
-        self._connected = True
-        return True
-    
-    # Implement other methods...
+from winformpy.ui_elements.email_client import (
+    EmailManager, EmailPanel, EmailBackend, EmailAccount
+)
+from winformpy import Form, Application, DockStyle
 
-# Use with manager
-manager = EmailManager()
-manager.primitives = IMAPClientBackend(account)
+# Your custom backend (external implementation)
+class MyIMAPBackend(EmailBackend):
+    # ... implement required methods
+    pass
+
+# Create account and backend
+account = EmailAccount(
+    email="user@example.com",
+    incoming_server="imap.example.com",
+    incoming_port=993,
+    incoming_username="user@example.com",
+    incoming_password="password"
+)
+
+backend = MyIMAPBackend(account)
+
+# Create manager with custom backend
+manager = EmailManager(primitives=backend)
+
+# Create UI
+form = Form({'Text': 'My Email Client', 'Width': 1200, 'Height': 800})
+form.ApplyLayout()
+
+email_panel = EmailPanel(form, manager, {'Dock': DockStyle.Fill})
+
+# Connect and run
+manager.connect()
+Application.Run(form)
+```
+
+### Changing Backend at Runtime
+
+```python
+# Switch to a different backend
+new_backend = GmailAPIBackend(credentials_path)
+manager.primitives = new_backend
+manager.connect()
 ```
 
 ### Custom UI
