@@ -747,6 +747,135 @@ grid = DataGridPanel(form, props={
 | `AllowDelete` | `bool` | `False` | Enable row deletion (🗑️ button per row) |
 | `ShowActionColumn` | `bool` | `False` | Show the Actions column with Edit/Delete buttons |
 | `ActionColumnWidth` | `int` | `100` | Width of the Actions column in pixels |
+| `DateFormat` | `str` | `'system'` | Date format for editing: `'ISO'`, `'EU'`, `'US'`, or `'system'` |
+| `TimeFormat` | `str` | `'24h'` | Time format: `'24h'` or `'12h'` |
+
+### Input Masks and Locale
+
+When editing DATE and DATETIME columns, the grid uses **MaskedTextBox** with locale-aware masks:
+
+#### Date Format Options
+
+| DateFormat | Pattern | Example | Used in |
+|------------|---------|---------|---------|
+| `'ISO'` | `YYYY-MM-DD` | `2024-01-15` | International standard, Asian countries |
+| `'EU'` | `DD/MM/YYYY` | `15/01/2024` | Spain, France, Germany, UK, Australia, Latin America |
+| `'US'` | `MM/DD/YYYY` | `01/15/2024` | United States |
+| `'system'` | Auto-detect | Depends on OS locale | **Default** |
+
+#### Time Format Options
+
+| TimeFormat | Pattern | Example |
+|------------|---------|---------|
+| `'24h'` | `HH:MM` | `14:30` |
+| `'12h'` | `HH:MM AM/PM` | `02:30 PM` |
+
+#### Example: Explicit Format
+
+```python
+# Spanish format (DD/MM/YYYY)
+grid = DataGridPanel(form, props={
+    'Dock': DockStyle.Fill,
+    'AllowEdit': True,
+    'ShowActionColumn': True,
+    'DateFormat': 'EU',          # Force European format
+    'TimeFormat': '24h'
+}, manager=manager)
+```
+
+#### Example: Full Locale Configuration
+
+```python
+# Spanish locale with Euro currency
+grid = DataGridPanel(form, props={
+    'Dock': DockStyle.Fill,
+    'AllowEdit': True,
+    'ShowActionColumn': True,
+    'DateFormat': 'EU',          # DD/MM/YYYY
+    'TimeFormat': '24h',
+    'NumberFormat': 'EU',        # 1.234,56 (dot thousands, comma decimal)
+    'CurrencySymbol': '€',       # Euro symbol
+    'CurrencyPosition': 'after'  # 100 € (symbol after number)
+}, manager=manager)
+```
+
+#### Example: Auto-detect from System
+
+```python
+# Let the system decide based on OS locale
+grid = DataGridPanel(form, props={
+    'Dock': DockStyle.Fill,
+    'AllowEdit': True,
+    'ShowActionColumn': True,
+    'DateFormat': 'system',      # Auto-detect (default)
+    'NumberFormat': 'system',    # Auto-detect (default)
+    'CurrencySymbol': 'system',  # Auto-detect (default)
+}, manager=manager)
+```
+
+#### System Locale Detection
+
+When using `'system'`, the grid auto-detects settings based on OS locale:
+
+| Locale | Date Format | Number Format | Currency |
+|--------|-------------|---------------|----------|
+| `es_ES` | `'EU'` (DD/MM/YYYY) | `1.234,56` | `100 €` |
+| `fr_FR` | `'EU'` (DD/MM/YYYY) | `1.234,56` | `100 €` |
+| `de_DE` | `'EU'` (DD/MM/YYYY) | `1.234,56` | `100 €` |
+| `en_GB` | `'EU'` (DD/MM/YYYY) | `1,234.56` | `£100` |
+| `en_US` | `'US'` (MM/DD/YYYY) | `1,234.56` | `$100` |
+| `ja_JP`, `zh_CN` | `'ISO'` (YYYY-MM-DD) | `1,234.56` | `¥100` |
+
+#### Number Format Options
+
+| NumberFormat | Thousands | Decimal | Example |
+|--------------|-----------|---------|---------|
+| `'US'` | `,` | `.` | `1,234.56` |
+| `'EU'` | `.` | `,` | `1.234,56` |
+| `'system'` | Auto | Auto | Depends on locale |
+
+#### Currency Options
+
+| Property | Values | Description |
+|----------|--------|-------------|
+| `CurrencySymbol` | `'$'`, `'€'`, `'£'`, `'¥'`, `'system'` | Currency symbol to use |
+| `CurrencyPosition` | `'before'`, `'after'`, `'system'` | Symbol position: `$100` vs `100 €` |
+
+#### Display Format Examples
+
+| DataType | US Format | EU Format (es_ES) |
+|----------|-----------|-------------------|
+| `INTEGER` | `1,234` | `1.234` |
+| `FLOAT` | `1,234.56` | `1.234,56` |
+| `CURRENCY` | `$1,234.56` | `1.234,56 €` |
+| `PERCENTAGE` | `85.5%` | `85,5%` |
+| `DATE` | `01/15/2024` | `15/01/2024` |
+
+#### Edit Mode Format
+
+When editing, numeric fields are formatted according to locale settings:
+
+| DataType | US Edit | EU Edit | Notes |
+|----------|---------|---------|-------|
+| `INTEGER` | `1234` | `1234` | No thousands separator in edit |
+| `FLOAT` | `1234.56` | `1234,56` | Decimal separator follows locale |
+| `CURRENCY` | `1234.56` | `1234,56` | Symbol removed for editing |
+| `PERCENTAGE` | `85.5` | `85,5` | % removed for editing |
+| `DATE` | `01/15/2024` | `15/01/2024` | MaskedTextBox with locale mask |
+
+**Important**: The grid automatically:
+1. **Displays** values with full locale formatting (thousands, currency symbol, %)
+2. **Edits** values in simplified locale format (decimal separator only, no symbols)
+3. **Parses** values using the configured locale when saving
+
+#### Widget Types by DataType
+
+| DataType | Edit Widget | Mask |
+|----------|-------------|------|
+| `BOOLEAN` | CheckBox | (none) |
+| `DATE` | MaskedTextBox | `0000-00-00` / `00/00/0000` |
+| `DATETIME` | MaskedTextBox | `0000-00-00 00:00` / `00/00/0000 00:00` |
+| `STRING`, `INTEGER`, `FLOAT`, `CURRENCY`, `PERCENTAGE` | TextBox | (none) |
 
 ### CRUD Events
 
