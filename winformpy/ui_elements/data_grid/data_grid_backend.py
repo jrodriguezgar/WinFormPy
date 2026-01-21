@@ -232,3 +232,84 @@ class DataGridBackend(ABC):
         Override this if your backend caches data.
         """
         pass
+    
+    # =========================================================================
+    # CRUD Operations (Override in subclasses for data modification support)
+    # =========================================================================
+    
+    def supports_crud(self) -> bool:
+        """
+        Check if this backend supports CRUD operations.
+        
+        Returns:
+            True if create, update, delete operations are supported.
+        """
+        return False
+    
+    def get_primary_key(self) -> str:
+        """
+        Get the primary key column name.
+        
+        Returns:
+            Name of the primary key column, or None if not applicable.
+        """
+        return None
+    
+    def create_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a new record in the data source.
+        
+        Args:
+            record: Dictionary with field values for the new record.
+            
+        Returns:
+            The created record (including any auto-generated fields like ID).
+            
+        Raises:
+            NotImplementedError: If CRUD is not supported.
+        """
+        raise NotImplementedError("Create not implemented in this backend")
+    
+    def update_record(self, primary_key_value: Any, changes: Dict[str, Any]) -> bool:
+        """
+        Update an existing record in the data source.
+        
+        Args:
+            primary_key_value: Value of the primary key for the record to update.
+            changes: Dictionary with field names and new values.
+            
+        Returns:
+            True if update was successful, False otherwise.
+            
+        Raises:
+            NotImplementedError: If CRUD is not supported.
+        """
+        raise NotImplementedError("Update not implemented in this backend")
+    
+    def delete_record(self, primary_key_value: Any) -> bool:
+        """
+        Delete a record from the data source.
+        
+        Args:
+            primary_key_value: Value of the primary key for the record to delete.
+            
+        Returns:
+            True if delete was successful, False otherwise.
+            
+        Raises:
+            NotImplementedError: If CRUD is not supported.
+        """
+        raise NotImplementedError("Delete not implemented in this backend")
+    
+    def validate_record(self, record: Dict[str, Any], is_new: bool = False) -> tuple[bool, str]:
+        """
+        Validate a record before creating or updating.
+        
+        Args:
+            record: Dictionary with field values to validate.
+            is_new: True if this is a new record, False if updating.
+            
+        Returns:
+            Tuple of (is_valid, error_message). If valid, error_message is empty.
+        """
+        return True, ""
