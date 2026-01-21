@@ -12136,7 +12136,94 @@ class MaskedTextBox(TextBox):
         
         # Initialize
         self._parse_mask()
-        self._update_display_text()
+        # Preserve initial text if provided
+        initial_text = defaults.get('Text', '')
+        if initial_text and self._mask:
+            self._apply_text_to_mask(initial_text)
+        else:
+            self._update_display_text()
+    
+    def _apply_text_to_mask(self, text: str):
+        """
+        Apply text to the masked input, handling both raw values and formatted values.
+        
+        Args:
+            text: The text to apply (can be raw like "20240115" or formatted like "2024-01-15")
+        """
+        if not self.Mask or not self._mask_elements:
+            # No mask, just set text directly
+            self._tk_widget.delete(0, 'end')
+            self._tk_widget.insert(0, text)
+            return
+        
+        # Build result by matching text characters to input positions
+        result = []
+        text_idx = 0
+        
+        for elem in self._mask_elements:
+            if elem['type'] == 'literal':
+                # Add literal character
+                result.append(elem['char'])
+                # If text has this literal at current position, skip it
+                if text_idx < len(text) and text[text_idx] == elem['char']:
+                    text_idx += 1
+            else:
+                # Input position - get next valid character from text
+                if text_idx < len(text):
+                    char = text[text_idx]
+                    # Skip any literal characters in the text that don't match input position
+                    while text_idx < len(text) and not self._validate_char(text[text_idx], elem):
+                        # Check if it's a literal we should skip
+                        if text[text_idx] in '/-:. $%':
+                            text_idx += 1
+                            if text_idx < len(text):
+                                char = text[text_idx]
+                            continue
+                        break
+                    
+                    if text_idx < len(text) and self._validate_char(text[text_idx], elem):
+                        # Apply case transformation
+                        char = text[text_idx]
+                        if elem.get('case') == 'upper':
+                            char = char.upper()
+                        elif elem.get('case') == 'lower':
+                            char = char.lower()
+                        result.append(char)
+                        text_idx += 1
+                    else:
+                        result.append(self.PromptChar)
+                else:
+                    result.append(self.PromptChar)
+        
+        self._tk_widget.delete(0, 'end')
+        self._tk_widget.insert(0, ''.join(result))
+    
+    @property
+    def Text(self):
+        """Gets the text content, optionally stripping mask literals and prompts."""
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            raw = self._tk_widget.get()
+            if self.TextMaskFormat == 'ExcludePromptAndLiterals':
+                # Return only user input
+                result = ''
+                for i, elem in enumerate(self._mask_elements):
+                    if i < len(raw) and elem['type'] == 'input':
+                        char = raw[i]
+                        if char != self.PromptChar:
+                            result += char
+                return result
+            return raw
+        return ''
+    
+    @Text.setter
+    def Text(self, value):
+        """Sets the text content, applying mask formatting."""
+        if self._mask and self._mask_elements:
+            self._apply_text_to_mask(str(value) if value else '')
+        else:
+            if hasattr(self, '_tk_widget') and self._tk_widget:
+                self._tk_widget.delete(0, 'end')
+                self._tk_widget.insert(0, str(value) if value else '')
     
     @property
     def Multiline(self):

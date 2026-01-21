@@ -11,7 +11,7 @@ from enum import Enum
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 from winformpy.winformpy import (
-    Panel, Label, TextBox, Button, CheckBox,
+    Panel, Label, TextBox, Button, CheckBox, MaskedTextBox,
     DockStyle, AnchorStyles, Font, FontStyle, ControlBase
 )
 from typing import Any, List, Dict, Optional, Callable
@@ -175,6 +175,23 @@ class DataGridPanel(Panel):
         self._action_column_width = props.pop('ActionColumnWidth', 100)
         self._editing_row_index = None  # Index of row currently being edited
         self._is_adding_row = False  # True if adding a new row
+        
+        # Date/Time format configuration (locale-aware)
+        # Supported formats: 'ISO' (YYYY-MM-DD), 'EU' (DD/MM/YYYY), 'US' (MM/DD/YYYY), 'system' (auto-detect)
+        self._date_format = props.pop('DateFormat', 'system')
+        self._time_format = props.pop('TimeFormat', '24h')  # '24h' or '12h'
+        
+        # Number format configuration (locale-aware)
+        # 'US': 1,234.56 (comma thousands, dot decimal)
+        # 'EU': 1.234,56 (dot thousands, comma decimal)
+        # 'system': auto-detect from locale
+        self._number_format = props.pop('NumberFormat', 'system')
+        
+        # Currency configuration
+        # Symbol: '$', '€', '£', etc. or 'system' for auto-detect
+        # Position: 'before' ($100) or 'after' (100 €)
+        self._currency_symbol = props.pop('CurrencySymbol', 'system')
+        self._currency_position = props.pop('CurrencyPosition', 'system')  # 'before', 'after', 'system'
         
         # Extract sub-properties before passing to parent
         self._toolbar_props = props.pop('Toolbar', {}) if props else {}
@@ -618,6 +635,197 @@ class DataGridPanel(Panel):
         else:
             header.BackColor = self.COLORS['header_bg']
     
+    def _format_display_value(self, record: Dict, col) -> str:
+        """
+        Format a value for display with locale-aware formatting for all types.
+        
+        Args:
+            record: The record dictionary.
+            col: The column definition.
+            
+        Returns:
+            Formatted string value.
+        """
+        value = record.get(col.name)
+        
+        if value is None:
+            return ""
+        
+        try:
+            # Get number format settings
+            num_format = self._get_number_format_settings()
+            
+            if col.data_type == DataType.STRING:
+                return str(value)
+            
+            elif col.data_type == DataType.INTEGER:
+                int_val = int(value)
+                # Format with thousands separator
+                formatted = f"{abs(int_val):,}"
+                if num_format['thousands'] == '.':
+                    formatted = formatted.replace(',', '.')
+                if int_val < 0:
+                    formatted = '-' + formatted
+                return formatted
+            
+            elif col.data_type == DataType.FLOAT:
+                float_val = float(value)
+                # Format with 2 decimals and thousands separator
+                formatted = f"{abs(float_val):,.2f}"
+                if num_format['thousands'] == '.' and num_format['decimal'] == ',':
+                    # EU format: swap . and ,
+                    formatted = formatted.replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
+                if float_val < 0:
+                    formatted = '-' + formatted
+                return formatted
+            
+            elif col.data_type == DataType.CURRENCY:
+                float_val = float(value)
+                # Format number part
+                formatted = f"{abs(float_val):,.2f}"
+                if num_format['thousands'] == '.' and num_format['decimal'] == ',':
+                    formatted = formatted.replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
+                if float_val < 0:
+                    formatted = '-' + formatted
+                # Add currency symbol
+                symbol = num_format['currency_symbol']
+                if num_format['currency_position'] == 'before':
+                    return f"{symbol}{formatted}"
+                else:
+                    return f"{formatted} {symbol}"
+            
+            elif col.data_type == DataType.PERCENTAGE:
+                float_val = float(value)
+                formatted = f"{abs(float_val):,.1f}"
+                if num_format['thousands'] == '.' and num_format['decimal'] == ',':
+                    formatted = formatted.replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
+                if float_val < 0:
+                    formatted = '-' + formatted
+                return f"{formatted}%"
+            
+            elif col.data_type == DataType.DATE:
+                if hasattr(value, 'strftime'):
+                    if not hasattr(self, '_date_strformat'):
+                        self._get_mask_for_datatype(DataType.DATE)
+                    strformat = getattr(self, '_date_strformat', '%Y-%m-%d')
+                    return value.strftime(strformat)
+                return str(value)
+            
+            elif col.data_type == DataType.DATETIME:
+                if hasattr(value, 'strftime'):
+                    if not hasattr(self, '_datetime_strformat'):
+                        self._get_mask_for_datatype(DataType.DATETIME)
+                    strformat = getattr(self, '_datetime_strformat', '%Y-%m-%d %H:%M')
+                    return value.strftime(strformat)
+                return str(value)
+            
+            elif col.data_type == DataType.BOOLEAN:
+                return "Yes" if value else "No"
+            
+            else:
+                return str(value)
+                
+        except (ValueError, TypeError, AttributeError):
+            return str(value)
+    
+    def _get_number_format_settings(self) -> Dict:
+        """
+        Get number format settings based on locale configuration.
+        
+        Returns:
+            Dict with 'thousands', 'decimal', 'currency_symbol', 'currency_position'
+        """
+        # Cache the settings
+        if hasattr(self, '_number_format_settings'):
+            return self._number_format_settings
+        
+        num_format = self._number_format
+        currency_symbol = self._currency_symbol
+        currency_position = self._currency_position
+        
+        # Auto-detect from system locale if needed
+        if num_format == 'system' or currency_symbol == 'system' or currency_position == 'system':
+            detected = self._detect_system_number_format()
+            if num_format == 'system':
+                num_format = detected['format']
+            if currency_symbol == 'system':
+                currency_symbol = detected['symbol']
+            if currency_position == 'system':
+                currency_position = detected['position']
+        
+        # Set separators based on format
+        if num_format == 'EU':
+            thousands = '.'
+            decimal = ','
+        else:  # US or ISO
+            thousands = ','
+            decimal = '.'
+        
+        self._number_format_settings = {
+            'thousands': thousands,
+            'decimal': decimal,
+            'currency_symbol': currency_symbol,
+            'currency_position': currency_position
+        }
+        
+        return self._number_format_settings
+    
+    def _detect_system_number_format(self) -> Dict:
+        """
+        Detect system number format based on locale.
+        
+        Returns:
+            Dict with 'format', 'symbol', 'position'
+        """
+        import locale
+        try:
+            loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or ''
+            loc_lower = loc.lower()
+            
+            # Determine format (EU uses dot for thousands, comma for decimal)
+            eu_locales = ['es_', 'fr_', 'de_', 'it_', 'pt_', 'nl_', 'pl_', 'ru_', 'uk_',
+                         'el_', 'cs_', 'sk_', 'hu_', 'ro_', 'bg_', 'hr_', 'sl_', 'et_', 
+                         'lv_', 'lt_', 'fi_', 'sv_', 'da_', 'no_', 'is_']
+            
+            is_eu = any(eu in loc_lower for eu in eu_locales)
+            
+            # Currency symbols and positions by region
+            currency_map = {
+                'es_': ('€', 'after'),
+                'fr_': ('€', 'after'),
+                'de_': ('€', 'after'),
+                'it_': ('€', 'after'),
+                'pt_': ('€', 'after'),
+                'nl_': ('€', 'after'),
+                'en_gb': ('£', 'before'),
+                'en_us': ('$', 'before'),
+                'en_au': ('$', 'before'),
+                'en_ca': ('$', 'before'),
+                'ja_': ('¥', 'before'),
+                'zh_': ('¥', 'before'),
+                'ko_': ('₩', 'before'),
+                'ru_': ('₽', 'after'),
+                'pl_': ('zł', 'after'),
+                'br_': ('R$', 'before'),
+            }
+            
+            symbol = '$'
+            position = 'before'
+            
+            for pattern, (sym, pos) in currency_map.items():
+                if pattern in loc_lower:
+                    symbol = sym
+                    position = pos
+                    break
+            
+            return {
+                'format': 'EU' if is_eu else 'US',
+                'symbol': symbol,
+                'position': position
+            }
+        except:
+            return {'format': 'US', 'symbol': '$', 'position': 'before'}
+    
     def _build_rows(self):
         """Build data rows."""
         # Clear existing rows
@@ -667,7 +875,8 @@ class DataGridPanel(Panel):
             widgets = []
             x = 0
             for col in columns:
-                value = self.manager.get_formatted_value(record, col.name)
+                # Get formatted value with locale-aware date formatting
+                value = self._format_display_value(record, col)
                 
                 # Determine alignment
                 anchor = 'w'  # left
@@ -1252,7 +1461,9 @@ class DataGridPanel(Panel):
                 if hasattr(widget, 'Checked') and isinstance(widget, CheckBox):
                     new_values[col.name] = widget.Checked
                 elif hasattr(widget, 'Text'):
-                    new_values[col.name] = widget.Text
+                    raw_value = widget.Text
+                    # Convert from masked format to clean value
+                    new_values[col.name] = self._parse_masked_value(raw_value, col.data_type)
         
         # Validate
         backend = self.manager.backend
@@ -1290,6 +1501,89 @@ class DataGridPanel(Panel):
         except Exception as e:
             print(f"Save error: {e}")  # TODO: Show in UI
             return False
+    
+    def _parse_masked_value(self, raw_value: str, data_type: DataType):
+        """
+        Parse a value from masked input format to clean value.
+        Uses locale-aware parsing for numeric types.
+        
+        Args:
+            raw_value: The raw string from the input widget
+            data_type: The expected data type
+            
+        Returns:
+            The parsed value in the appropriate type
+        """
+        if not raw_value:
+            return None
+        
+        # Remove mask characters and placeholders
+        clean = raw_value.replace('_', '').strip()
+        
+        if not clean:
+            return None
+        
+        # Get number format for locale-aware parsing
+        num_format = self._get_number_format_settings()
+        
+        try:
+            if data_type == DataType.INTEGER:
+                # Remove thousands separator (could be . or ,)
+                if num_format['thousands'] == '.':
+                    clean = clean.replace('.', '')
+                else:
+                    clean = clean.replace(',', '')
+                return int(clean)
+            
+            elif data_type == DataType.FLOAT:
+                # Normalize to standard float format
+                if num_format['decimal'] == ',':
+                    # EU format: remove . (thousands), replace , with . (decimal)
+                    clean = clean.replace('.', '').replace(',', '.')
+                else:
+                    # US format: just remove , (thousands)
+                    clean = clean.replace(',', '')
+                return float(clean)
+            
+            elif data_type == DataType.CURRENCY:
+                # Remove currency symbols and normalize
+                for sym in ['$', '€', '£', '¥', '₩', '₽', 'zł', 'R$']:
+                    clean = clean.replace(sym, '')
+                clean = clean.strip()
+                if num_format['decimal'] == ',':
+                    clean = clean.replace('.', '').replace(',', '.')
+                else:
+                    clean = clean.replace(',', '')
+                return float(clean) if clean else None
+            
+            elif data_type == DataType.PERCENTAGE:
+                # Remove % and normalize
+                clean = clean.replace('%', '').strip()
+                if num_format['decimal'] == ',':
+                    clean = clean.replace('.', '').replace(',', '.')
+                else:
+                    clean = clean.replace(',', '')
+                return float(clean) if clean else None
+            
+            elif data_type == DataType.DATE:
+                # Parse date using locale-aware format
+                from datetime import datetime
+                strformat = getattr(self, '_date_strformat', '%Y-%m-%d')
+                return datetime.strptime(clean, strformat).date()
+            
+            elif data_type == DataType.DATETIME:
+                # Parse datetime using locale-aware format
+                from datetime import datetime
+                strformat = getattr(self, '_datetime_strformat', '%Y-%m-%d %H:%M')
+                return datetime.strptime(clean, strformat)
+            
+            else:
+                # STRING or unknown - return as-is
+                return raw_value
+                
+        except (ValueError, TypeError):
+            # If parsing fails, return original value
+            return raw_value
     
     def CancelEdit(self):
         """Cancel the current edit and restore original values."""
@@ -1358,6 +1652,190 @@ class DataGridPanel(Panel):
             print(f"Delete error: {e}")  # TODO: Show in UI
             return False
     
+    def _get_mask_for_datatype(self, data_type: DataType) -> str:
+        """
+        Get the appropriate mask for a data type based on locale settings.
+        
+        Returns:
+            Mask string for MaskedTextBox, or empty string for no mask.
+            Only DATE and DATETIME use masks; numeric types use TextBox with validation.
+            
+        Mask formats by DateFormat:
+            - 'ISO': YYYY-MM-DD (international standard)
+            - 'EU':  DD/MM/YYYY (European: Spain, France, Germany, etc.)
+            - 'US':  MM/DD/YYYY (United States)
+            - 'system': Auto-detect from system locale
+        """
+        date_format = self._date_format
+        time_format = self._time_format
+        
+        # Auto-detect from system locale if 'system'
+        if date_format == 'system':
+            date_format = self._detect_system_date_format()
+        
+        # Define masks based on format
+        if date_format == 'EU':  # DD/MM/YYYY
+            date_mask = '00/00/0000'
+            datetime_mask = '00/00/0000 00:00' if time_format == '24h' else '00/00/0000 00:00 LL'
+            date_strformat = '%d/%m/%Y'
+            datetime_strformat = '%d/%m/%Y %H:%M' if time_format == '24h' else '%d/%m/%Y %I:%M %p'
+        elif date_format == 'US':  # MM/DD/YYYY
+            date_mask = '00/00/0000'
+            datetime_mask = '00/00/0000 00:00' if time_format == '24h' else '00/00/0000 00:00 LL'
+            date_strformat = '%m/%d/%Y'
+            datetime_strformat = '%m/%d/%Y %H:%M' if time_format == '24h' else '%m/%d/%Y %I:%M %p'
+        else:  # ISO (default): YYYY-MM-DD
+            date_mask = '0000-00-00'
+            datetime_mask = '0000-00-00 00:00'
+            date_strformat = '%Y-%m-%d'
+            datetime_strformat = '%Y-%m-%d %H:%M'
+        
+        # Store strformat for value parsing/formatting
+        self._date_strformat = date_strformat
+        self._datetime_strformat = datetime_strformat
+        
+        masks = {
+            DataType.DATE: date_mask,
+            DataType.DATETIME: datetime_mask,
+        }
+        return masks.get(data_type, '')
+    
+    def _detect_system_date_format(self) -> str:
+        """
+        Detect the system's date format based on locale.
+        
+        Returns:
+            'EU', 'US', or 'ISO' based on system locale.
+        """
+        import locale
+        try:
+            # Get system locale
+            loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or ''
+            loc_lower = loc.lower()
+            
+            # US format countries
+            us_locales = ['en_us', 'en_ph', 'en_bz', 'en_fm', 'en_mh', 'en_pw']
+            
+            # Check if US format
+            if any(us in loc_lower for us in us_locales):
+                return 'US'
+            
+            # Most of the world uses EU format (DD/MM/YYYY) or ISO
+            # European and Latin American countries
+            eu_locales = ['es_', 'fr_', 'de_', 'it_', 'pt_', 'nl_', 'pl_', 'ru_', 'uk_',
+                         'en_gb', 'en_au', 'en_nz', 'en_ie', 'en_za', 'en_in']
+            
+            if any(eu in loc_lower for eu in eu_locales):
+                return 'EU'
+            
+            # Default to ISO for others (Asian countries, etc.)
+            return 'ISO'
+        except:
+            return 'ISO'
+    
+    def _create_edit_widget(self, row_panel, col, value, x: int, is_new: bool = False):
+        """
+        Create the appropriate edit widget for a column based on its data type.
+        
+        Args:
+            row_panel: Parent panel for the widget
+            col: ColumnDefinition for the field
+            value: Current value
+            x: X position for the widget
+            is_new: If True, show placeholder text
+            
+        Returns:
+            The created widget (CheckBox, MaskedTextBox, or TextBox)
+        """
+        if col.data_type == DataType.BOOLEAN:
+            # Use checkbox for boolean (no text label)
+            return CheckBox(row_panel, {
+                'Text': '',
+                'Left': x + (col.width // 2) - 10, 
+                'Top': (self._row_height - 20) // 2,
+                'Width': 20,
+                'Height': 20,
+                'Checked': bool(value)
+            })
+        
+        # Get mask for this data type (only DATE/DATETIME)
+        mask = self._get_mask_for_datatype(col.data_type)
+        
+        # Get number format settings for locale-aware formatting
+        num_format = self._get_number_format_settings()
+        
+        # Format value for display using locale-aware format
+        display_value = ''
+        if value is not None:
+            if col.data_type == DataType.DATE:
+                if hasattr(value, 'strftime'):
+                    strformat = getattr(self, '_date_strformat', '%Y-%m-%d')
+                    display_value = value.strftime(strformat)
+                else:
+                    display_value = str(value)
+            elif col.data_type == DataType.DATETIME:
+                if hasattr(value, 'strftime'):
+                    strformat = getattr(self, '_datetime_strformat', '%Y-%m-%d %H:%M')
+                    display_value = value.strftime(strformat)
+                else:
+                    display_value = str(value)
+            elif col.data_type == DataType.FLOAT:
+                # Format with locale-aware decimal separator
+                try:
+                    float_val = float(value)
+                    if num_format['decimal'] == ',':
+                        display_value = f"{float_val:.2f}".replace('.', ',')
+                    else:
+                        display_value = f"{float_val:.2f}"
+                except:
+                    display_value = str(value)
+            elif col.data_type == DataType.CURRENCY:
+                # Format with locale-aware decimal separator (without symbol for editing)
+                try:
+                    float_val = float(value)
+                    if num_format['decimal'] == ',':
+                        display_value = f"{float_val:.2f}".replace('.', ',')
+                    else:
+                        display_value = f"{float_val:.2f}"
+                except:
+                    display_value = str(value)
+            elif col.data_type == DataType.PERCENTAGE:
+                # Format with locale-aware decimal separator (without % for editing)
+                try:
+                    float_val = float(value)
+                    if num_format['decimal'] == ',':
+                        display_value = f"{float_val:.1f}".replace('.', ',')
+                    else:
+                        display_value = f"{float_val:.1f}"
+                except:
+                    display_value = str(value)
+            else:
+                display_value = str(value)
+        
+        widget_props = {
+            'Left': x + 2, 
+            'Top': 3,
+            'Width': col.width - 4,
+            'Height': self._row_height - 6,
+            'Font': Font('Segoe UI', 9)
+        }
+        
+        if mask:
+            # Use MaskedTextBox for DATE/DATETIME (fixed-length formats)
+            widget_props['Mask'] = mask
+            widget_props['PromptChar'] = '_'
+            widget = MaskedTextBox(row_panel, widget_props)
+            # Set text after creation to ensure proper mask application
+            if display_value:
+                widget.Text = display_value
+            return widget
+        else:
+            # Use regular TextBox for strings and numbers
+            widget_props['Text'] = display_value
+            if is_new:
+                widget_props['PlaceholderText'] = col.header
+            return TextBox(row_panel, widget_props)
+    
     def _convert_row_to_edit_mode(self, index: int):
         """Convert a row from display to edit mode."""
         if index >= len(self._row_widgets):
@@ -1379,31 +1857,12 @@ class DataGridPanel(Panel):
             if hasattr(btn, '_tk_widget') and btn._tk_widget:
                 btn._tk_widget.destroy()
         
-        # Create edit widgets
+        # Create edit widgets with appropriate masks
         edit_widgets = []
         x = 0
         for col in columns:
             value = record.get(col.name, '')
-            
-            if col.data_type == DataType.BOOLEAN:
-                # Use checkbox for boolean (no text label)
-                edit_widget = CheckBox(row_panel, {
-                    'Text': '',
-                    'Left': x + (col.width // 2) - 10, 'Top': (self._row_height - 20) // 2,
-                    'Width': 20,
-                    'Height': 20,
-                    'Checked': bool(value)
-                })
-            else:
-                # Use textbox for other types
-                edit_widget = TextBox(row_panel, {
-                    'Text': str(value) if value is not None else '',
-                    'Left': x + 2, 'Top': 3,
-                    'Width': col.width - 4,
-                    'Height': self._row_height - 6,
-                    'Font': Font('Segoe UI', 9)
-                })
-            
+            edit_widget = self._create_edit_widget(row_panel, col, value, x, is_new=False)
             edit_widgets.append(edit_widget)
             x += col.width
         
@@ -1456,31 +1915,12 @@ class DataGridPanel(Panel):
             'BackColor': '#FFFDE7'  # Light yellow for new row
         })
         
-        # Create edit widgets
+        # Create edit widgets with appropriate masks
         edit_widgets = []
         x = 0
         for col in columns:
             value = record.get(col.name, '')
-            
-            if col.data_type == DataType.BOOLEAN:
-                # Checkbox sin texto
-                edit_widget = CheckBox(row_panel, {
-                    'Text': '',
-                    'Left': x + (col.width // 2) - 10, 'Top': (self._row_height - 20) // 2,
-                    'Width': 20,
-                    'Height': 20,
-                    'Checked': bool(value)
-                })
-            else:
-                edit_widget = TextBox(row_panel, {
-                    'Text': str(value) if value is not None else '',
-                    'Left': x + 2, 'Top': 3,
-                    'Width': col.width - 4,
-                    'Height': self._row_height - 6,
-                    'Font': Font('Segoe UI', 9),
-                    'PlaceholderText': col.header
-                })
-            
+            edit_widget = self._create_edit_widget(row_panel, col, value, x, is_new=True)
             edit_widgets.append(edit_widget)
             x += col.width
         
@@ -1885,21 +2325,23 @@ if __name__ == "__main__":
         
         def __init__(self):
             """Initialize with some sample products."""
+            from datetime import date
             self._next_id = 6
             self._data = [
-                {"id": 1, "name": "Laptop", "category": "Electronics", "price": 999.99, "stock": 50, "active": True},
-                {"id": 2, "name": "Mouse", "category": "Electronics", "price": 29.99, "stock": 200, "active": True},
-                {"id": 3, "name": "Keyboard", "category": "Electronics", "price": 79.99, "stock": 150, "active": True},
-                {"id": 4, "name": "Monitor", "category": "Electronics", "price": 349.99, "stock": 75, "active": True},
-                {"id": 5, "name": "Headphones", "category": "Audio", "price": 149.99, "stock": 100, "active": False},
+                {"id": 1, "name": "Laptop", "category": "Electronics", "price": 999.99, "stock": 50, "active": True, "created": date(2024, 1, 15)},
+                {"id": 2, "name": "Mouse", "category": "Electronics", "price": 29.99, "stock": 200, "active": True, "created": date(2024, 2, 20)},
+                {"id": 3, "name": "Keyboard", "category": "Electronics", "price": 79.99, "stock": 150, "active": True, "created": date(2024, 3, 10)},
+                {"id": 4, "name": "Monitor", "category": "Electronics", "price": 349.99, "stock": 75, "active": True, "created": date(2024, 4, 5)},
+                {"id": 5, "name": "Headphones", "category": "Audio", "price": 149.99, "stock": 100, "active": False, "created": date(2024, 5, 18)},
             ]
             self._columns = [
                 ColumnDefinition("id", "ID", DataType.INTEGER, width=60, align="right"),
-                ColumnDefinition("name", "Product Name", DataType.STRING, width=180),
-                ColumnDefinition("category", "Category", DataType.STRING, width=120),
-                ColumnDefinition("price", "Price", DataType.CURRENCY, width=100, align="right"),
-                ColumnDefinition("stock", "Stock", DataType.INTEGER, width=80, align="right"),
-                ColumnDefinition("active", "Active", DataType.BOOLEAN, width=70, align="center"),
+                ColumnDefinition("name", "Product Name", DataType.STRING, width=150),
+                ColumnDefinition("category", "Category", DataType.STRING, width=100),
+                ColumnDefinition("price", "Price", DataType.CURRENCY, width=80, align="right"),
+                ColumnDefinition("stock", "Stock", DataType.INTEGER, width=60, align="right"),
+                ColumnDefinition("active", "Active", DataType.BOOLEAN, width=60, align="center"),
+                ColumnDefinition("created", "Created", DataType.DATE, width=110, align="center"),
             ]
         
         def get_columns(self) -> List[ColumnDefinition]:
