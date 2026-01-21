@@ -1,9 +1,9 @@
-"""
+﻿"""
 Email Client - WinFormPy UI Element
 
 A complete email client component with three-layer architecture:
 
-- **Primitives Layer** (`email_primitives.py`): Low-level email operations
+- **Primitives Layer** (`email_backend.py`): Low-level email operations
   (IMAP/SMTP abstraction, email parsing)
   
 - **Manager Layer** (`email_manager.py`): Business logic and state management
@@ -27,8 +27,8 @@ Usage:
     panel.Dock = DockStyle.Fill
 """
 
-from .email_primitives import (
-    EmailPrimitives,
+from .email_backend import (
+    EmailBackend,
     EmailProtocol,
     EmailPriority,
     EmailFlags,
@@ -56,7 +56,7 @@ from .email_ui import EmailForm
 
 __all__ = [
     # Primitives
-    'EmailPrimitives',
+    'EmailBackend',
     'EmailProtocol',
     'EmailPriority',
     'EmailFlags',

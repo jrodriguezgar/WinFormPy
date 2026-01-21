@@ -2,6 +2,21 @@
 
 A complete word processor component for WinFormPy, built on the enhanced `RichTextBox` control following Windows Forms standards.
 
+> ✅ **Self-contained**: This component does NOT require an external backend. All operations (file I/O, formatting) are handled locally using standard Python file operations.
+
+> **📦 Component Structure**: This module provides:
+> - `WordProcessorPanel` - Embeddable panel for any Form/Panel
+> - `WordProcessorForm` - Standalone WordPad-style form that **uses WordProcessorPanel internally** (access via `.Editor` property)
+
+## Quick Demo
+
+Run the built-in demo to see the component in action:
+
+```bash
+# WordPad-style word processor demo
+python winformpy/ui_elements/word_processor/word_processor_panel.py
+```
+
 ## Overview
 
 The Word Processor UI Element provides a full-featured text editor with:
@@ -117,6 +132,56 @@ Application.Run(form)
 | `DefaultFontSize` | 11         | Default font size            |
 | `EditorBackColor` | '#FFFFFF'  | Editor background color      |
 | `EditorForeColor` | '#000000'  | Editor text color            |
+
+### Sub-Properties for Internal WinFormPy Controls
+
+You can configure internal WinFormPy controls using sub-properties:
+
+```python
+processor = WordProcessorPanel(form, {
+    'Dock': DockStyle.Fill,
+    'ShowToolbar': True,
+    'ShowStatusBar': True,
+    
+    # Sub-properties for internal controls
+    'Toolbar': {
+        'Height': 45,
+        'BackColor': '#E0E0E0',
+        'Padding': 6
+    },
+    'ToolbarButton': {
+        'Width': 36,
+        'Height': 32,
+        'BackColor': '#F0F0F0'
+    },
+    'Editor': {
+        'BackColor': '#FFFEF0',
+        'ForeColor': '#333333',
+        'Font': Font('Georgia', 12),
+        'WordWrap': True,
+        'Padding': 10
+    },
+    'StatusBar': {
+        'Height': 28,
+        'BackColor': '#D0D0D0',
+        'ForeColor': '#222222'
+    },
+    'FindBar': {
+        'Height': 40,
+        'BackColor': '#FFFFF0'
+    }
+})
+```
+
+#### Available Sub-Properties
+
+| Sub-Property | Keys | Description |
+|--------------|------|-------------|
+| `Toolbar` | `Height`, `BackColor`, `Padding` | Formatting toolbar panel |
+| `ToolbarButton` | `Width`, `Height`, `BackColor` | Toolbar buttons (B, I, U, etc.) |
+| `Editor` | `BackColor`, `ForeColor`, `Font`, `WordWrap`, `Padding` | RichTextBox editor area |
+| `StatusBar` | `Height`, `BackColor`, `ForeColor` | Status bar at bottom |
+| `FindBar` | `Height`, `BackColor` | Find/replace bar |
 
 ## Enums
 

@@ -331,11 +331,6 @@ btn_remove_grow = Button(form, {
 })
 btn_remove_grow.Click = remove_option_grow
 
-# Mostrar formulario
-print("Iniciando ejemplo...")
-print(f"Tamaño inicial GrowAndShrink: {gb_shrink.Width}x{gb_shrink.Height}")
-print(f"Tamaño inicial GrowOnly: {gb_grow.Width}x{gb_grow.Height}")
-
 # Ajustar diseño inicial
 adjust_layout()
 

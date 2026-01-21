@@ -1,4 +1,4 @@
-"""
+﻿"""
 Email Manager - Business logic layer for email operations.
 
 This module provides the business logic for email handling:
@@ -8,7 +8,7 @@ This module provides the business logic for email handling:
 - State management
 
 Architecture:
-    EmailPrimitives (low-level ops)
+    EmailBackend (low-level ops)
         ↓ used by
     EmailManager (this module)
         ↓ used by
@@ -24,14 +24,14 @@ import queue
 
 # Use try/except for imports to support both direct execution and package import
 try:
-    from .email_primitives import (
-        EmailPrimitives, EmailMessage, EmailFolder, EmailAccount,
+    from .email_backend import (
+        EmailBackend, EmailMessage, EmailFolder, EmailAccount,
         EmailAddress, EmailAttachment, EmailFlags, EmailPriority,
         FolderType
     )
 except ImportError:
-    from email_primitives import (
-        EmailPrimitives, EmailMessage, EmailFolder, EmailAccount,
+    from email_backend import (
+        EmailBackend, EmailMessage, EmailFolder, EmailAccount,
         EmailAddress, EmailAttachment, EmailFlags, EmailPriority,
         FolderType
     )
@@ -137,15 +137,15 @@ class EmailManager:
     - Message threading
     """
     
-    def __init__(self, primitives: EmailPrimitives = None):
+    def __init__(self, primitives: EmailBackend = None):
         """
         Initialize the email manager.
         
         Args:
-            primitives: EmailPrimitives instance for low-level operations.
+            primitives: EmailBackend instance for low-level operations.
                        If None, a default instance will be created.
         """
-        self._primitives = primitives or EmailPrimitives()
+        self._primitives = primitives or EmailBackend()
         
         # State
         self._account: Optional[EmailAccount] = None
@@ -172,12 +172,12 @@ class EmailManager:
     # =========================================================================
     
     @property
-    def primitives(self) -> EmailPrimitives:
+    def primitives(self) -> EmailBackend:
         """Get the primitives layer."""
         return self._primitives
     
     @primitives.setter
-    def primitives(self, value: EmailPrimitives):
+    def primitives(self, value: EmailBackend):
         """Set the primitives layer."""
         self._primitives = value
     
@@ -233,7 +233,7 @@ class EmailManager:
             account: EmailAccount configuration
         """
         self._account = account
-        self._primitives = EmailPrimitives(account)
+        self._primitives = EmailBackend(account)
     
     def connect(self) -> bool:
         """

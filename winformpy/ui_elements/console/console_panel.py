@@ -1,4 +1,4 @@
-"""
+﻿"""
 ConsolePanel - A terminal-style console component for WinFormPy.
 
 Provides a text-based console interface with customizable font, colors,
@@ -35,7 +35,7 @@ from winformpy.winformpy import (
     Font, FontStyle, ScrollBars
 )
 from winformpy.ui_elements.console.console_io import (
-    ConsoleIOBase, LocalConsoleIO, OutputMessage, OutputType, InputCommand,
+    ConsoleIOBackend, LocalConsoleIO, OutputMessage, OutputType, InputCommand,
     create_console_io
 )
 from datetime import datetime
@@ -120,8 +120,20 @@ class ConsolePanel(Panel):
                 - ShowTimestamp: Show timestamp on each line (default: False)
                 - MaxLines: Maximum lines to keep in buffer (default: 1000)
                 - ReadOnly: If True, hide command input (default: False)
-                - ConsoleIO: Optional ConsoleIOBase instance for I/O layer
+                - ConsoleIO: Optional ConsoleIOBackend instance for I/O layer
+                
+                Sub-properties for internal WinFormPy controls:
+                - 'OutputArea': {'BackColor': '#1E1E1E', 'ForeColor': '#CCC', 'Padding': 8, ...}
+                - 'InputArea': {'Height': 30, 'BackColor': '#1E1E1E', ...}
+                - 'PromptLabel': {'ForeColor': '#CCC', 'Font': Font(...), ...}
+                - 'InputBox': {'BackColor': '#1E1E1E', 'ForeColor': '#CCC', ...}
         """
+        # Extract sub-properties for internal controls
+        self._output_area_props = props.pop('OutputArea', {}) if props else {}
+        self._input_area_props = props.pop('InputArea', {}) if props else {}
+        self._prompt_label_props = props.pop('PromptLabel', {}) if props else {}
+        self._input_box_props = props.pop('InputBox', {}) if props else {}
+        
         # Extract console-specific properties before calling parent
         defaults = {
             'Width': 600,
@@ -154,7 +166,7 @@ class ConsolePanel(Panel):
         self._read_only = defaults.pop('ReadOnly')
         
         # I/O Layer
-        self._console_io: Optional[ConsoleIOBase] = defaults.pop('ConsoleIO')
+        self._console_io: Optional[ConsoleIOBackend] = defaults.pop('ConsoleIO')
         self._use_io_layer = self._console_io is not None
         
         # Command history (used when not using I/O layer)
@@ -202,36 +214,52 @@ class ConsolePanel(Panel):
     
     def _create_ui(self):
         """Create the console UI components using WinFormPy controls."""
+        # Apply OutputArea sub-properties
+        output_bg = self._output_area_props.get('BackColor', self._back_color)
+        output_fg = self._output_area_props.get('ForeColor', self._fore_color)
+        output_padding = self._output_area_props.get('Padding', 8)
+        output_max_lines = self._output_area_props.get('MaxLines', self._max_lines)
+        output_selection_bg = self._output_area_props.get('SelectionBackColor', '#264F78')
+        
         # Output area - ConsoleTextBox with scrollbar and multi-color support
         self._output_text = ConsoleTextBox(self, {
             'Dock': DockStyle.Fill,
-            'BackColor': self._back_color,
-            'ForeColor': self._fore_color,
+            'BackColor': output_bg,
+            'ForeColor': output_fg,
             'Font': self._console_font,
             'ReadOnly': True,
             'WordWrap': True,
             'ShowScrollBar': True,
-            'MaxLines': self._max_lines,
+            'MaxLines': output_max_lines,
             'BorderWidth': 0,
-            'Padding': 8,
-            'SelectionBackColor': '#264F78'
+            'Padding': output_padding,
+            'SelectionBackColor': output_selection_bg
         })
         
         # Input area (only if not read-only)
         if not self._read_only:
+            # Apply InputArea sub-properties
+            input_height = self._input_area_props.get('Height', 30)
+            input_bg = self._input_area_props.get('BackColor', self._back_color)
+            
             self._input_panel = Panel(self, {
                 'Dock': DockStyle.Bottom,
-                'Height': 30,
-                'BackColor': self._back_color,
+                'Height': input_height,
+                'BackColor': input_bg,
                 'BorderStyle': 'None'
             })
+            
+            # Apply PromptLabel sub-properties
+            prompt_fg = self._prompt_label_props.get('ForeColor', self._fore_color)
+            prompt_bg = self._prompt_label_props.get('BackColor', input_bg)
+            prompt_font = self._prompt_label_props.get('Font', self._console_font)
             
             # Prompt label
             self._prompt_label = Label(self._input_panel, {
                 'Text': self._prompt,
-                'Font': self._console_font,
-                'ForeColor': self._fore_color,
-                'BackColor': self._back_color,
+                'Font': prompt_font,
+                'ForeColor': prompt_fg,
+                'BackColor': prompt_bg,
                 'Left': 8,
                 'Top': 5,
                 'AutoSize': True
@@ -240,15 +268,20 @@ class ConsolePanel(Panel):
             # Calculate prompt width
             prompt_width = len(self._prompt) * (self._font_size - 2) + 10
             
+            # Apply InputBox sub-properties
+            inputbox_bg = self._input_box_props.get('BackColor', input_bg)
+            inputbox_fg = self._input_box_props.get('ForeColor', self._fore_color)
+            inputbox_font = self._input_box_props.get('Font', self._console_font)
+            
             # Input TextBox
             self._input_entry = TextBox(self._input_panel, {
                 'Left': prompt_width,
                 'Top': 4,
                 'Width': 500,  # Will be adjusted by anchor
                 'Height': 22,
-                'BackColor': self._back_color,
-                'ForeColor': self._fore_color,
-                'Font': self._console_font,
+                'BackColor': inputbox_bg,
+                'ForeColor': inputbox_fg,
+                'Font': inputbox_font,
                 'BorderStyle': 'None'
             })
             
@@ -376,12 +409,12 @@ class ConsolePanel(Panel):
         return self._output_text.Text
     
     @property
-    def ConsoleIO(self) -> Optional[ConsoleIOBase]:
+    def ConsoleIO(self) -> Optional[ConsoleIOBackend]:
         """Gets the current I/O layer."""
         return self._console_io
     
     @ConsoleIO.setter
-    def ConsoleIO(self, value: Optional[ConsoleIOBase]) -> None:
+    def ConsoleIO(self, value: Optional[ConsoleIOBackend]) -> None:
         """Sets the I/O layer."""
         # Disconnect old I/O layer
         if self._console_io and self._console_io.is_connected:

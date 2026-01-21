@@ -1,6 +1,24 @@
-# 💬 Chat UI Module
+﻿# 💬 Chat UI Module
 
 A Messenger-style chat interface component with modern features.
+
+> ⚠️ **Architecture-agnostic**: This component delegates message sending to an **external backend** (`ChatBackend`). You provide the integration with your AI service, WebSocket server, or chat API.
+
+> **📦 Component Structure**: This module provides:
+> - `ChatPanel` - Embeddable panel for any Form/Panel
+> - `ChatUI` - Standalone form that **uses ChatPanel internally** (access via `.chat_panel` property)
+
+## Quick Demo
+
+Run the built-in demos to see the component in action:
+
+```bash
+# Embeddable panel demo
+python winformpy/ui_elements/chat/chat_panel.py
+
+# Full Messenger-style form demo
+python winformpy/ui_elements/chat/chat_ui.py
+```
 
 ## 📖 Overview
 
@@ -13,6 +31,7 @@ This module provides a complete chat UI solution with Messenger-like features:
 - ✅ Scrollable message area
 - ✅ Input area with send button
 - ✅ Full state management
+- ✅ **Pluggable backend** for external chat services
 
 ### Messenger-Style Features
 - 👤 **Avatars** - Circular avatars with user initials
@@ -48,8 +67,62 @@ This module provides a complete chat UI solution with Messenger-like features:
 │  - Message history                                  │
 │  - State management (ChatState enum)                │
 │  - Read/unread tracking                             │
-│  - Callbacks                                        │
+│  - Delegates to optional backend                    │
+├─────────────────────────────────────────────────────┤
+│  ⚠️ EXTERNAL (not part of this project)             │
+│  ChatBackend (ChatBackend implementation)       │
+│  - API calls to chat services                       │
+│  - WebSocket connections                            │
+│  - AI/LLM integrations                              │
 └─────────────────────────────────────────────────────┘
+```
+
+**⚠️ IMPORTANT**: The Chat Backend is **NOT part of this project**. It must be provided externally.
+
+---
+
+## 📋 Chat Backend Contract (External)
+
+The external backend must implement `ChatBackend` for connecting to chat services:
+
+```python
+from winformpy.ui_elements.chat import ChatBackend
+
+class MyChatBackend(ChatBackend):
+    """Required interface for the Chat Backend (external)."""
+    
+    # === Required Method ===
+    
+    def send_message(self, text: str, context: list = None) -> str | None:
+        """
+        Send a message and receive a response.
+        
+        Args:
+            text: User's message text
+            context: Previous messages for conversation context
+            
+        Returns:
+            str: Response text, or None if async
+        """
+        pass
+    
+    # === Optional Methods ===
+    
+    def connect(self) -> bool:
+        """Connect to the chat service. Returns True if successful."""
+        return True
+    
+    def disconnect(self) -> None:
+        """Disconnect from the chat service."""
+        pass
+    
+    def get_history(self, limit: int = None) -> list:
+        """Retrieve message history from external storage."""
+        return []
+    
+    def save_history(self, messages: list) -> bool:
+        """Save message history to external storage."""
+        return True
 ```
 
 ---
@@ -61,6 +134,7 @@ This module provides a complete chat UI solution with Messenger-like features:
 | `ChatUI` | Form | Complete Messenger-style chat window |
 | `ChatPanel` | Panel | Embeddable chat panel with full features |
 | `ChatManager` | Service | Manages message history and state |
+| `ChatBackend` | ABC | Abstract base class for external backends |
 | `ChatMessage` | Model | Represents a single message with metadata |
 | `ChatState` | Enum | Conversation state values |
 
@@ -110,6 +184,66 @@ chat.manager.receive_message("Welcome! How can I help you?")
 Application.Run(form)
 ```
 
+### Customizing with Sub-Properties
+
+ChatPanel supports sub-properties for configuring internal elements:
+
+```python
+from winformpy import Form, Application, DockStyle, Font
+from winformpy.ui_elements.chat import ChatPanel
+
+form = Form({'Text': 'Custom Chat', 'Width': 550, 'Height': 700})
+form.ApplyLayout()
+
+# Configure internal elements with sub-properties
+chat = ChatPanel(form, props={
+    'Dock': DockStyle.Fill,
+    
+    # Configure input area at the bottom
+    'InputArea': {
+        'Height': 80,
+        'BackColor': '#E8E8E8'
+    },
+    
+    # Configure send button
+    'SendButton': {
+        'Text': 'Send',
+        'BackColor': '#107C10',
+        'ForeColor': '#FFFFFF',
+        'Width': 70
+    },
+    
+    # Configure message area background
+    'MessageArea': {
+        'BackColor': '#F5F5F5'
+    },
+    
+    # Configure user message bubbles
+    'UserBubble': {
+        'BackColor': '#A8D8A8',  # Lighter green
+        'ForeColor': '#000000'
+    },
+    
+    # Configure assistant message bubbles
+    'AssistantBubble': {
+        'BackColor': '#E0E0E0',
+        'ForeColor': '#333333'
+    }
+})
+
+Application.Run(form)
+```
+
+#### Available Sub-Properties
+
+| Sub-Property | Keys | Description |
+|--------------|------|-------------|
+| `InputArea` | `Height`, `BackColor` | Input container at bottom |
+| `SendButton` | `Text`, `BackColor`, `ForeColor`, `Width`, `Font` | Send button |
+| `MessageArea` | `BackColor` | Scrollable messages container |
+| `UserBubble` | `BackColor`, `ForeColor` | User message bubbles |
+| `AssistantBubble` | `BackColor`, `ForeColor` | Assistant message bubbles |
+
 ### Run Demo
 
 ```bash
@@ -118,6 +252,119 @@ python -m winformpy.ui_elements.chat.chat_ui
 
 # ChatPanel demo (panel only)
 python -m winformpy.ui_elements.chat.chat_panel
+```
+
+---
+
+## 🔌 Using External Backends
+
+### Example: OpenAI Backend (External Implementation)
+
+```python
+from winformpy import Application
+from winformpy.ui_elements.chat import ChatUI, ChatBackend, ChatManager
+
+# External backend implementation (NOT part of WinFormPy)
+class OpenAIChatBackend(ChatBackend):
+    """Example backend using OpenAI API."""
+    
+    def __init__(self, api_key, model="gpt-4"):
+        from openai import OpenAI
+        self.client = OpenAI(api_key=api_key)
+        self.model = model
+    
+    def send_message(self, text, context=None):
+        messages = []
+        if context:
+            for msg in context:
+                messages.append({
+                    "role": msg['role'],
+                    "content": msg['content']
+                })
+        messages.append({"role": "user", "content": text})
+        
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages
+        )
+        return response.choices[0].message.content
+
+# Create backend instance
+backend = OpenAIChatBackend(api_key="your-api-key")
+
+# Create manager with backend
+manager = ChatManager(backend=backend)
+
+# Use with ChatPanel
+form = Form({'Text': 'AI Chat', 'Width': 600, 'Height': 700})
+form.ApplyLayout()
+chat = ChatPanel(form, manager=manager)
+
+Application.Run(form)
+```
+
+### Example: WebSocket Backend (External Implementation)
+
+```python
+from winformpy.ui_elements.chat import ChatBackend
+import websocket
+import json
+
+class WebSocketChatBackend(ChatBackend):
+    """Example backend using WebSocket connection."""
+    
+    def __init__(self, url):
+        self.url = url
+        self.ws = None
+    
+    def connect(self) -> bool:
+        self.ws = websocket.create_connection(self.url)
+        return True
+    
+    def disconnect(self):
+        if self.ws:
+            self.ws.close()
+    
+    def send_message(self, text, context=None):
+        self.ws.send(json.dumps({"message": text}))
+        result = self.ws.recv()
+        return json.loads(result).get("response")
+```
+
+### Example: Local Storage Backend
+
+```python
+from winformpy.ui_elements.chat import ChatBackend
+import json
+import os
+
+class FileStorageChatBackend(ChatBackend):
+    """Backend that persists chat history to file."""
+    
+    def __init__(self, filepath):
+        self.filepath = filepath
+    
+    def send_message(self, text, context=None):
+        # No external service, just return None
+        return None
+    
+    def get_history(self, limit=None):
+        if os.path.exists(self.filepath):
+            with open(self.filepath, 'r') as f:
+                history = json.load(f)
+                return history[-limit:] if limit else history
+        return []
+    
+    def save_history(self, messages):
+        history = [
+            {"role": "user" if m.is_user else "assistant", 
+             "content": m.text,
+             "timestamp": m.timestamp.isoformat()}
+            for m in messages
+        ]
+        with open(self.filepath, 'w') as f:
+            json.dump(history, f)
+        return True
 ```
 
 ---

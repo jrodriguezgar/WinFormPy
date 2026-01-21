@@ -1,11 +1,11 @@
-"""
+﻿"""
 Email Panel - Embeddable email client component.
 
 This module provides an embeddable email panel that can be integrated
 into any WinFormPy application.
 
 Architecture:
-    EmailPrimitives (low-level ops)
+    EmailBackend (low-level ops)
         ↓ used by
     EmailManager (business logic)
         ↓ used by
@@ -34,7 +34,7 @@ try:
         EmailManager, EmailEventType, EmailEvent, EmailFilter,
         SortField, SortOrder
     )
-    from .email_primitives import (
+    from .email_backend import (
         EmailMessage, EmailFolder, EmailAccount, EmailAddress,
         EmailFlags, FolderType
     )
@@ -43,7 +43,7 @@ except ImportError:
         EmailManager, EmailEventType, EmailEvent, EmailFilter,
         SortField, SortOrder
     )
-    from email_primitives import (
+    from email_backend import (
         EmailMessage, EmailFolder, EmailAccount, EmailAddress,
         EmailFlags, FolderType
     )

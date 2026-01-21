@@ -1,4 +1,4 @@
-"""
+﻿"""
 Console UI Element Module
 
 Provides a terminal-style console component with customizable font, colors,
@@ -27,7 +27,7 @@ from .console_panel import ConsolePanel
 from .console_ui import ConsoleForm
 from .console_io import (
     # Base classes
-    ConsoleIOBase,
+    ConsoleIOBackend,
     
     # Implementations
     LocalConsoleIO,
@@ -49,7 +49,7 @@ __all__ = [
     'ConsoleForm',
     
     # I/O Layer
-    'ConsoleIOBase',
+    'ConsoleIOBackend',
     'LocalConsoleIO',
     'SubprocessConsoleIO',
     'CallbackConsoleIO',

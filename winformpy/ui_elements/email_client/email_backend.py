@@ -1,22 +1,54 @@
-"""
-Email Primitives - Low-level email operations.
+﻿"""
+Email Primitives - Low-level email operations abstraction.
 
-This module provides the primitive operations for email handling:
-- IMAP connection and message retrieval
-- SMTP connection and message sending
-- Email parsing and formatting
-- Attachment handling
+This module provides the primitive operations for email handling as an
+abstract interface that must be implemented by an external backend.
 
 Architecture:
-    EmailPrimitives (this module)
-        ↓ used by
-    EmailManager (business logic)
-        ↓ used by
-    EmailPanel/EmailForm (UI)
+    ┌─────────────────────────────────────────────────────┐
+    │  EmailPanel / EmailForm (Visual Layer)              │
+    └─────────────────────┬───────────────────────────────┘
+                          │ uses
+    ┌─────────────────────▼───────────────────────────────┐
+    │  EmailManager (Business Logic)                      │
+    │    → Manages state, caching, events                 │
+    │    → Delegates operations to primitives             │
+    └─────────────────────┬───────────────────────────────┘
+                          │ delegates
+    ┌─────────────────────▼───────────────────────────────┐
+    │  EmailBackend (Interface/Base Class)             │
+    │    → Abstract interface for email operations        │
+    │    → Provides default stub implementations          │
+    └─────────────────────┬───────────────────────────────┘
+                          │ implemented by
+    ┌─────────────────────▼───────────────────────────────┐
+    │  ⚠️ EXTERNAL (not part of this project)             │
+    │  Concrete Backend Implementation                    │
+    │    → IMAPBackend, GmailAPIBackend, etc.             │
+    │    → Uses imaplib, imapclient, google-api, etc.     │
+    └─────────────────────────────────────────────────────┘
 
-Note: This is an abstraction layer. Actual email operations require
-additional libraries (imaplib, smtplib, email) which are part of
-Python's standard library.
+⚠️ IMPORTANT: The concrete backend implementation is NOT part of this project.
+It must be provided externally by the application.
+
+Example backend implementation:
+    class IMAPBackend(EmailBackend):
+        def connect(self) -> bool:
+            import imaplib
+            self._imap = imaplib.IMAP4_SSL(
+                self._account.incoming_server,
+                self._account.incoming_port
+            )
+            self._imap.login(
+                self._account.incoming_username,
+                self._account.incoming_password
+            )
+            self._connected = True
+            return True
+        
+        def get_message_list(self, folder="INBOX", start=0, limit=50):
+            self._imap.select(folder)
+            # ... implementation
 """
 
 import os
@@ -273,21 +305,49 @@ class EmailAccount:
 
 
 # =============================================================================
-# Primitive Operations
+# Primitive Operations - Base Class for External Backend
 # =============================================================================
 
-class EmailPrimitives:
+class EmailBackend:
     """
-    Low-level email operations abstraction.
+    Base class for email operations - to be implemented by external backend.
     
-    This class provides primitive operations that can be implemented
-    using different backends (imaplib, imapclient, etc.)
+    This class provides default stub implementations for all email operations.
+    Subclass and override methods to connect to actual email services.
     
-    All methods are designed to be overridden by concrete implementations.
+    ⚠️ IMPORTANT: This is an abstraction layer. The actual implementation
+    that connects to IMAP/SMTP servers is NOT part of this project and must
+    be provided externally.
+    
+    Required backend implementations:
+    - IMAP backend: For reading emails (imaplib, imapclient, etc.)
+    - SMTP backend: For sending emails (smtplib, etc.)
+    - Or API-based: Gmail API, Microsoft Graph, etc.
+    
+    Example:
+        class MyIMAPBackend(EmailBackend):
+            def connect(self) -> bool:
+                import imaplib
+                self._imap = imaplib.IMAP4_SSL(...)
+                self._connected = True
+                return True
+            
+            def get_message_list(self, folder="INBOX", start=0, limit=50):
+                # Actual IMAP implementation
+                pass
+        
+        # Usage
+        backend = MyIMAPBackend(account)
+        manager = EmailManager(primitives=backend)
     """
     
     def __init__(self, account: EmailAccount = None):
-        """Initialize with optional account configuration."""
+        """
+        Initialize with optional account configuration.
+        
+        Args:
+            account: EmailAccount configuration. Required for most operations.
+        """
         self._account = account
         self._connected = False
         self._imap_connection = None

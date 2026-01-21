@@ -1,6 +1,21 @@
-# 🖥️ Console UI Module
+﻿# 🖥️ Console UI Module
 
 A terminal-style console interface component for WinFormPy applications with a pluggable I/O layer architecture.
+
+> ⚠️ **Architecture-agnostic**: This component uses a **pluggable I/O layer**. You provide the command processing backend (local handlers, shell execution, remote API, etc.).
+
+> **📦 Component Structure**: This module provides:
+> - `ConsolePanel` - Embeddable panel for any Form/Panel
+> - `ConsoleForm` - Standalone form that **uses ConsolePanel internally** (access via `.console` property)
+
+## Quick Demo
+
+Run the built-in demo to see the component in action:
+
+```bash
+# Embeddable console panel demo
+python winformpy/ui_elements/console/console_panel.py
+```
 
 ## 📖 Overview
 
@@ -50,7 +65,7 @@ This module provides a customizable console/terminal component with:
 |-----------|------|-------------|
 | `ConsoleForm` | Form | Complete terminal window with toolbar |
 | `ConsolePanel` | Panel | Embeddable console widget |
-| `ConsoleIOBase` | ABC | Abstract base for I/O implementations |
+| `ConsoleIOBackend` | ABC | Abstract base for I/O implementations |
 | `LocalConsoleIO` | I/O | Local command processing with decorators |
 | `SubprocessConsoleIO` | I/O | Execute shell commands |
 | `CallbackConsoleIO` | I/O | Simple callback-based processing |
@@ -107,6 +122,67 @@ console = ConsolePanel(form, {
 
 # Register commands with decorators
 @io.command('help', aliases=['?', 'h'])
+```
+
+### Customizing with Sub-Properties
+
+ConsolePanel supports sub-properties for fine-tuning internal WinFormPy controls:
+
+```python
+from winformpy import Form, Application, DockStyle, Font, FontStyle
+from winformpy.ui_elements.console import ConsolePanel
+
+form = Form({'Text': 'Custom Console', 'Width': 800, 'Height': 600})
+form.ApplyLayout()
+
+console = ConsolePanel(form, {
+    'Dock': DockStyle.Fill,
+    'BackColor': '#1E1E1E',
+    'ForeColor': '#CCCCCC',
+    'FontFamily': 'Consolas',
+    'FontSize': 12,
+    'Prompt': '>>> ',
+    
+    # Sub-properties for internal controls
+    'OutputArea': {
+        'BackColor': '#0C0C0C',
+        'ForeColor': '#00FF00',
+        'Padding': 12,
+        'MaxLines': 2000,
+        'SelectionBackColor': '#3A3A3A'
+    },
+    'InputArea': {
+        'Height': 35,
+        'BackColor': '#1A1A1A'
+    },
+    'PromptLabel': {
+        'ForeColor': '#FFFF00',
+        'Font': Font('Consolas', 12, FontStyle.Bold)
+    },
+    'InputBox': {
+        'BackColor': '#1A1A1A',
+        'ForeColor': '#FFFFFF'
+    }
+})
+
+Application.Run(form)
+```
+
+#### Available Sub-Properties
+
+| Sub-Property | Keys | Description |
+|--------------|------|-------------|
+| `OutputArea` | `BackColor`, `ForeColor`, `Padding`, `MaxLines`, `SelectionBackColor` | Main output ConsoleTextBox |
+| `InputArea` | `Height`, `BackColor` | Input panel at bottom |
+| `PromptLabel` | `ForeColor`, `BackColor`, `Font` | Prompt label (e.g., ">>> ") |
+| `InputBox` | `BackColor`, `ForeColor`, `Font` | Command input TextBox |
+
+---
+
+## 🔌 I/O Layer Architecture (continued)
+
+```python
+@io.command('help', aliases=['?', 'h'])
 def help_cmd(args):
     io.write_info("Commands: help, clear, exit")
 
@@ -155,14 +231,14 @@ Application.Run(form)
 
 ## 🔌 I/O Layer Architecture
 
-### ConsoleIOBase (Abstract Base)
+### ConsoleIOBackend (Abstract Base)
 
-All I/O implementations inherit from `ConsoleIOBase`:
+All I/O implementations inherit from `ConsoleIOBackend`:
 
 ```python
-from winformpy.ui_elements.console import ConsoleIOBase, OutputMessage, OutputType
+from winformpy.ui_elements.console import ConsoleIOBackend, OutputMessage, OutputType
 
-class MyCustomIO(ConsoleIOBase):
+class MyCustomIO(ConsoleIOBackend):
     def send_command(self, command):
         # Process command
         self.write_success(f"Executed: {command.command}")
@@ -306,7 +382,7 @@ console.SetTheme('matrix')
 | `ShowTimestamp` | bool | Show timestamp on lines |
 | `MaxLines` | int | Maximum lines in buffer |
 | `CommandHistory` | list | Read-only command history |
-| `ConsoleIO` | ConsoleIOBase | Current I/O layer |
+| `ConsoleIO` | ConsoleIOBackend | Current I/O layer |
 | `IsIOLayerConnected` | bool | I/O layer connection status |
 
 ---
@@ -366,10 +442,10 @@ This consistency allows for easy migration of code between console-style and ric
 ## 💡 Example: Custom I/O for API
 
 ```python
-from winformpy.ui_elements.console import ConsoleIOBase, InputCommand
+from winformpy.ui_elements.console import ConsoleIOBackend, InputCommand
 import requests
 
-class APIConsoleIO(ConsoleIOBase):
+class APIConsoleIO(ConsoleIOBackend):
     def __init__(self, api_url):
         super().__init__()
         self.api_url = api_url

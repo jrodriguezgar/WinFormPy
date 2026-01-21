@@ -28,8 +28,6 @@ def main():
     form = Form()
     form.Text = "Dock and Anchor Demo - WinFormPy"
     form.Size = (1000, 700)
-    
-    print("Creating panels...")
 
     # ================================================================
     # TOP PANEL - Created first to claim top edge
@@ -38,7 +36,6 @@ def main():
     top_panel.BackColor = "lightblue"
     top_panel.Dock = "Top"
     top_panel.Height = 120
-    print(f"Top panel created: {top_panel}, Dock={top_panel.Dock}")
     
     # Add label to top panel
     lbl_top = Label(top_panel)
@@ -67,7 +64,6 @@ def main():
     bottom_panel.Height = 120  # Increased height
     bottom_panel.BorderStyle = "raised"
     bottom_panel.BringToFront()  # FORCE to front of z-order
-    print(f"Bottom panel created: {bottom_panel}, Dock={bottom_panel.Dock}, Height={bottom_panel.Height}")
     
     # Status label with large font
     lbl_status = Label(bottom_panel)
@@ -103,7 +99,6 @@ def main():
     left_panel.BackColor = "lightsteelblue"
     left_panel.Dock = "Left"
     left_panel.Width = 150
-    print(f"Left panel created: {left_panel}, Dock={left_panel.Dock}")
     
     # Add label to left panel
     lbl_left = Label(left_panel)
@@ -118,7 +113,6 @@ def main():
     main_panel = Panel(form)
     main_panel.BackColor = "whitesmoke"
     main_panel.Dock = "Fill"
-    print(f"Main panel created: {main_panel}, Dock={main_panel.Dock}")
     
     # Title
     lbl_title = Label(main_panel)
@@ -210,10 +204,7 @@ def main():
     def on_stretch_click(sender, event):
         lbl_status.Text = "Status: Bottom+Left+Right anchor - Stretches horizontally!"
     btn_stretch.Click = on_stretch_click
-    
-    print("All controls created. Starting application...")
-    print(f"Form size: {form.Size}")
-    
+
     # ================================================================
     # RUN THE APPLICATION
     # ================================================================

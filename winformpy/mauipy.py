@@ -2564,6 +2564,9 @@ class RadioButtonGroup:
         
         self._selected = radio
         self.SelectionChanged(self, EventArgs(radio.Value))
+    
+    @property
+    def SelectedValue(self):
         """Gets the selected value."""
         return self._selected.Value if self._selected else None
         

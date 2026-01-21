@@ -18,7 +18,16 @@ import tkinter as tk
 class ChatBubble(Panel):
     """A single chat message bubble."""
     
-    def __init__(self, parent, message, width=400):
+    def __init__(self, parent, message, width=400, colors=None):
+        """
+        Initialize a chat bubble.
+        
+        Args:
+            parent: Parent panel (usually ChatPanel)
+            message: ChatMessage object
+            width: Width of the bubble container
+            colors: Optional dict with 'user_bubble', 'assistant_bubble' colors
+        """
         super().__init__(parent, {
             'Width': width,
             'Height': 60,
@@ -28,13 +37,21 @@ class ChatBubble(Panel):
         self.message = message
         self._container_width = width
         
-        # Colors - User messages on right (green), Assistant on left (gray)
+        # Get colors from parent ChatPanel or use defaults
+        if colors is None:
+            colors = {}
+        user_bubble_bg = colors.get('user_bubble', "#DCF8C6")
+        assistant_bubble_bg = colors.get('assistant_bubble', "#F0F0F0")
+        user_text_color = colors.get('user_text', "#000000")
+        assistant_text_color = colors.get('assistant_text', "#000000")
+        
+        # Colors - User messages on right, Assistant on left
         if message.is_user:
-            bubble_bg = "#DCF8C6"  # Light green for user (like WhatsApp)
-            text_color = "#000000"
+            bubble_bg = user_bubble_bg
+            text_color = user_text_color
         else:
-            bubble_bg = "#F0F0F0"  # Light gray for assistant
-            text_color = "#000000"
+            bubble_bg = assistant_bubble_bg
+            text_color = assistant_text_color
         
         # Calculate bubble dimensions - max 75% of container width
         bubble_width = int(width * 0.75)
@@ -95,7 +112,46 @@ class ChatBubble(Panel):
 class ChatPanel(Panel):
     """A chat panel component with message bubbles and input area."""
     
-    def __init__(self, master_form, props=None):
+    # Default colors
+    COLORS = {
+        'background': '#FFFFFF',
+        'input_bg': '#F5F5F5',
+        'button_bg': '#0078D4',
+        'button_fg': '#FFFFFF',
+        'user_bubble': '#DCF8C6',
+        'assistant_bubble': '#F0F0F0'
+    }
+    
+    def __init__(self, master_form, props=None, manager=None):
+        """
+        Initialize the ChatPanel.
+        
+        Args:
+            master_form: Parent form or container
+            props: Optional dictionary of properties. Supports sub-properties:
+                - 'InputArea': {'Height': 60, 'BackColor': '#F5F5F5', ...}
+                - 'SendButton': {'Text': '➤', 'BackColor': '#0078D4', 'Width': 60, ...}
+                - 'MessageArea': {'BackColor': '#FFFFFF', ...}
+                - 'UserBubble': {'BackColor': '#DCF8C6', 'ForeColor': '#000', ...}
+                - 'AssistantBubble': {'BackColor': '#F0F0F0', 'ForeColor': '#000', ...}
+            manager: Optional ChatManager instance. If None, a new one is created.
+                    Pass a manager with a backend configured for external chat services.
+                    
+        Example:
+            chat = ChatPanel(form, props={
+                'Dock': DockStyle.Fill,
+                'InputArea': {'Height': 80, 'BackColor': '#E0E0E0'},
+                'SendButton': {'BackColor': '#107C10', 'Text': 'Send'},
+                'UserBubble': {'BackColor': '#A8D8A8'}
+            }, manager=my_manager)
+        """
+        # Extract sub-properties before passing to parent
+        self._input_area_props = props.pop('InputArea', {}) if props else {}
+        self._send_button_props = props.pop('SendButton', {}) if props else {}
+        self._message_area_props = props.pop('MessageArea', {}) if props else {}
+        self._user_bubble_props = props.pop('UserBubble', {}) if props else {}
+        self._assistant_bubble_props = props.pop('AssistantBubble', {}) if props else {}
+        
         default_props = {
             'Dock': DockStyle.Fill,
             'BackColor': '#FFFFFF'
@@ -105,10 +161,26 @@ class ChatPanel(Panel):
             
         super().__init__(master_form, default_props)
         
-        self.manager = ChatManager()
+        # Create instance copy of COLORS and apply sub-properties
+        self.COLORS = self.COLORS.copy()
+        if 'BackColor' in self._input_area_props:
+            self.COLORS['input_bg'] = self._input_area_props['BackColor']
+        if 'BackColor' in self._send_button_props:
+            self.COLORS['button_bg'] = self._send_button_props['BackColor']
+        if 'ForeColor' in self._send_button_props:
+            self.COLORS['button_fg'] = self._send_button_props['ForeColor']
+        if 'BackColor' in self._message_area_props:
+            self.COLORS['background'] = self._message_area_props['BackColor']
+        if 'BackColor' in self._user_bubble_props:
+            self.COLORS['user_bubble'] = self._user_bubble_props['BackColor']
+        if 'BackColor' in self._assistant_bubble_props:
+            self.COLORS['assistant_bubble'] = self._assistant_bubble_props['BackColor']
+        
+        # Use provided manager or create a new one
+        self.manager = manager if manager is not None else ChatManager()
         self.manager.on_message_received = self.add_message_bubble
         
-        # Store responses for simulated conversation
+        # Store responses for simulated conversation (fallback when no backend)
         self._response_index = 0
         self._simulated_responses = [
             "That's a great question! WinFormPy is designed to make GUI development intuitive.",
@@ -129,21 +201,32 @@ class ChatPanel(Panel):
         
     def _create_input_area(self):
         """Create the input area at the bottom."""
+        # Apply InputArea sub-properties
+        input_height = self._input_area_props.get('Height', 60)
+        input_bg = self._input_area_props.get('BackColor', self.COLORS['input_bg'])
+        
         self.input_container = Panel(self, {
             'Dock': DockStyle.Bottom,
-            'Height': 60,
-            'BackColor': '#F5F5F5'
+            'Height': input_height,
+            'BackColor': input_bg
         })
+        
+        # Apply SendButton sub-properties
+        btn_text = self._send_button_props.get('Text', '➤')
+        btn_width = self._send_button_props.get('Width', 60)
+        btn_bg = self._send_button_props.get('BackColor', self.COLORS['button_bg'])
+        btn_fg = self._send_button_props.get('ForeColor', self.COLORS['button_fg'])
+        btn_font = self._send_button_props.get('Font', Font("Segoe UI", 14))
         
         # Send Button (dock right first)
         self.btn_send = Button(self.input_container, {
-            'Text': '➤',
+            'Text': btn_text,
             'Dock': DockStyle.Right,
-            'Width': 60,
+            'Width': btn_width,
             'FlatStyle': FlatStyle.Flat,
-            'BackColor': '#0078D4',
-            'ForeColor': 'white',
-            'Font': Font("Segoe UI", 14)
+            'BackColor': btn_bg,
+            'ForeColor': btn_fg,
+            'Font': btn_font
         })
         self.btn_send.Click = self._on_send_click
         
@@ -160,10 +243,13 @@ class ChatPanel(Panel):
     
     def _create_messages_area(self):
         """Create the scrollable messages area using tkinter Canvas."""
+        # Apply MessageArea sub-properties
+        msg_bg = self._message_area_props.get('BackColor', self.COLORS['background'])
+        
         # Create a container panel that will hold the canvas
         self.messages_container = Panel(self, {
             'Dock': DockStyle.Fill,
-            'BackColor': '#FFFFFF'
+            'BackColor': msg_bg
         })
         
         # Get the tkinter widget from the panel for custom canvas creation
@@ -174,11 +260,12 @@ class ChatPanel(Panel):
             self._canvas = tk.Canvas(container_widget, bg='#FFFFFF', highlightthickness=0)
             self._canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
             
-            # Scrollbar
+            # Scrollbar (initially hidden - auto-hide behavior)
             self._scrollbar = tk.Scrollbar(container_widget, orient=tk.VERTICAL, command=self._canvas.yview)
-            self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            # Don't pack initially - will be shown when needed
+            self._scrollbar_visible = False
             
-            self._canvas.configure(yscrollcommand=self._scrollbar.set)
+            self._canvas.configure(yscrollcommand=self._on_scroll_update)
             
             # Inner frame for messages
             self._messages_frame = tk.Frame(self._canvas, bg='#FFFFFF')
@@ -194,30 +281,55 @@ class ChatPanel(Panel):
         
         # Track current Y position for stacking messages
         self._next_message_y = 5
+    
+    def _on_scroll_update(self, first, last):
+        """Handle scroll updates and auto-hide scrollbar."""
+        if self._scrollbar:
+            self._scrollbar.set(first, last)
+            self._update_scrollbar_visibility()
+    
+    def _update_scrollbar_visibility(self):
+        """Show/hide scrollbar based on whether it's needed."""
+        if not self._scrollbar:
+            return
+        
+        first, last = self._scrollbar.get()
+        needed = not (float(first) <= 0.0 and float(last) >= 1.0)
+        
+        if needed and not self._scrollbar_visible:
+            self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            self._scrollbar_visible = True
+        elif not needed and self._scrollbar_visible:
+            self._scrollbar.pack_forget()
+            self._scrollbar_visible = False
         
     def _on_frame_configure(self, event):
         """Update scroll region when frame content changes."""
         self._canvas.configure(scrollregion=self._canvas.bbox('all'))
+        self._update_scrollbar_visibility()
     
     def _on_canvas_configure(self, event):
         """Update frame width when canvas is resized."""
         self._canvas.itemconfig(self._canvas_window, width=event.width)
+        self._update_scrollbar_visibility()
     
     def _on_mousewheel(self, event):
-        """Handle mouse wheel scrolling."""
-        self._canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
+        """Handle mouse wheel scrolling - only scroll if scrollbar is needed."""
+        if self._scrollbar_visible:
+            self._canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
         
     def _on_send_click(self, sender, e):
         """Handle send button click."""
         text = self.txt_input.Text.strip()
         if text:
-            # Send user message
+            # Send user message (backend will be invoked if configured)
             msg = self.manager.send_message(text)
             self.add_message_bubble(msg)
             self.txt_input.Text = ""
             
-            # Simulate response after delay
-            self.after(800, lambda: self._send_simulated_response())
+            # Only simulate response if no backend is configured
+            if not self.manager.has_backend:
+                self.after(800, lambda: self._send_simulated_response())
 
     def _on_enter_pressed(self, event):
         """Handle Enter key in text box."""
@@ -229,7 +341,7 @@ class ChatPanel(Panel):
         return "break"  # Prevent newline insertion
 
     def _send_simulated_response(self):
-        """Send a simulated response from the assistant."""
+        """Send a simulated response from the assistant (fallback when no backend)."""
         # Simple OK response for demo
         self.manager.receive_message("OK")
 
@@ -264,13 +376,23 @@ class ChatPanel(Panel):
         
         bubble_container_width = canvas_width - 20
         
+        # Get colors from COLORS (may be customized via sub-properties)
+        user_bubble_bg = self.COLORS.get('user_bubble', '#DCF8C6')
+        assistant_bubble_bg = self.COLORS.get('assistant_bubble', '#F0F0F0')
+        
+        # Apply bubble-specific sub-properties
+        user_fg = self._user_bubble_props.get('ForeColor', '#000000')
+        assistant_fg = self._assistant_bubble_props.get('ForeColor', '#000000')
+        
         # Colors for user vs assistant
         if message.is_user:
-            bubble_bg = "#DCF8C6"  # Light green for user
+            bubble_bg = user_bubble_bg
+            text_fg = user_fg
             avatar_bg = "#128C7E"  # Dark green
             avatar_text = "U"
         else:
-            bubble_bg = "#F0F0F0"  # Light gray for assistant
+            bubble_bg = assistant_bubble_bg
+            text_fg = assistant_fg
             avatar_bg = "#0078D4"  # Blue
             avatar_text = "A"
         

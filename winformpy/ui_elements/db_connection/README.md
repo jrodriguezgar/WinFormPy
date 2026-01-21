@@ -4,6 +4,22 @@
 
 **Database Connection Manager** is a modular system for visual management of database connections (SQL and NoSQL) in Windows applications. It provides a clean layered architecture that separates business logic from visual presentation.
 
+> **📦 Component Structure**: This module provides:
+> - `DBConnectionPanel` - Embeddable panel for any Form/Panel
+> - `DBConnectionForm` - Standalone form that **uses DBConnectionPanel internally**
+
+## Quick Demo
+
+Run the built-in demos to see the component in action:
+
+```bash
+# Embeddable panel demo (with mock storage)
+python winformpy/ui_elements/db_connection/db_connection_panel.py
+
+# Standalone form demo
+python winformpy/ui_elements/db_connection/db_connection_ui.py
+```
+
 ### 🎯 Purpose
 
 - **Centralized Management**: Manage multiple database connections in one place

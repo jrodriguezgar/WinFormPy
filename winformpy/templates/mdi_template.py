@@ -1,7 +1,7 @@
 import sys
 import os
-# Add parent directory to path to import winformpy
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add project root directory to path to import winformpy
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from winformpy.winformpy import Application, MenuStrip, ToolStripMenuItem, Form, Label, DockStyle, Size
 from winformpy.mdipy import MDIParent, MDIChild

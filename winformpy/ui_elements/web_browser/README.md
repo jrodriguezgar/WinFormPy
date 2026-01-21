@@ -4,6 +4,24 @@
 
 **Web Browser Module** provides a WinForms-style WebBrowser control using tkinterweb as the rendering engine. Based on `System.Windows.Forms.WebBrowser` from Microsoft .NET.
 
+> ✅ **Self-contained**: This component does NOT require an external backend. It uses `tkinterweb` for HTML rendering.
+
+> **📦 Component Structure**: This module provides:
+> - `WebBrowserPanel` - Embeddable panel for any Form/Panel
+> - `WebBrowserUI` - Full browser with tabs that **uses WebBrowserPanel internally** (access via `.CurrentTab` property)
+
+## Quick Demo
+
+Run the built-in demos to see the component in action:
+
+```bash
+# Panel with navigation bar demo
+python winformpy/ui_elements/web_browser/web_browser_panel.py
+
+# Full browser with tabs demo
+python winformpy/ui_elements/web_browser/web_browser_ui.py
+```
+
 ### 🎯 Purpose
 
 - **HTML Rendering**: Display web pages and HTML content
