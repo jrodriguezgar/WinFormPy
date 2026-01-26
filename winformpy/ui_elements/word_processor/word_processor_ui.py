@@ -1063,11 +1063,6 @@ Help:
 # Main Entry Point
 # =============================================================================
 
-def main():
-    """Run the WordUI application."""
+if __name__ == '__main__':
     form = WordProcessorForm()
     Application.Run(form)
-
-
-if __name__ == '__main__':
-    main()

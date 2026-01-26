@@ -92,16 +92,19 @@ See each component's README for detailed sub-property documentation.
 
 > **IMPORTANT**: Each UI Element module follows a **Panel + Form pattern**:
 > 
-> - **Panel** (e.g., `ChatPanel`, `DataGridPanel`): Embeddable component that can be placed in any Form or Panel
-> - **Form/UI** (e.g., `ChatUI`, `DataGridForm`): Standalone form that **uses the Panel internally**
+> - **Panel** (e.g., `ChatPanel`, `DataGridPanel`): Embeddable component that can be placed in any Form or Panel. **Panel files contain interactive demos** with full feature examples.
+> - **Form/UI** (e.g., `ChatUI`, `DataGridForm`): Standalone form that **uses the Panel internally**. **Form/UI files are minimal** - designed for integration in your applications.
 >
 > When using a Form/UI class, the Panel is created and managed automatically. You can access it via properties like `.chat_panel`, `.grid`, `.Editor`, etc.
+>
+> 💡 **Tip**: Run `*_panel.py` files for interactive demos with examples. Run `*_ui.py` files to see the minimal standalone form.
 
 | Module | Panel (Embeddable) | Form/UI (Standalone) | Access Property |
 |--------|-------------------|---------------------|-----------------|
 | Chat | `ChatPanel` | `ChatUI` | `.chat_panel` |
 | Console | `ConsolePanel` | `ConsoleForm` | `.console` |
 | Data Grid | `DataGridPanel` | `DataGridForm` | `.grid` |
+| Document Viewer | `DocumentViewerPanel` | N/A | Direct methods |
 | Login | `LoginPanel` | `LoginForm` | Direct methods |
 | Master-Detail | `MasterDetailPanel` | `MasterDetailForm` | `.panel` |
 | Record Form | `RecordFormPanel` | `RecordFormDialog` | `.panel` |
@@ -118,6 +121,7 @@ See each component's README for detailed sub-property documentation.
 | [Console](#-console) | Terminal/console emulator | `ConsoleIOBackend` |
 | [Data Grid](#-data-grid) | Tabular data with pagination | `DataGridBackend` |
 | [DB Connection](#-db-connection) | Database connection manager | `StorageBackend` |
+| [Document Viewer](#-document-viewer) | Document preview (PDF, Word, images, text) | None (uses PyMuPDF, python-docx, PIL) |
 | [Email Client](#-email-client) | Complete email client | `EmailBackend` |
 | [Login](#-login) | Authentication with password change | `LoginBackend` |
 | [Master-Detail](#-master-detail) | Master-detail data relationship view | `MasterDetailBackend` |
@@ -173,7 +177,72 @@ Application.Run(form)
 
 ---
 
-## 🖥️ Console
+## � Document Viewer
+
+Document preview panel with toolbar and settings management.
+
+### Features
+- PDF, Word (.docx), image, and text file support
+- Page navigation (first, previous, next, last)
+- Zoom controls (in, out, fit to width/height)
+- Text extraction view
+- Printer setup, page setup, and print dialogs
+- Settings panel for viewing configurations
+- Windows 11-style toolbar design
+
+### Quick Start
+
+```python
+from winformpy import Form, Application, DockStyle
+from winformpy.ui_elements.document_viewer import DocumentViewerPanel
+
+form = Form({'Text': 'Document Viewer', 'Width': 1024, 'Height': 768})
+form.ApplyLayout()
+
+viewer = DocumentViewerPanel(form, {'Dock': DockStyle.Fill})
+viewer.load_document('report.pdf')
+
+Application.Run(form)
+```
+
+### Components
+| Class | Type | Description |
+|-------|------|-------------|
+| `DocumentViewerPanel` | Panel | Embeddable document viewer |
+| `PDFBackend` | Backend | PDF rendering (PyMuPDF) |
+| `WordBackend` | Backend | Word document rendering (python-docx) |
+| `ImageBackend` | Backend | Image file rendering (PIL) |
+| `TextBackend` | Backend | Plain text rendering |
+
+### Toolbar Features
+- **Document Buttons:** Printer Setup, Page Setup, Print
+- **Navigation Buttons:** First, Previous, Next, Last page
+- **Zoom Buttons:** Zoom In, Zoom Out
+- **View Buttons:** Fit Width, Text View, Settings toggle
+
+### Settings Management
+```python
+# Access printer settings
+printer_settings = viewer.get_printer_settings()
+printer_settings['copies'] = 5
+viewer.set_printer_settings(printer_settings)
+
+# Access page setup settings
+page_settings = viewer.get_page_setup_settings()
+page_settings['orientation'] = 'Landscape'
+viewer.set_page_setup_settings(page_settings)
+
+# Show/hide toolbar sections
+viewer.ShowDocumentButtons = True
+viewer.ShowNavigationButtons = True
+viewer.ShowSettingsPanel = True  # Toggle settings panel
+```
+
+📚 [Full Documentation](document_viewer/README.md)
+
+---
+
+## �🖥️ Console
 
 Terminal-style console with pluggable I/O layer.
 
@@ -824,6 +893,11 @@ ui_elements/
 │   ├── db_connection_manager.py
 │   ├── db_connection_panel.py
 │   ├── db_connection_ui.py
+│   └── README.md
+├── document_viewer/
+│   ├── __init__.py
+│   ├── document_backend.py
+│   ├── document_viewer_panel.py
 │   └── README.md
 ├── email_client/
 │   ├── __init__.py

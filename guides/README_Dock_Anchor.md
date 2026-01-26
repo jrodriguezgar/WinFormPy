@@ -162,38 +162,40 @@ button = Button(panel, {
 
 ## Usage Examples
 
-### Example 1: Basic Layout with Dock
+### Example 1: Basic Layout with Dock (RECOMMENDED PATTERN)
 
 ```python
-from winformpy import Form, Panel, Button, TextBox
+from winformpy import Form, Panel, Button, TextBox, DockStyle
 
+# Create form and apply layout FIRST
 form = Form({'Text': 'Layout with Dock', 'Width': 500, 'Height': 400})
+form.ApplyLayout()  # CRITICAL: Call before adding controls
 
-# Toolbar at the top
+# Toolbar at the top - assign Dock as property
 toolbar = Panel(form, {
-    'Dock': 'Top',
     'Height': 50,
     'BackColor': 'LightBlue'
 })
+toolbar.Dock = DockStyle.Top
 
 # Status bar at the bottom
 status_bar = Panel(form, {
-    'Dock': 'Bottom',
     'Height': 30,
     'BackColor': 'LightGray'
 })
+status_bar.Dock = DockStyle.Bottom
 
-# Main panel occupying the remaining space
+# Main panel occupying the remaining space - created LAST
 main_panel = Panel(form, {
-    'Dock': 'Fill',
     'BackColor': 'White'
 })
+main_panel.Dock = DockStyle.Fill  # Fill should be LAST
 
 # Content in the main panel
 text_box = TextBox(main_panel, {
-    'Dock': 'Fill',
     'Multiline': True
 })
+text_box.Dock = DockStyle.Fill
 ```
 
 ### Example 2: Form with Anchor
@@ -293,6 +295,87 @@ action_button = Button(main_area, {
 })
 ```
 
+## CRITICAL: Form Initialization and Control Creation Order
+
+### ⚠️ MUST call ApplyLayout() BEFORE adding controls
+
+**For Dock to work correctly, you MUST call `form.ApplyLayout()` BEFORE creating any child controls:**
+
+```python
+# ✅ CORRECT - ApplyLayout() called FIRST
+form = Form({'Width': 1024, 'Height': 768})
+form.ApplyLayout()  # MUST be called before adding children
+
+# Now Dock will work correctly
+sidebar = Panel(form, {'Dock': DockStyle.Left, 'Width': 200})
+content = Panel(form, {'Dock': DockStyle.Fill})
+```
+
+```python
+# ❌ WRONG - Controls created before ApplyLayout()
+form = Form({'Width': 1024, 'Height': 768})
+panel = Panel(form, {'Dock': DockStyle.Fill})  # Won't work properly!
+form.ApplyLayout()  # Too late
+```
+
+### ⚠️ Control Creation Order Matters
+
+Controls are docked in the order they are created. Create them in this order:
+
+1. **DockStyle.Top** panels first
+2. **DockStyle.Bottom** panels next
+3. **DockStyle.Left** / **DockStyle.Right** panels
+4. **DockStyle.Fill** panel LAST (fills remaining space)
+
+```python
+# ✅ CORRECT order
+header = Panel(form, {'Dock': DockStyle.Top, 'Height': 50})
+footer = Panel(form, {'Dock': DockStyle.Bottom, 'Height': 30})
+sidebar = Panel(form, {'Dock': DockStyle.Left, 'Width': 200})
+content = Panel(form, {'Dock': DockStyle.Fill})  # LAST
+```
+
+### ⚠️ Use Enums, Not Strings
+
+**IMPORTANT: For reliable behavior, use enum values instead of strings:**
+
+```python
+# ✅ CORRECT - Use enums
+panel.Dock = DockStyle.Fill
+button.Anchor = AnchorStyles.Top | AnchorStyles.Right
+font = Font('Segoe UI', 12, FontStyle.Bold)
+
+# ❌ AVOID - Strings may cause issues in some cases
+panel.Dock = 'Fill'
+button.Anchor = ['Top', 'Right']
+font = Font('Segoe UI', 12, 'bold')
+```
+
+### ⚠️ Workaround: Assign Dock/Anchor as Properties
+
+**If you experience issues with Dock/Anchor not working when passed in the constructor dictionary, assign them as properties AFTER creation:**
+
+```python
+# ✅ WORKAROUND - Assign Dock as property after creation
+top_panel = Panel(form, {
+    'Height': 100,
+    'BackColor': '#0078D4'
+})
+top_panel.Dock = DockStyle.Top  # Assign AFTER creation
+
+# Same for Anchor
+button = Button(panel, {
+    'Text': 'OK',
+    'Left': 20,
+    'Top': 20,
+    'Width': 100,
+    'Height': 30
+})
+button.Anchor = AnchorStyles.Bottom | AnchorStyles.Right  # Assign AFTER creation
+```
+
+This ensures the control is properly registered in the parent's `Controls` collection before Dock/Anchor is applied.
+
 ## Best Practices
 
 ### Choosing between Dock and Anchor
@@ -347,20 +430,60 @@ action_button = Button(main_area, {
 - ✅ Compatible with `AutoSize` and other layout properties
 - ✅ Respects `Margin` and `Padding`
 
-### Debugging
+### Debugging Layout Issues
 
-To debug layout issues:
+#### Common Symptoms and Causes
+
+| Symptom | Likely Cause | Solution |
+|---------|--------------|----------|
+| Panel has 0 or very small height | Control created BEFORE `form.ApplyLayout()` | Call `form.ApplyLayout()` before creating controls |
+| Dock.Fill doesn't fill space | Wrong creation order | Create Fill panel LAST |
+| Controls overlap incorrectly | Wrong docking order | Create Top/Bottom first, then Left/Right, then Fill |
+| Dock/Anchor not applying | Assigned in constructor dict | Assign as property AFTER creation |
+| Container frame not positioned | Layout code using wrong widget | Check for `_container_frame` attribute |
+
+#### Debug Steps
+
+**1. Check control dimensions after window shows:**
 
 ```python
-# View current properties
+def debug():
+    print(f'Widget: {control._tk_widget.winfo_width()}x{control._tk_widget.winfo_height()}')
+    if hasattr(control, '_container_frame') and control._container_frame:
+        print(f'Container: {control._container_frame.winfo_width()}x{control._container_frame.winfo_height()}')
+
+form._root.after(500, debug)
+```
+
+**2. Verify control is in parent's Controls:**
+
+```python
+print(f'In Controls: {control in parent.Controls}')
+print(f'Controls count: {len(parent.Controls)}')
+```
+
+**3. View current properties:**
+
+```python
 print(f"Dock: {control.Dock}")
 print(f"Anchor: {control.Anchor}")
 print(f"Size: {control.Size}")
 print(f"Location: {control.Location}")
+```
 
-# Force manual update
-control.Invalidate()
-control.Refresh()
+**4. Force layout recalculation:**
+
+```python
+from winformpy.winformpy import ControlBase
+ControlBase._layout_docked_children(form._root)
+```
+
+**5. Check for container frames:**
+
+```python
+# Some controls (TextBox, RichTextBox, ListBox with scrollbars) use _container_frame
+if hasattr(control, '_container_frame'):
+    print('Control has container frame - use it for positioning')
 ```
 
 ---

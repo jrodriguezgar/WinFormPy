@@ -12,13 +12,13 @@
 
 ## Quick Demo
 
-Run the built-in demos to see the component in action:
+Run the demos to see the component in action:
 
 ```bash
-# Panel with navigation bar demo
+# Interactive demo with navigation bar
 python winformpy/ui_elements/web_browser/web_browser_panel.py
 
-# Full browser with tabs demo
+# Minimal standalone browser form (for integration in your app)
 python winformpy/ui_elements/web_browser/web_browser_ui.py
 ```
 

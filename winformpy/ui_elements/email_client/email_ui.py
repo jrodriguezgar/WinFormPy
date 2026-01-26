@@ -470,18 +470,6 @@ class EmailForm(Form):
 # Main Entry Point
 # =============================================================================
 
-def main():
-    """Run the email client."""
-    # Create manager
-    manager = EmailManager()
-    
-    # Create and show form
-    form = EmailForm(manager, {
-        'Text': 'Email Client - Demo'
-    })
-    
-    form.Show()
-
-
 if __name__ == "__main__":
-    main()
+    form = EmailForm(EmailManager())
+    Application.Run(form)

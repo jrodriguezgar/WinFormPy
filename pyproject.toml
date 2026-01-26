@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "winformpy"
 version = "1.0.4"
@@ -7,3 +11,6 @@ requires-python = ">=3.10"
 dependencies = [
     "tkcalendar>=1.6.1"
 ]
+
+[tool.setuptools]
+packages = ["winformpy"]

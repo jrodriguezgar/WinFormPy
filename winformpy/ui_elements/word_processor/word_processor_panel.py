@@ -664,18 +664,52 @@ class WordProcessorPanel(Panel):
     def _on_font_family_changed(self):
         """Handle font family change."""
         if self._combo_font.SelectedIndex >= 0:
+            # Save selection state
+            sel_start = self._editor.SelectionStart
+            sel_length = self._editor.SelectionLength
+            
+            # If no selection, select all to apply font to entire document
+            if sel_length == 0:
+                self._editor.SelectAll()
+            
             family = self._font_families[self._combo_font.SelectedIndex]
             size = int(self._font_sizes[self._combo_size.SelectedIndex])
             new_font = Font(family, size)
             self._editor.SelectionFont = new_font
+            
+            # Force widget update to apply changes
+            if hasattr(self._editor, '_tk_widget'):
+                self._editor._tk_widget.update_idletasks()
+            
+            # Restore original selection and focus
+            self._editor.SelectionStart = sel_start
+            self._editor.SelectionLength = sel_length
+            self._editor.Focus()
     
     def _on_font_size_changed(self):
         """Handle font size change."""
         if self._combo_size.SelectedIndex >= 0:
+            # Save selection state
+            sel_start = self._editor.SelectionStart
+            sel_length = self._editor.SelectionLength
+            
+            # If no selection, select all to apply size to entire document
+            if sel_length == 0:
+                self._editor.SelectAll()
+            
             family = self._font_families[self._combo_font.SelectedIndex]
             size = int(self._font_sizes[self._combo_size.SelectedIndex])
             new_font = Font(family, size)
             self._editor.SelectionFont = new_font
+            
+            # Force widget update to apply changes
+            if hasattr(self._editor, '_tk_widget'):
+                self._editor._tk_widget.update_idletasks()
+            
+            # Restore original selection and focus
+            self._editor.SelectionStart = sel_start
+            self._editor.SelectionLength = sel_length
+            self._editor.Focus()
     
     def _show_color_picker(self, color_type):
         """Show color picker for text or background."""

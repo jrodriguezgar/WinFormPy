@@ -30,10 +30,11 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from winformpy.winformpy import (
-    Panel, Label, TextBox, ConsoleTextBox,
+    Panel, Label, TextBox,
     DockStyle, AnchorStyles, Color,
     Font, FontStyle, ScrollBars
 )
+from winformpy.winformpy_extended import ConsoleTextBox
 from winformpy.ui_elements.console.console_io import (
     ConsoleIOBackend, LocalConsoleIO, OutputMessage, OutputType, InputCommand,
     create_console_io

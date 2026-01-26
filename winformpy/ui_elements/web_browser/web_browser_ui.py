@@ -33,13 +33,11 @@ from winformpy.winformpy import (
     MenuStrip, ToolStripMenuItem,
     TabControl, TabPage,
     DockStyle, AnchorStyles, FlatStyle, Font, FontStyle,
-    MessageBox, DialogResult,
+    MessageBox, DialogResult, OpenFileDialog,
     Application, InputBox, Clipboard,
     TKINTERWEB_AVAILABLE, _ensure_tkinterweb
 )
 from winformpy.ui_elements.web_browser.web_browser_panel import WebBrowserPanel
-
-import tkinter as tk
 
 
 class WebBrowserUI(Form):
@@ -1132,16 +1130,11 @@ class WebBrowserUI(Form):
     
     def _open_file(self):
         """Open local HTML file."""
-        from tkinter import filedialog
-        filename = filedialog.askopenfilename(
-            title='Open File',
-            filetypes=[
-                ('HTML Files', '*.html;*.htm'),
-                ('All Files', '*.*')
-            ]
-        )
-        if filename:
-            self.Navigate(f'file://{filename}')
+        dialog = OpenFileDialog()
+        dialog.Title = 'Open File'
+        dialog.Filter = 'HTML Files|*.html;*.htm|All Files|*.*'
+        if dialog.ShowDialog() == DialogResult.OK:
+            self.Navigate(f'file://{dialog.FileName}')
     
     def _save_page(self):
         """Save current page."""
@@ -1259,19 +1252,5 @@ BrowserUI = WebBrowserUI
 # ========== Demo ==========
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("WinFormPy Browser - Full Featured Web Browser")
-    print("=" * 60)
-    print("\nFeatures:")
-    print("  • Tabbed browsing (Ctrl+T new, Ctrl+W close)")
-    print("  • Navigation (Back, Forward, Refresh, Home)")
-    print("  • Favorites (Ctrl+D to add, Ctrl+I sidebar)")
-    print("  • History (Ctrl+H sidebar)")
-    print("  • Downloads (Ctrl+J sidebar)")
-    print("  • Keyboard shortcuts (F5 refresh, F11 fullscreen)")
-    print("  • Menu bar with full options")
-    print("  • Status bar with progress")
-    print("\nStarting browser...")
-    
     browser = WebBrowserUI()
     Application.Run(browser)

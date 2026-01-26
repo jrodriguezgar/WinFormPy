@@ -10,11 +10,14 @@ A complete word processor component for WinFormPy, built on the enhanced `RichTe
 
 ## Quick Demo
 
-Run the built-in demo to see the component in action:
+Run the demos to see the component in action:
 
 ```bash
-# WordPad-style word processor demo
+# Interactive demo with full features
 python winformpy/ui_elements/word_processor/word_processor_panel.py
+
+# Minimal standalone form (for integration in your app)
+python winformpy/ui_elements/word_processor/word_processor_ui.py
 ```
 
 ## Overview
