@@ -10,11 +10,14 @@ A terminal-style console interface component for WinFormPy applications with a p
 
 ## Quick Demo
 
-Run the built-in demo to see the component in action:
+Run the demos to see the component in action:
 
 ```bash
-# Embeddable console panel demo
+# Interactive demo with full command handler examples
 python winformpy/ui_elements/console/console_panel.py
+
+# Minimal standalone form (for integration in your app)
+python winformpy/ui_elements/console/console_ui.py
 ```
 
 ## 📖 Overview

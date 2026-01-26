@@ -426,6 +426,27 @@ class DialogResult(Enum):
     Yes = 6
     No = 7
 
+class MessageBoxButtons(Enum):
+    """Specifies constants defining which buttons to display on a MessageBox."""
+    OK = 0
+    OKCancel = 1
+    AbortRetryIgnore = 2
+    YesNoCancel = 3
+    YesNo = 4
+    RetryCancel = 5
+
+class MessageBoxIcon(Enum):
+    """Specifies constants defining which information to display."""
+    None_ = 0
+    Error = 16
+    Hand = 16
+    Stop = 16
+    Question = 32
+    Exclamation = 48
+    Warning = 48
+    Asterisk = 64
+    Information = 64
+
 class DockStyle(Enum):
     None_ = 0
     Top = 1
@@ -1681,13 +1702,13 @@ class Screen:
 ############# Dialogs #############
 
 class MessageBox:
-    """Represents a MessageBox for messages with VB.NET-style parameters."""
+    """Represents a MessageBox for messages with .NET-style parameters."""
     
     @staticmethod
     def Show(
         text,
         caption="Message",
-        buttons="OK",
+        buttons=None,
         icon=None,
         defaultButton=None,
         options=None,
@@ -1698,23 +1719,47 @@ class MessageBox:
         Parameters:
         - text: The main message.
         - caption: The title.
-        - buttons: 'OK', 'OKCancel', 'YesNo', 'YesNoCancel', 'RetryCancel', 'AbortRetryIgnore'
-        - icon: 'Information', 'Warning', 'Error', 'Question', 'None'
+        - buttons: MessageBoxButtons enum or string ('OK', 'OKCancel', 'YesNo', 'YesNoCancel', 'RetryCancel', 'AbortRetryIgnore')
+        - icon: MessageBoxIcon enum or string ('Information', 'Warning', 'Error', 'Question', 'None')
         - defaultButton: 'Button1', 'Button2', 'Button3' (not implemented in Tkinter)
         - options: 'RightAlign', 'RtlReading', etc. (partially supported)
+        
+        Returns:
+            DialogResult enum value
         """
         # Determine parent widget for modal dialogs
         parent_widget = tk._default_root if modal else None
 
+        # Convert enum to string if needed
+        if buttons is None:
+            buttons = MessageBoxButtons.OK
+        
+        if isinstance(buttons, MessageBoxButtons):
+            buttons_str = buttons.name
+        else:
+            buttons_str = str(buttons)
+        
+        if isinstance(icon, MessageBoxIcon):
+            icon_str = icon.name
+        elif icon is None:
+            icon_str = 'None'
+        else:
+            icon_str = str(icon)
+
         # Map icon to messagebox function
         icon_map = {
             'Information': 'info',
+            'Asterisk': 'info',
             'Warning': 'warning',
+            'Exclamation': 'warning',
             'Error': 'error',
+            'Hand': 'error',
+            'Stop': 'error',
             'Question': 'question',
+            'None_': 'info',
             'None': 'info'
         }
-        msg_type = icon_map.get(icon, 'info')
+        msg_type = icon_map.get(icon_str, 'info')
         
         # Adjust text for options
         display_text = text
@@ -1723,7 +1768,7 @@ class MessageBox:
             display_text = text  # Tkinter doesn't support easily
         
         # Map buttons to Tkinter functions
-        if buttons == "OK":
+        if buttons_str == "OK":
             if msg_type == 'warning':
                 messagebox.showwarning(caption, display_text, parent=parent_widget)
             elif msg_type == 'error':
@@ -1731,14 +1776,11 @@ class MessageBox:
             else:
                 messagebox.showinfo(caption, display_text, parent=parent_widget)
             return DialogResult.OK
-        elif buttons == "OKCancel":
+        elif buttons_str == "OKCancel":
             return DialogResult.OK if messagebox.askokcancel(caption, display_text, parent=parent_widget) else DialogResult.Cancel
-        elif buttons == "YesNo":
-            if msg_type == 'question':
-                return DialogResult.Yes if messagebox.askyesno(caption, display_text, parent=parent_widget) else DialogResult.No
-            else:
-                return DialogResult.Yes if messagebox.askyesno(caption, display_text, parent=parent_widget) else DialogResult.No
-        elif buttons == "YesNoCancel":
+        elif buttons_str == "YesNo":
+            return DialogResult.Yes if messagebox.askyesno(caption, display_text, parent=parent_widget) else DialogResult.No
+        elif buttons_str == "YesNoCancel":
             result = messagebox.askyesnocancel(caption, display_text, parent=parent_widget)
             if result is True:
                 return DialogResult.Yes
@@ -1746,10 +1788,10 @@ class MessageBox:
                 return DialogResult.No
             else:
                 return DialogResult.Cancel
-        elif buttons == "RetryCancel":
+        elif buttons_str == "RetryCancel":
             return DialogResult.Retry if messagebox.askretrycancel(caption, display_text, parent=parent_widget) else DialogResult.Cancel
-        elif buttons == "AbortRetryIgnore":
-            # Tkinter no tiene AbortRetryIgnore, simular con YesNoCancel o custom
+        elif buttons_str == "AbortRetryIgnore":
+            # Tkinter no tiene AbortRetryIgnore, simular con YesNoCancel
             result = messagebox.askyesnocancel(
                 caption,
                 f"{display_text}\n\nAbort = Yes, Retry = No, Ignore = Cancel",
@@ -1890,12 +1932,139 @@ class SaveFileDialog(FileDialog):
         return self.FileName
 
 
+class PrinterSettings:
+    """Specifies information about how a document is printed, including the printer that prints it."""
+    
+    @staticmethod
+    def GetInstalledPrinters():
+        """Returns a list of names of all printers installed on the computer."""
+        try:
+            import win32print
+            return [printer[2] for printer in win32print.EnumPrinters(2)]
+        except ImportError:
+            # Fallback: Common Windows printers if win32print not available
+            return [
+                "Microsoft Print to PDF",
+                "Microsoft XPS Document Writer",
+                "Fax",
+                "OneNote (Desktop)"
+            ]
+    
+    @staticmethod
+    def GetDefaultPrinterName():
+        """Gets the name of the default printer."""
+        try:
+            import win32print
+            return win32print.GetDefaultPrinter()
+        except ImportError:
+            return "Microsoft Print to PDF"
+    
+    def __init__(self, settings_dict=None):
+        """
+        Initialize PrinterSettings.
+        
+        Args:
+            settings_dict: Optional dictionary with printer settings to initialize from
+        """
+        # Default values
+        self.PrinterName = self.GetDefaultPrinterName()
+        self.Copies = 1
+        self.Duplex = "Simplex"  # "Simplex", "Vertical", "Horizontal"
+        self.Collate = False
+        self.FromPage = 1
+        self.ToPage = 9999
+        self.PrintToFile = False
+        self.Color = True  # True=color, False=grayscale
+        self.PrintRange = "AllPages"  # "AllPages", "Selection", "CurrentPage", "SomePages"
+        self.PaperSource = "AutomaticFeed"
+        self.PaperSize = "A4"
+        self.Landscape = False
+        self.DefaultPageSettings = None
+        
+        # Initialize from dictionary if provided
+        if settings_dict:
+            self.from_dict(settings_dict)
+    
+    def from_dict(self, settings_dict):
+        """
+        Load settings from a dictionary.
+        
+        Args:
+            settings_dict: Dictionary containing printer settings
+        """
+        if not settings_dict:
+            return
+        
+        self.PrinterName = settings_dict.get('PrinterName', self.PrinterName)
+        self.Copies = settings_dict.get('Copies', self.Copies)
+        self.Duplex = settings_dict.get('Duplex', self.Duplex)
+        self.Collate = settings_dict.get('Collate', self.Collate)
+        self.FromPage = settings_dict.get('FromPage', self.FromPage)
+        self.ToPage = settings_dict.get('ToPage', self.ToPage)
+        self.PrintToFile = settings_dict.get('PrintToFile', self.PrintToFile)
+        self.Color = settings_dict.get('Color', self.Color)
+        self.PrintRange = settings_dict.get('PrintRange', self.PrintRange)
+        self.PaperSource = settings_dict.get('PaperSource', self.PaperSource)
+        self.PaperSize = settings_dict.get('PaperSize', self.PaperSize)
+        self.Landscape = settings_dict.get('Landscape', self.Landscape)
+    
+    def to_dict(self):
+        """
+        Convert settings to a dictionary.
+        
+        Returns:
+            Dictionary containing all printer settings
+        """
+        return {
+            'PrinterName': self.PrinterName,
+            'Copies': self.Copies,
+            'Duplex': self.Duplex,
+            'Collate': self.Collate,
+            'FromPage': self.FromPage,
+            'ToPage': self.ToPage,
+            'PrintToFile': self.PrintToFile,
+            'Color': self.Color,
+            'PrintRange': self.PrintRange,
+            'PaperSource': self.PaperSource,
+            'PaperSize': self.PaperSize,
+            'Landscape': self.Landscape
+        }
+    
+    @property
+    def IsDefaultPrinter(self):
+        """Gets a value indicating whether the PrinterName property designates the default printer."""
+        return self.PrinterName == self.GetDefaultPrinterName()
+    
+    @property
+    def IsValid(self):
+        """Gets a value indicating whether the PrinterName property designates a valid printer."""
+        return self.PrinterName in self.GetInstalledPrinters()
+    
+    @property
+    def CanDuplex(self):
+        """Gets a value indicating whether the printer supports double-sided printing."""
+        # Simulation - in real implementation would check printer capabilities
+        return True
+    
+    @property
+    def SupportsColor(self):
+        """Gets a value indicating whether this printer supports color printing."""
+        # Simulation - in real implementation would check printer capabilities
+        return True
+    
+    def Clone(self):
+        """Creates a copy of this PrinterSettings."""
+        new_settings = PrinterSettings()
+        new_settings.from_dict(self.to_dict())
+        return new_settings
+
+
 class PrintDialog:
     """Represents a PrintDialog with main VB.NET properties."""
     
     def __init__(self):
         self.Document = None  # The PrintDocument object to be printed
-        self.PrinterSettings = None  # Selected printer settings
+        self.PrinterSettings = PrinterSettings()  # Selected printer settings
         self.AllowCurrentPage = False  # Enables "Current page" option
         self.AllowSelection = False  # Enables 'Selection' option
         self.AllowPrintToFile = False  # Shows 'Print to file' checkbox
@@ -1945,8 +2114,17 @@ class PrintDialog:
         
         # Simulated printers
         printers = ["Microsoft Print to PDF", "Microsoft XPS Document Writer", "Fax", "OneNote"]
+        # Get installed printers
+        printers = PrinterSettings.GetInstalledPrinters()
         cbo_printer = ttk.Combobox(frame_printer, values=printers, state="readonly")
-        cbo_printer.current(0)
+        
+        # Set current printer from PrinterSettings
+        current_printer = self.PrinterSettings.PrinterName if self.PrinterSettings else PrinterSettings.GetDefaultPrinterName()
+        if current_printer in printers:
+            cbo_printer.set(current_printer)
+        else:
+            cbo_printer.current(0)
+        
         cbo_printer.grid(row=0, column=1, sticky='ew', padx=5)
         frame_printer.columnconfigure(1, weight=1)
         
@@ -1998,11 +2176,31 @@ class PrintDialog:
         def on_ok():
             result['status'] = DialogResult.OK
             self.PrinterName = cbo_printer.get()
-            # self.PrintToFile = ... (get var)
+            
+            # Update PrinterSettings if it exists
+            if not self.PrinterSettings:
+                self.PrinterSettings = PrinterSettings()
+            
+            self.PrinterSettings.PrinterName = cbo_printer.get()
             try:
-                self.Copies = int(spin_copies.get())
+                self.PrinterSettings.Copies = int(spin_copies.get())
+                self.Copies = self.PrinterSettings.Copies
             except:
                 self.Copies = 1
+                self.PrinterSettings.Copies = 1
+            
+            # Update PrintRange based on radio selection
+            range_value = range_var.get()
+            if range_value == 0:
+                self.PrinterSettings.PrintRange = "AllPages"
+            elif range_value == 1:
+                self.PrinterSettings.PrintRange = "Selection"
+            elif range_value == 2:
+                self.PrinterSettings.PrintRange = "CurrentPage"
+            elif range_value == 3:
+                self.PrinterSettings.PrintRange = "SomePages"
+                # Parse pages from entry_pages if needed
+            
             dialog.destroy()
             
         def on_cancel():
@@ -2269,7 +2467,7 @@ class FontDialog:
         
         if result['status'] == DialogResult.OK:
             self.Font = result['font']
-            
+            PrinterSettings()
         return result['status']
 
     def Reset(self):
@@ -2426,7 +2624,7 @@ class PageSetupDialog:
     def Reset(self):
         """Resets all options to their default values."""
         self.PageSettings = None
-        self.PrinterSettings = None
+        self.PrinterSettings = PrinterSettings()
         self.AllowMargins = True
         self.AllowOrientation = True
         self.AllowPaper = True
@@ -3330,6 +3528,17 @@ class ControlBase:
         Visibility is managed separately by the Visible property setter.
         """
         if self._tk_widget:
+            # Check if control is inside a TableLayoutPanel with a cell position
+            # If so, TableLayoutPanel manages all layout including Dock
+            parent_wrapper = getattr(self.master, '_control_wrapper', None)
+            if parent_wrapper and parent_wrapper.__class__.__name__ == 'TableLayoutPanel':
+                if hasattr(parent_wrapper, '_cell_controls'):
+                    # Check if this control has a cell assignment
+                    for (row, col), ctrl in parent_wrapper._cell_controls.items():
+                        if ctrl is self:
+                            # Control is in TableLayoutPanel - let it handle all positioning
+                            return
+            
             # If Dock is active, use _apply_dock instead of manual placement
             if hasattr(self, '_dock') and self._dock != DockStyle.None_:
                 self._apply_dock()
@@ -3985,13 +4194,29 @@ class ControlBase:
                 # Only Bottom: move the control
                 new_top = new_height - self._initial_distance['bottom'] - self.Height
         
+        # Ensure values are not None (default to current values)
+        if new_left is None:
+            new_left = self.Left if self.Left is not None else 0
+        if new_top is None:
+            new_top = self.Top if self.Top is not None else 0
+        if new_width_ctrl is None:
+            new_width_ctrl = self.Width if self.Width is not None else 100
+        if new_height_ctrl is None:
+            new_height_ctrl = self.Height if self.Height is not None else 100
+        
+        # Ensure self properties are not None
+        current_left = self.Left if self.Left is not None else 0
+        current_top = self.Top if self.Top is not None else 0
+        current_width = self.Width if self.Width is not None else 100
+        current_height = self.Height if self.Height is not None else 100
+        
         # Update position and size
         try:
             # Check if values actually changed to avoid infinite loops
-            if (self.Left != int(new_left) or 
-                self.Top != int(new_top) or 
-                self.Width != int(new_width_ctrl) or 
-                self.Height != int(new_height_ctrl)):
+            if (current_left != int(new_left) or 
+                current_top != int(new_top) or 
+                current_width != int(new_width_ctrl) or 
+                current_height != int(new_height_ctrl)):
                 
                 # Ensure dimensions are valid before applying
                 if int(new_width_ctrl) <= 0 or int(new_height_ctrl) <= 0:
@@ -6011,7 +6236,7 @@ class Form(ScrollableControlMixin):
             self._update_scroll_region()
         
         # Invoke ControlAdded event
-        self.ControlAdded(control)
+        self.ControlAdded(self, control)
     
     def RemoveControl(self, control):
         """Removes a control from the Form."""
@@ -6022,7 +6247,7 @@ class Form(ScrollableControlMixin):
             if self.AutoScroll:
                 self._update_scroll_region()
                 
-            self.ControlRemoved(control)
+            self.ControlRemoved(self, control)
     
 
 class Timer:
@@ -7658,517 +7883,8 @@ class TextBox(ControlBase):
                 pass
 
 
-class ConsoleTextBox(ControlBase):
-    """
-    Represents a ConsoleTextBox control with support for multiple text colors.
-    
-    This control provides a multi-line text display with:
-    - Support for colored text segments (via tags)
-    - Integrated vertical scrollbar
-    - Read-only mode for output display
-    - Methods for writing colored text
-    
-    Ideal for console-style output, log viewers, or any multi-colored text display.
-    
-    Example:
-        ctb = ConsoleTextBox(form, {
-            'Dock': DockStyle.Fill,
-            'BackColor': '#1E1E1E',
-            'ForeColor': '#CCCCCC',
-            'ReadOnly': True
-        })
-        
-        ctb.WriteLine("Normal text")
-        ctb.WriteLine("Error message", '#FF0000')
-        ctb.WriteLine("Success!", '#00FF00')
-    """
-    
-    def __init__(self, master_form, props=None):
-        """Initializes a ConsoleTextBox.
+# ConsoleTextBox has been moved to winformpy_extended.py
 
-        Args:
-            master_form: The parent form or container
-            props: Optional dictionary with initial properties:
-                - BackColor: Background color
-                - ForeColor: Default text color
-                - Font: Font object or tuple (family, size)
-                - ReadOnly: If True, text cannot be edited by user
-                - WordWrap: Enable/disable word wrapping
-                - ShowScrollBar: Show vertical scrollbar (default True)
-                - MaxLines: Maximum lines to keep (0 = unlimited)
-                - BorderWidth: Border width (default 0)
-                - Padding: Internal padding (default 8)
-        """
-        defaults = {
-            'Left': 0,
-            'Top': 0,
-            'Width': 400,
-            'Height': 300,
-            'Name': '',
-            'BackColor': '#FFFFFF',
-            'ForeColor': '#000000',
-            'Font': None,
-            'ReadOnly': False,
-            'WordWrap': True,
-            'ShowScrollBar': True,
-            'MaxLines': 0,
-            'BorderWidth': 0,
-            'Padding': 8,
-            'Visible': True,
-            'Enabled': True,
-            'SelectionBackColor': '#264F78',
-            'SelectionForeColor': None,
-            'InsertCursorColor': None
-        }
-        
-        if props:
-            defaults.update(props)
-        
-        # Resolve the Tkinter widget and keep the original parent container
-        master_widget, parent_container = _resolve_master_widget(master_form)
-        super().__init__(master_widget, defaults['Left'], defaults['Top'])
-        
-        # Store the parent container for auto-registration
-        self._parent_container = parent_container
-        
-        # Store properties
-        self.Name = defaults['Name']
-        self.Width = defaults['Width']
-        self.Height = defaults['Height']
-        self._back_color = defaults['BackColor']
-        self._fore_color = defaults['ForeColor']
-        self._font = defaults['Font']
-        self._read_only = defaults['ReadOnly']
-        self._word_wrap = defaults['WordWrap']
-        self._show_scrollbar = defaults['ShowScrollBar']
-        self._max_lines = defaults['MaxLines']
-        self._border_width = defaults['BorderWidth']
-        self._padding = defaults['Padding']
-        self._visible = defaults['Visible']
-        self._enabled = defaults['Enabled']
-        self._selection_back_color = defaults['SelectionBackColor']
-        self._selection_fore_color = defaults['SelectionForeColor']
-        self._insert_cursor_color = defaults['InsertCursorColor'] or self._fore_color
-        
-        # Events
-        self.TextChanged = lambda sender=None, e=None: None
-        
-        # Create the widget
-        self._create_widget()
-        
-        # Apply Dock/Anchor if specified
-        if 'Dock' in defaults and defaults['Dock']:
-            self.Dock = defaults['Dock']
-        if 'Anchor' in defaults and defaults['Anchor']:
-            self.Anchor = defaults['Anchor']
-        
-        # Auto-register with the parent container
-        self._auto_register_with_parent()
-    
-    def _create_widget(self):
-        """Create the underlying Tkinter widgets."""
-        # Container frame for text + scrollbar
-        self._container_frame = tk.Frame(
-            self.master, 
-            bg=self._back_color,
-            borderwidth=self._border_width,
-            highlightthickness=0
-        )
-        
-        # Get font
-        tk_font = None
-        if self._font:
-            if hasattr(self._font, '_tk_font'):
-                tk_font = self._font._tk_font
-            elif hasattr(self._font, 'GetTkFont'):
-                tk_font = self._font.GetTkFont()
-            elif isinstance(self._font, tuple):
-                tk_font = self._font
-        
-        # Text widget
-        wrap_mode = 'word' if self._word_wrap else 'none'
-        self._tk_widget = tk.Text(
-            self._container_frame,
-            wrap=wrap_mode,
-            bg=self._back_color,
-            fg=self._fore_color,
-            insertbackground=self._insert_cursor_color,
-            selectbackground=self._selection_back_color,
-            selectforeground=self._selection_fore_color or self._fore_color,
-            borderwidth=0,
-            highlightthickness=0,
-            padx=self._padding,
-            pady=self._padding,
-            cursor='arrow' if self._read_only else 'xterm'
-        )
-        
-        if tk_font:
-            self._tk_widget.config(font=tk_font)
-        
-        if self._read_only:
-            self._tk_widget.config(state='disabled')
-        
-        # Scrollbar (auto-hide behavior - only shown when needed)
-        self._scrollbar = None
-        self._scrollbar_visible = False
-        if self._show_scrollbar:
-            self._scrollbar = tk.Scrollbar(self._container_frame, command=self._tk_widget.yview)
-            self._tk_widget.config(yscrollcommand=self._on_scroll_update)
-            # Don't pack initially - will be shown when needed
-        
-        # Pack text widget
-        self._tk_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        # Bind configure event to check scrollbar visibility
-        self._tk_widget.bind('<Configure>', self._on_text_configure)
-        
-        # Place container
-        self._container_frame.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
-        
-        # Apply visibility
-        self.set_Visible(self._visible)
-    
-    def _on_scroll_update(self, first, last):
-        """Handle scroll updates and auto-hide scrollbar."""
-        if self._scrollbar:
-            self._scrollbar.set(first, last)
-            self._update_scrollbar_visibility()
-    
-    def _on_text_configure(self, event=None):
-        """Handle text widget resize - update scrollbar visibility."""
-        self._tk_widget.after_idle(self._update_scrollbar_visibility)
-    
-    def _update_scrollbar_visibility(self):
-        """Show/hide scrollbar based on whether it's needed."""
-        if not self._scrollbar or not self._show_scrollbar:
-            return
-        
-        try:
-            first, last = self._scrollbar.get()
-            needed = not (float(first) <= 0.0 and float(last) >= 1.0)
-            
-            if needed and not self._scrollbar_visible:
-                self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y, before=self._tk_widget)
-                self._scrollbar_visible = True
-            elif not needed and self._scrollbar_visible:
-                self._scrollbar.pack_forget()
-                self._scrollbar_visible = False
-        except (tk.TclError, ValueError):
-            pass
-    
-    def _place_control(self, width=None, height=None):
-        """Override to handle container frame placement."""
-        x_coord = self.Left
-        y_coord = self.Top
-        place_args = {'x': x_coord, 'y': y_coord, 'in_': self.master}
-        if width is not None:
-            place_args['width'] = width
-        if height is not None:
-            place_args['height'] = height
-        try:
-            self._container_frame.place(**place_args)
-        except tk.TclError:
-            pass
-    
-    def set_Visible(self, value):
-        """Sets the visibility state."""
-        old_visible = getattr(self, '_visible', True)
-        self._visible = value
-        
-        if hasattr(self, '_container_frame') and self._container_frame:
-            if value:
-                self._container_frame.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
-            else:
-                self._container_frame.place_forget()
-    
-    def PerformLayout(self):
-        """Force layout recalculation for the control."""
-        if not hasattr(self, '_container_frame') or not self._container_frame:
-            return
-        
-        # Force geometry update
-        self._container_frame.update_idletasks()
-        
-        # Get current dimensions
-        width = self._container_frame.winfo_width()
-        height = self._container_frame.winfo_height()
-        
-        if width <= 1 or height <= 1:
-            return
-        
-        # Re-place the container with current dimensions
-        self._container_frame.place_configure(width=width, height=height)
-        
-        # Repack text widget
-        try:
-            self._tk_widget.pack_forget()
-        except:
-            pass
-        self._tk_widget.pack(side='left', fill='both', expand=True)
-        
-        # Update scrollbar visibility (auto-hide behavior)
-        self._update_scrollbar_visibility()
-        
-        self._container_frame.update_idletasks()
-    
-    # =========================================================================
-    # Properties
-    # =========================================================================
-    
-    @property
-    def Text(self):
-        """Gets all text in the RichTextBox."""
-        return self._tk_widget.get('1.0', 'end-1c')
-    
-    @Text.setter
-    def Text(self, value):
-        """Sets all text in the RichTextBox."""
-        was_disabled = self._read_only
-        if was_disabled:
-            self._tk_widget.config(state='normal')
-        self._tk_widget.delete('1.0', 'end')
-        self._tk_widget.insert('1.0', value)
-        if was_disabled:
-            self._tk_widget.config(state='disabled')
-    
-    @property
-    def BackColor(self):
-        """Gets the background color."""
-        return self._back_color
-    
-    @BackColor.setter
-    def BackColor(self, value):
-        """Sets the background color."""
-        self._back_color = value
-        if hasattr(self, '_tk_widget') and self._tk_widget:
-            self._tk_widget.config(bg=value)
-        if hasattr(self, '_container_frame') and self._container_frame:
-            self._container_frame.config(bg=value)
-    
-    @property
-    def ForeColor(self):
-        """Gets the default foreground color."""
-        return self._fore_color
-    
-    @ForeColor.setter
-    def ForeColor(self, value):
-        """Sets the default foreground color."""
-        self._fore_color = value
-        if hasattr(self, '_tk_widget') and self._tk_widget:
-            self._tk_widget.config(fg=value, insertbackground=value)
-    
-    @property
-    def ReadOnly(self):
-        """Gets whether the control is read-only."""
-        return self._read_only
-    
-    @ReadOnly.setter
-    def ReadOnly(self, value):
-        """Sets whether the control is read-only."""
-        self._read_only = value
-        if hasattr(self, '_tk_widget') and self._tk_widget:
-            self._tk_widget.config(state='disabled' if value else 'normal')
-            self._tk_widget.config(cursor='arrow' if value else 'xterm')
-    
-    @property
-    def WordWrap(self):
-        """Gets whether word wrap is enabled."""
-        return self._word_wrap
-    
-    @WordWrap.setter
-    def WordWrap(self, value):
-        """Sets whether word wrap is enabled."""
-        self._word_wrap = value
-        if hasattr(self, '_tk_widget') and self._tk_widget:
-            self._tk_widget.config(wrap='word' if value else 'none')
-    
-    @property
-    def Font(self):
-        """Gets the font."""
-        return self._font
-    
-    @Font.setter
-    def Font(self, value):
-        """Sets the font."""
-        self._font = value
-        if hasattr(self, '_tk_widget') and self._tk_widget:
-            tk_font = None
-            if hasattr(value, '_tk_font'):
-                tk_font = value._tk_font
-            elif hasattr(value, 'GetTkFont'):
-                tk_font = value.GetTkFont()
-            elif isinstance(value, tuple):
-                tk_font = value
-            if tk_font:
-                self._tk_widget.config(font=tk_font)
-    
-    @property
-    def MaxLines(self):
-        """Gets the maximum number of lines to keep."""
-        return self._max_lines
-    
-    @MaxLines.setter
-    def MaxLines(self, value):
-        """Sets the maximum number of lines to keep."""
-        self._max_lines = value
-        self._trim_lines()
-    
-    @property
-    def Lines(self):
-        """Gets the lines of text."""
-        return self.Text.split('\n')
-    
-    @property
-    def LineCount(self):
-        """Gets the number of lines."""
-        return int(self._tk_widget.index('end-1c').split('.')[0])
-    
-    # =========================================================================
-    # Methods
-    # =========================================================================
-    
-    def Write(self, text, color=None):
-        """
-        Write text without a newline.
-        
-        Args:
-            text: The text to write
-            color: Optional color for this text (e.g., '#FF0000')
-        """
-        was_disabled = self._read_only
-        if was_disabled:
-            self._tk_widget.config(state='normal')
-        
-        if color:
-            # Create a tag for this color
-            tag_name = f'color_{color.replace("#", "").replace("(", "").replace(")", "").replace(",", "_")}'
-            self._tk_widget.tag_configure(tag_name, foreground=color)
-            self._tk_widget.insert('end', text, tag_name)
-        else:
-            self._tk_widget.insert('end', text)
-        
-        if was_disabled:
-            self._tk_widget.config(state='disabled')
-        
-        self._tk_widget.see('end')
-        self._trim_lines()
-        self.TextChanged(self, EventArgs.Empty)
-    
-    def WriteLine(self, text='', color=None):
-        """
-        Write text with a newline.
-        
-        Args:
-            text: The text to write
-            color: Optional color for this text
-        """
-        self.Write(text + '\n', color)
-    
-    def WriteError(self, text):
-        """Write error text (red)."""
-        self.WriteLine(text, '#FF6B6B')
-    
-    def WriteWarning(self, text):
-        """Write warning text (yellow)."""
-        self.WriteLine(text, '#FFD93D')
-    
-    def WriteSuccess(self, text):
-        """Write success text (green)."""
-        self.WriteLine(text, '#6BCB77')
-    
-    def WriteInfo(self, text):
-        """Write info text (blue)."""
-        self.WriteLine(text, '#4D96FF')
-    
-    def Clear(self):
-        """Clear all text."""
-        was_disabled = self._read_only
-        if was_disabled:
-            self._tk_widget.config(state='normal')
-        self._tk_widget.delete('1.0', 'end')
-        if was_disabled:
-            self._tk_widget.config(state='disabled')
-    
-    def ScrollToEnd(self):
-        """Scroll to the end of the text."""
-        self._tk_widget.see('end')
-    
-    def ScrollToStart(self):
-        """Scroll to the start of the text."""
-        self._tk_widget.see('1.0')
-    
-    def AppendText(self, text, color=None):
-        """
-        Append text to the end.
-        
-        Args:
-            text: The text to append
-            color: Optional color
-        """
-        self.Write(text, color)
-    
-    def Focus(self):
-        """Set focus to the control."""
-        if hasattr(self, '_tk_widget') and self._tk_widget:
-            self._tk_widget.focus_set()
-    
-    def SelectAll(self):
-        """Select all text."""
-        self._tk_widget.tag_add('sel', '1.0', 'end')
-    
-    def DeselectAll(self):
-        """Deselect all text."""
-        self._tk_widget.tag_remove('sel', '1.0', 'end')
-    
-    def Copy(self):
-        """Copy selected text to clipboard."""
-        try:
-            self._tk_widget.event_generate('<<Copy>>')
-        except:
-            pass
-    
-    def _trim_lines(self):
-        """Trim to MaxLines if exceeded."""
-        if self._max_lines <= 0:
-            return
-        
-        was_disabled = self._read_only
-        if was_disabled:
-            self._tk_widget.config(state='normal')
-        
-        line_count = self.LineCount
-        if line_count > self._max_lines:
-            excess = line_count - self._max_lines
-            self._tk_widget.delete('1.0', f'{excess + 1}.0')
-        
-        if was_disabled:
-            self._tk_widget.config(state='disabled')
-    
-    def ConfigureTag(self, tag_name, **kwargs):
-        """
-        Configure a text tag for styling.
-        
-        Args:
-            tag_name: Name of the tag
-            **kwargs: Tag configuration (foreground, background, font, etc.)
-        """
-        self._tk_widget.tag_configure(tag_name, **kwargs)
-    
-    def WriteWithTag(self, text, tag_name):
-        """
-        Write text with a specific tag.
-        
-        Args:
-            text: The text to write
-            tag_name: The tag name to apply
-        """
-        was_disabled = self._read_only
-        if was_disabled:
-            self._tk_widget.config(state='normal')
-        self._tk_widget.insert('end', text, tag_name)
-        if was_disabled:
-            self._tk_widget.config(state='disabled')
-        self._tk_widget.see('end')
 
 
 class RadioButton(ControlBase):
@@ -10749,12 +10465,29 @@ class RichTextBox(TextBox):
 
     def _apply_tag_property(self, prop, value):
         try:
+            # If value is a Font object, extract the tk_font
+            if prop == "font" and hasattr(value, '_tk_font'):
+                # Use the actual tkinter font object
+                value = value._tk_font
+            
             tag_name = f"fmt_{self._tag_counter}"
             self._tag_counter += 1
             kwargs = {prop: value}
+            
+            # Configure the tag with higher priority
             self._tk_widget.tag_config(tag_name, **kwargs)
-            self._tk_widget.tag_add(tag_name, "sel.first", "sel.last")
-        except tk.TclError:
+            self._tk_widget.tag_raise(tag_name)  # Raise tag priority
+            
+            # Check if there's a selection
+            try:
+                sel_start = self._tk_widget.index("sel.first")
+                sel_end = self._tk_widget.index("sel.last")
+                self._tk_widget.tag_add(tag_name, sel_start, sel_end)
+            except tk.TclError:
+                # No selection, apply to entire content
+                self._tk_widget.tag_add(tag_name, "1.0", "end-1c")
+        except Exception as e:
+            # Silent fail but could log for debugging
             pass
 
     def LoadFile(self, path, file_type=None):
@@ -11344,7 +11077,13 @@ class RichTextBox(TextBox):
         nocase = not match_case
         
         if search_up:
-            pos = self._tk_widget.search(text, "insert", stopindex="1.0", 
+            # When searching backwards, start from the beginning of current selection
+            # or current insert position if no selection
+            if self.SelectionLength > 0:
+                start_pos = "sel.first"
+            else:
+                start_pos = "insert"
+            pos = self._tk_widget.search(text, start_pos, stopindex="1.0", 
                                          backwards=True, nocase=nocase)
         else:
             pos = self._tk_widget.search(text, "insert+1c", stopindex="end", nocase=nocase)
@@ -14912,15 +14651,22 @@ class TableLayoutPanel(Panel):
                     final_y = cell_y + (cell_height - ctrl_h) // 2
                     final_h = ctrl_h
 
-            # Update control properties
-            control.Left = int(final_x)
-            control.Top = int(final_y)
-            control.Width = int(max(0, final_w))
-            control.Height = int(max(0, final_h))
+            # Update control properties directly without triggering layout
+            # Set backing fields directly to avoid triggering setters
+            control._left = int(final_x)
+            control._top = int(final_y)
+            control._width = int(max(0, final_w))
+            control._height = int(max(0, final_h))
             
-            # Reposicionar el control
-            if hasattr(control, '_place_control'):
-                control._place_control(control.Width, control.Height)
+            # Position the widget directly
+            widget_to_place = control._tk_widget
+            if hasattr(control, '_container_frame') and control._container_frame:
+                widget_to_place = control._container_frame
+            
+            try:
+                widget_to_place.place(x=int(final_x), y=int(final_y), width=int(max(0, final_w)), height=int(max(0, final_h)))
+            except Exception:
+                pass
     
     def _calculate_sizes(self, styles, available_space, dimension):
         """Calcula los tamaños según los estilos definidos.
@@ -15814,9 +15560,6 @@ class TabControl(ControlBase):
     SelectedIndex = property(get_SelectedIndex, set_SelectedIndex)
 
 
-############# Nested Controls #############
-
-
 class ListBoxObjectCollection:
     """
     Collection of items for ListBox.
@@ -16158,13 +15901,6 @@ class ListBox(ControlBase):
         }
         self._tk_widget.config(selectmode=selectmode_map.get(self._selection_mode, 'browse'))
         
-        # Populate
-        if defaults['Items']:
-            self.Items.AddRange(defaults['Items'])
-            
-        if self._data_source and self._display_member:
-            self._populate_from_datasource()
-            
         # Apply Font, ForeColor, BackColor, Enabled
         config = {}
         if self.Font:
@@ -16226,6 +15962,9 @@ class ListBox(ControlBase):
         # Bind common events
         self._bind_common_events()
         
+        # Auto-register with the parent container if necessary
+        self._auto_register_with_parent()
+        
         # Apply Dock and Anchor if they were specified in props
         if 'Dock' in defaults and defaults['Dock']:
             self.Dock = defaults['Dock']
@@ -16236,14 +15975,24 @@ class ListBox(ControlBase):
         self._tk_widget.bind('<<ListboxSelect>>', self._on_selected_index_changed)
         self._tk_widget.bind('<Key>', self._on_key_down)
         
+        # Populate items AFTER the final widget is created
+        if defaults['Items']:
+            self.Items.AddRange(defaults['Items'])
+            self.Refresh()  # Force visual update after adding items
+            
+        if self._data_source and self._display_member:
+            self._populate_from_datasource()
+            self.Refresh()  # Force visual update after populating from datasource
+        
         if self._sorted:
             self._sort_items()
             
         if defaults['SelectedIndex'] >= 0:
             self.SelectedIndex = defaults['SelectedIndex']
-            
-        # Auto-register with the parent container if necessary
-        self._auto_register_with_parent()
+        
+        # Defer scrollbar visibility check until after items are rendered
+        if self._container_frame:
+            self._tk_widget.after(100, self._update_listbox_scrollbar_visibility)
 
     @property
     def DataSource(self):
@@ -16843,6 +16592,15 @@ class CheckedListBox(ControlBase):
         self._canvas.pack(side="left", fill="both", expand=True)
         self._scrollbar.pack(side="right", fill="y")
         
+        # Bind mouse wheel for scrolling
+        self._canvas.bind('<MouseWheel>', self._on_mousewheel)
+        self._scrollable_frame.bind('<MouseWheel>', self._on_mousewheel)
+        # Linux bindings
+        self._canvas.bind('<Button-4>', self._on_mousewheel)
+        self._canvas.bind('<Button-5>', self._on_mousewheel)
+        self._scrollable_frame.bind('<Button-4>', self._on_mousewheel)
+        self._scrollable_frame.bind('<Button-5>', self._on_mousewheel)
+        
         # Populate initial items
         initial_items = defaults['Items'] or []
         if self.DataSource and self.DisplayMember:
@@ -16882,6 +16640,15 @@ class CheckedListBox(ControlBase):
     def _on_canvas_configure(self, event):
         """Adjusts the inner frame width to match the canvas."""
         self._canvas.itemconfig(self._canvas_window, width=event.width)
+
+    def _on_mousewheel(self, event):
+        """Handle mouse wheel scrolling."""
+        if event.num == 4:  # Linux scroll up
+            self._canvas.yview_scroll(-1, "units")
+        elif event.num == 5:  # Linux scroll down
+            self._canvas.yview_scroll(1, "units")
+        else:  # Windows
+            self._canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def _add_item_to_ui(self, item, is_checked=False):
         """Adds an item to the UI.
@@ -16933,6 +16700,18 @@ class CheckedListBox(ControlBase):
         # Bindings
         lbl.bind('<Button-1>', lambda e, idx=index: self._on_item_click(idx))
         chk.bind('<Button-1>', lambda e, idx=index: self._on_check_click(idx))
+        
+        # Mouse wheel bindings for scrolling
+        row_frame.bind('<MouseWheel>', self._on_mousewheel)
+        chk.bind('<MouseWheel>', self._on_mousewheel)
+        lbl.bind('<MouseWheel>', self._on_mousewheel)
+        # Linux bindings
+        row_frame.bind('<Button-4>', self._on_mousewheel)
+        row_frame.bind('<Button-5>', self._on_mousewheel)
+        chk.bind('<Button-4>', self._on_mousewheel)
+        chk.bind('<Button-5>', self._on_mousewheel)
+        lbl.bind('<Button-4>', self._on_mousewheel)
+        lbl.bind('<Button-5>', self._on_mousewheel)
         
         self._widgets.append((row_frame, chk, lbl))
 
@@ -17298,15 +17077,73 @@ class SplitContainer(ControlBase):
     def Orientation(self): return self._orientation
     @Orientation.setter
     def Orientation(self, value):
+        if self._orientation == value:
+            return
+        
         self._orientation = value
+        
+        # Tkinter PanedWindow requires recreation to change orientation properly
+        # Save current state
+        saved_distance = self._splitter_distance
+        saved_p1_collapsed = self._panel1_collapsed
+        saved_p2_collapsed = self._panel2_collapsed
+        
+        # Get current position and size
+        try:
+            x = self._tk_widget.winfo_x()
+            y = self._tk_widget.winfo_y()
+            w = self._tk_widget.winfo_width()
+            h = self._tk_widget.winfo_height()
+        except:
+            x, y, w, h = self.Left, self.Top, self.Width, self.Height
+        
+        # Remove old panels from PanedWindow
+        self._tk_widget.forget(self.Panel1._tk_widget)
+        self._tk_widget.forget(self.Panel2._tk_widget)
+        
+        # Destroy old PanedWindow
+        self._tk_widget.destroy()
+        
+        # Create new PanedWindow with new orientation
         orient = tk.HORIZONTAL if value == Orientation.Vertical else tk.VERTICAL
-        self._tk_widget.config(orient=orient)
+        self._tk_widget = tk.PanedWindow(
+            self.master,
+            orient=orient,
+            sashwidth=self._splitter_width,
+            bg='lightgray',
+            bd=0,
+            sashrelief='raised'
+        )
+        
+        # Reapply border style
+        self._apply_border_style()
+        
+        # Re-add panels
+        self._add_panels()
+        
+        # Restore position
+        self._tk_widget.place(x=x, y=y, width=w, height=h)
+        
+        # Rebind events
+        self._tk_widget.bind('<ButtonRelease-1>', self._on_sash_release)
+        self._tk_widget.bind('<B1-Motion>', self._on_sash_move)
+        
+        # Restore state
+        self._panel1_collapsed = saved_p1_collapsed
+        self._panel2_collapsed = saved_p2_collapsed
+        
+        # Restore splitter distance after widget is mapped
+        self._tk_widget.after(10, lambda: self._restore_splitter_distance(saved_distance))
 
     @property
     def SplitterDistance(self): return self._splitter_distance
     @SplitterDistance.setter
     def SplitterDistance(self, value):
         self._splitter_distance = value
+        self._restore_splitter_distance(value)
+    
+    def _restore_splitter_distance(self, value):
+        """Helper method to set splitter distance."""
         try:
             if self.Orientation == Orientation.Vertical:
                 self._tk_widget.sash_place(0, value, 0)
@@ -18053,6 +17890,10 @@ class ImageList:
         if key is None:
             key = self._next_index
             self._next_index += 1
+        
+        # If image is a PhotoImage wrapper from winformpy_extended, extract the tkinter image
+        if hasattr(image, 'get_image'):
+            image = image.get_image()
         
         # TODO: Resize image to self.ImageSize if possible
         # Without PIL, resizing is limited. We assume the user provides correct size
@@ -18869,6 +18710,12 @@ class ListView(ControlBase):
         self._virtual_list_size = 0
         self._virtual_mode = False
         
+        # Icon size configuration (configurable)
+        self._small_icon_size = 16
+        self._large_icon_size = 32
+        self._small_icon_spacing = 60
+        self._large_icon_spacing = 80
+        
         # Events
         self.SelectedIndexChanged = lambda sender=None, e=None: None
         self.ItemSelectionChanged = lambda sender=None, e=None: None
@@ -18955,10 +18802,287 @@ class ListView(ControlBase):
 
     @View.setter
     def View(self, value):
+        old_view = self._view
         self._view = value
-        show = 'headings' if value == View.Details else 'tree'
+        
+        # Handle different view modes
+        if value == View.Details or value == View.List:
+            # Use Treeview for Details and List views
+            show = 'headings' if value == View.Details else 'tree'
+            if self._tk_widget:
+                self._tk_widget.config(show=show)
+        elif value == View.LargeIcon or value == View.SmallIcon:
+            # Icon views need special handling
+            # We need to switch from Treeview to a different display mode
+            self._switch_to_icon_view(value)
+        
+        # If switching from icon view back to Details/List, restore Treeview
+        if (old_view == View.LargeIcon or old_view == View.SmallIcon) and \
+           (value == View.Details or value == View.List):
+            self._switch_from_icon_view(value)
+    
+    def _switch_to_icon_view(self, view_mode):
+        """Switch from Treeview to icon-based display."""
+        import tkinter as tk
+        
+        # Create canvas if it doesn't exist
+        if not hasattr(self, '_icon_canvas') or not self._icon_canvas:
+            self._icon_canvas = tk.Canvas(self.master, bg='white', highlightthickness=0)
+            self._icon_frame = tk.Frame(self._icon_canvas, bg='white')
+            self._icon_scrollbar = tk.Scrollbar(self.master, orient='vertical', command=self._icon_canvas.yview)
+            self._icon_canvas.configure(yscrollcommand=self._icon_scrollbar.set)
+            self._icon_canvas_window = self._icon_canvas.create_window((0, 0), window=self._icon_frame, anchor='nw')
+        
+        # Hide treeview
         if self._tk_widget:
+            info = self._tk_widget.place_info()
+            self._tk_widget.place_forget()
+            
+            # Store placement info to use for canvas
+            if info:
+                self._stored_place_info = info
+        
+        # Position canvas and scrollbar using the same method as the treeview
+        # Check if we have stored placement info
+        if hasattr(self, '_stored_place_info') and self._stored_place_info:
+            # Use place with stored info
+            x = int(self._stored_place_info.get('x', 0))
+            y = int(self._stored_place_info.get('y', 0))
+            width = int(self._stored_place_info.get('width', self._width))
+            height = int(self._stored_place_info.get('height', self._height))
+            
+            canvas_width = width - 20
+            self._icon_canvas.place(x=x, y=y, width=canvas_width, height=height)
+            self._icon_scrollbar.place(x=x + canvas_width, y=y, width=20, height=height)
+        else:
+            # Fallback to manual positioning (use _left and _top from ControlBase)
+            canvas_width = max(200, self._width - 20)
+            self._icon_canvas.place(x=self._left, y=self._top, width=canvas_width, height=self._height)
+            self._icon_scrollbar.place(x=self._left + canvas_width, y=self._top, width=20, height=self._height)
+        
+        # Clear existing icons
+        for widget in self._icon_frame.winfo_children():
+            widget.destroy()
+        
+        # Render items as icons
+        self._render_icon_view(view_mode)
+        
+        # Make sure canvas is visible (use tkraise instead of lift for canvas widgets)
+        try:
+            self._icon_canvas.tkraise()
+            self._icon_scrollbar.tkraise()
+        except:
+            pass
+    
+    def _switch_from_icon_view(self, view_mode):
+        """Switch from icon view back to Treeview."""
+        if hasattr(self, '_icon_canvas') and self._icon_canvas:
+            # Hide icon view
+            self._icon_canvas.place_forget()
+            self._icon_scrollbar.place_forget()
+        
+        # Show treeview
+        if self._tk_widget:
+            # Restore treeview with stored placement info
+            if hasattr(self, '_stored_place_info') and self._stored_place_info:
+                x = int(self._stored_place_info.get('x', 0))
+                y = int(self._stored_place_info.get('y', 0))
+                width = int(self._stored_place_info.get('width', self._width))
+                height = int(self._stored_place_info.get('height', self._height))
+                self._tk_widget.place(x=x, y=y, width=width, height=height)
+            else:
+                # Fallback to manual positioning (use _left and _top from ControlBase)
+                self._tk_widget.place(x=self._left, y=self._top, width=self._width, height=self._height)
+            
+            # Update show mode
+            show = 'headings' if view_mode == View.Details else 'tree'
             self._tk_widget.config(show=show)
+            
+            # IMPORTANT: Refresh items to show them in the Treeview
+            self._refresh_items()
+    
+    def _resize_image(self, photo_image, target_width, target_height):
+        """Resize a PhotoImage to the target dimensions.
+        
+        Args:
+            photo_image: The PhotoImage to resize
+            target_width: Target width in pixels
+            target_height: Target height in pixels
+            
+        Returns:
+            A new PhotoImage at the target size
+        """
+        import tkinter as tk
+        
+        # Get the original image dimensions
+        orig_width = photo_image.width()
+        orig_height = photo_image.height()
+        
+        # If already the correct size, return as-is
+        if orig_width == target_width and orig_height == target_height:
+            return photo_image
+        
+        # Try PIL first (best quality)
+        try:
+            from PIL import Image, ImageTk
+            
+            # Convert PhotoImage to PIL Image
+            # Save to a temporary file and reload with PIL
+            import tempfile
+            import os
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.gif') as tmp_file:
+                tmp_path = tmp_file.name
+                photo_image.write(tmp_path, format='gif')
+            
+            # Open with PIL and resize
+            pil_image = Image.open(tmp_path)
+            pil_image = pil_image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            
+            # Convert back to PhotoImage
+            resized_photo = ImageTk.PhotoImage(pil_image)
+            
+            # Clean up temp file
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
+            
+            return resized_photo
+        except ImportError:
+            pass  # Fall through to native Tkinter method
+        except Exception as e:
+            print(f"PIL resize error: {e}, falling back to native method")
+        
+        # Fallback: Use Tkinter native zoom/subsample (lower quality but works without PIL)
+        try:
+            # Calculate scaling factors
+            zoom_x = target_width / orig_width
+            zoom_y = target_height / orig_height
+            
+            # Make a copy of the image
+            resized = photo_image.copy()
+            
+            # Apply zoom or subsample
+            if zoom_x >= 1 and zoom_y >= 1:
+                # Zoom up (enlarge)
+                resized = resized.zoom(int(zoom_x), int(zoom_y))
+            elif zoom_x < 1 and zoom_y < 1:
+                # Subsample down (shrink)
+                resized = resized.subsample(int(1/zoom_x), int(1/zoom_y))
+            else:
+                # Mixed scaling - do both operations
+                if zoom_x < 1:
+                    resized = resized.subsample(int(1/zoom_x), 1)
+                else:
+                    resized = resized.zoom(int(zoom_x), 1)
+                
+                if zoom_y < 1:
+                    resized = resized.subsample(1, int(1/zoom_y))
+                else:
+                    resized = resized.zoom(1, int(zoom_y))
+            
+            return resized
+        except Exception as e:
+            print(f"Image resize error: {e}")
+            return photo_image
+    
+    def _render_icon_view(self, view_mode):
+        """Render items in icon view mode."""
+        import tkinter as tk
+        
+        if not hasattr(self, '_icon_frame') or not self._icon_frame:
+            return
+        
+        # Use configurable sizes
+        icon_size = self._large_icon_size if view_mode == View.LargeIcon else self._small_icon_size
+        icon_spacing = self._large_icon_spacing if view_mode == View.LargeIcon else self._small_icon_spacing
+        text_width = 70 if view_mode == View.LargeIcon else 50
+        
+        # Get the appropriate image list
+        image_list = self._large_image_list if view_mode == View.LargeIcon else self._small_image_list
+        
+        # Calculate grid layout
+        canvas_width = max(200, self._width - 40)
+        col_count = max(1, canvas_width // icon_spacing)
+        
+        for i, item in enumerate(self._items):
+            # Create frame for each item
+            item_frame = tk.Frame(self._icon_frame, bg='white', relief='flat', bd=0)
+            
+            # Calculate position
+            row = i // col_count
+            col = i % col_count
+            item_frame.grid(row=row, column=col, padx=5, pady=5, sticky='n')
+            
+            # Add icon if available
+            icon_added = False
+            if image_list and hasattr(item, 'ImageIndex') and item.ImageIndex is not None and item.ImageIndex >= 0:
+                try:
+                    images_dict = image_list._images
+                    if images_dict and item.ImageIndex < len(images_dict):
+                        img = list(images_dict.values())[item.ImageIndex]
+                        if img:
+                            # Resize image to match configured icon size
+                            resized_img = self._resize_image(img, icon_size, icon_size)
+                            icon_label = tk.Label(item_frame, image=resized_img, bg='white', bd=0)
+                            icon_label.image = resized_img  # Keep reference to prevent garbage collection
+                            icon_label.pack()
+                            icon_added = True
+                except Exception as e:
+                    # If image fails, continue to text
+                    print(f"Icon error: {e}")
+                    pass
+            
+            # If no icon was added, try to use default icon from ImageList
+            if not icon_added:
+                try:
+                    # Try to get default icon from ImageList
+                    if image_list:
+                        images_dict = image_list._images
+                        if images_dict and len(images_dict) > 0:
+                            # Use first image as default
+                            default_img = list(images_dict.values())[0]
+                            if default_img:
+                                # Resize default image to match configured icon size
+                                resized_img = self._resize_image(default_img, icon_size, icon_size)
+                                icon_label = tk.Label(item_frame, image=resized_img, bg='white', bd=0)
+                                icon_label.image = resized_img
+                                icon_label.pack()
+                                icon_added = True
+                except:
+                    pass
+                
+                # If still no icon, add text placeholder
+                if not icon_added:
+                    placeholder = tk.Label(item_frame, text='📄', bg='white', fg='gray', 
+                                          font=('Arial', icon_size), bd=0)
+                    placeholder.pack()
+            
+            # Add text label
+            display_text = item.Text
+            if len(display_text) > 12:
+                display_text = display_text[:9] + '...'
+            
+            text_label = tk.Label(item_frame, text=display_text, bg='white', fg='black', 
+                                 font=('Segoe UI', 8), wraplength=text_width, bd=0)
+            text_label.pack()
+            
+            # Store reference for selection
+            item._icon_frame = item_frame
+        
+        # Update canvas size and scroll region
+        self._icon_frame.update_idletasks()
+        
+        # Calculate required height
+        total_rows = (len(self._items) + col_count - 1) // col_count
+        required_height = total_rows * (icon_size + 50)
+        
+        # Update frame size
+        self._icon_frame.configure(width=canvas_width, height=max(required_height, self._height))
+        
+        # Update scroll region
+        self._icon_canvas.update_idletasks()
+        self._icon_canvas.configure(scrollregion=(0, 0, canvas_width, required_height))
 
     @property
     def SelectedItems(self):
@@ -19006,7 +19130,18 @@ class ListView(ControlBase):
     @FullRowSelect.setter
     def FullRowSelect(self, value):
         self._full_row_select = value
-        # Treeview always does full row select visually in most themes
+        self._update_fullrow_display()
+        self._update_styles()
+    
+    def _update_fullrow_display(self):
+        """Update the Treeview display mode based on FullRowSelect setting."""
+        if not self._tk_widget:
+            return
+        
+        # When FullRowSelect is False in Windows Forms, only the first column is highlighted
+        # In Treeview, we can simulate this by changing the selectmode and visual appearance
+        # The selection is still technically the full row, but we make it look like only the first column
+        pass  # Visual changes handled in _update_styles()
 
     @property
     def GridLines(self):
@@ -19034,8 +19169,12 @@ class ListView(ControlBase):
 
     @CheckBoxes.setter
     def CheckBoxes(self, value):
+        old_value = self._check_boxes
         self._check_boxes = value
-        # Not natively supported in Treeview without custom drawing or images
+        
+        # If checkbox mode changed, rebuild the UI to add/remove checkbox column
+        if old_value != value and self._tk_widget:
+            self._refresh_items()
 
     @property
     def HeaderStyle(self):
@@ -19075,6 +19214,56 @@ class ListView(ControlBase):
     @LargeImageList.setter
     def LargeImageList(self, value):
         self._large_image_list = value
+
+    @property
+    def SmallIconSize(self):
+        """Gets or sets the size for small icons (default: 16)."""
+        return self._small_icon_size
+
+    @SmallIconSize.setter
+    def SmallIconSize(self, value):
+        """Sets the size for small icons and updates SmallImageList if default."""
+        self._small_icon_size = value
+        # Update SmallImageList size if it exists
+        if self._small_image_list:
+            self._small_image_list.ImageSize = Size(value, value)
+
+    @property
+    def LargeIconSize(self):
+        """Gets or sets the size for large icons (default: 32)."""
+        return self._large_icon_size
+
+    @LargeIconSize.setter
+    def LargeIconSize(self, value):
+        """Sets the size for large icons and updates LargeImageList if default."""
+        self._large_icon_size = value
+        # Update LargeImageList size if it exists
+        if self._large_image_list:
+            self._large_image_list.ImageSize = Size(value, value)
+
+    @property
+    def SmallIconSpacing(self):
+        """Gets or sets the spacing between small icons (default: 60)."""
+        return self._small_icon_spacing
+
+    @SmallIconSpacing.setter
+    def SmallIconSpacing(self, value):
+        self._small_icon_spacing = value
+        # Refresh icon view if currently in SmallIcon mode
+        if self._view == View.SmallIcon:
+            self._render_icon_view(View.SmallIcon)
+
+    @property
+    def LargeIconSpacing(self):
+        """Gets or sets the spacing between large icons (default: 80)."""
+        return self._large_icon_spacing
+
+    @LargeIconSpacing.setter
+    def LargeIconSpacing(self, value):
+        self._large_icon_spacing = value
+        # Refresh icon view if currently in LargeIcon mode
+        if self._view == View.LargeIcon:
+            self._render_icon_view(View.LargeIcon)
 
     @property
     def Activation(self): return self._activation
@@ -19306,15 +19495,60 @@ class ListView(ControlBase):
             self._refresh_items()
 
     def _add_item_to_ui(self, item):
-        values = item.SubItems
-        item._id = self._tk_widget.insert('', 'end', text=item.Text, values=values)
+        # In Details view (show='headings'), the 'text' parameter is not shown
+        # Only 'values' are displayed in columns, so include item.Text as first value
+        # In List view (show='tree'), 'text' is shown, so don't duplicate in values
+        
+        # Checkbox symbol: ☐ (unchecked) or ☑ (checked)
+        if self._check_boxes:
+            checkbox_symbol = '☑' if item.Checked else '☐'
+            if self._view == View.Details:
+                values = [checkbox_symbol, item.Text] + list(item.SubItems)
+            else:
+                values = [checkbox_symbol] + list(item.SubItems)
+        else:
+            if self._view == View.Details:
+                values = [item.Text] + list(item.SubItems)
+            else:
+                values = list(item.SubItems)
+        
+        # Determine row tag for grid lines
+        row_count = len(self._tk_widget.get_children())
+        tag = 'evenrow' if row_count % 2 == 0 else 'oddrow'
+        item._id = self._tk_widget.insert('', 'end', text=item.Text, values=values, tags=(tag,))
 
     def _insert_item_to_ui(self, index, item):
-        values = item.SubItems
-        item._id = self._tk_widget.insert('', index, text=item.Text, values=values)
+        # Include item.Text as the first value only for Details view
+        # In List view, text is shown separately, so don't duplicate in values
+        
+        # Checkbox symbol: ☐ (unchecked) or ☑ (checked)
+        if self._check_boxes:
+            checkbox_symbol = '☑' if item.Checked else '☐'
+            if self._view == View.Details:
+                values = [checkbox_symbol, item.Text] + list(item.SubItems)
+            else:
+                values = [checkbox_symbol] + list(item.SubItems)
+        else:
+            if self._view == View.Details:
+                values = [item.Text] + list(item.SubItems)
+            else:
+                values = list(item.SubItems)
+        
+        # Determine row tag for grid lines
+        tag = 'evenrow' if index % 2 == 0 else 'oddrow'
+        item._id = self._tk_widget.insert('', index, text=item.Text, values=values, tags=(tag,))
 
     def _update_columns(self):
-        self._tk_widget['columns'] = [str(i) for i in range(len(self._columns))]
+        # Add checkbox column if CheckBoxes is enabled
+        num_columns = len(self._columns)
+        if self._check_boxes:
+            # Extra column for checkboxes
+            self._tk_widget['columns'] = ['checkbox'] + [str(i) for i in range(num_columns)]
+            # Configure checkbox column
+            self._tk_widget.heading('checkbox', text='')
+            self._tk_widget.column('checkbox', width=30, anchor='center', stretch=False)
+        else:
+            self._tk_widget['columns'] = [str(i) for i in range(num_columns)]
         
         anchor_map = {
             HorizontalAlignment.Left: 'w',
@@ -19334,11 +19568,71 @@ class ListView(ControlBase):
         # Re-add
         for item in self._items:
             self._add_item_to_ui(item)
+    
+    def _apply_grid_tags(self):
+        """Apply alternating row tags to all items for grid line effect."""
+        if not self._tk_widget:
+            return
+        
+        children = self._tk_widget.get_children()
+        for i, child in enumerate(children):
+            tag = 'evenrow' if i % 2 == 0 else 'oddrow'
+            self._tk_widget.item(child, tags=(tag,))
 
     def _update_styles(self):
+        """Update Treeview styles based on GridLines and FullRowSelect settings."""
+        if not self._tk_widget:
+            return
+            
         style = ttk.Style()
-        if self.GridLines:
-            style.configure("Treeview", rowheight=25) # Placeholder
+        style_name = "Custom.Treeview"
+        
+        # Configure row height and basic appearance
+        if self._grid_lines:
+            # Increase row height slightly for grid effect
+            style.configure(style_name, 
+                           rowheight=26,
+                           borderwidth=1,
+                           relief='solid')
+            # Configure alternating row colors for grid-like appearance
+            self._tk_widget.tag_configure('oddrow', background='#FFFFFF')
+            self._tk_widget.tag_configure('evenrow', background='#F5F5F5')
+        else:
+            # Standard row height, no alternating colors
+            style.configure(style_name,
+                           rowheight=25,
+                           borderwidth=0,
+                           relief='flat')
+            self._tk_widget.tag_configure('oddrow', background='#FFFFFF')
+            self._tk_widget.tag_configure('evenrow', background='#FFFFFF')
+        
+        # Configure selection colors based on FullRowSelect
+        if self._full_row_select:
+            # Full row selection - highlight entire row with strong color
+            # This is the default Windows Forms behavior when FullRowSelect = True
+            style.map(style_name,
+                     background=[('selected', '#0078D4')],
+                     foreground=[('selected', 'white')])
+        else:
+            # Partial row selection - Windows Forms style where only first column is highlighted
+            # We simulate this with a dotted border and minimal color change
+            style.configure(style_name,
+                           highlightthickness=1)
+            style.map(style_name,
+                     background=[('selected', 'white')],     # Keep white background
+                     foreground=[('selected', '#0078D4')],   # Blue text for selected items
+                     relief=[('selected', 'solid')],         # Add border to indicate selection
+                     bordercolor=[('selected', '#0078D4')])  # Blue border
+        
+        # Apply the custom style to the treeview
+        try:
+            self._tk_widget.configure(style=style_name)
+        except:
+            # If custom style fails, fall back to default
+            pass
+        
+        # Re-apply tags to existing items
+        self._apply_grid_tags()
 
     def _on_selection_changed(self, event):
         self.SelectedIndexChanged(self, EventArgs(event))
@@ -19348,6 +19642,23 @@ class ListView(ControlBase):
 
     def _on_column_click(self, column_index):
         self.ColumnClick(self, EventArgs({'Column': self._columns[column_index]}))
+    
+    def _update_item_checkbox(self, item):
+        """Updates the checkbox symbol for an item in the UI."""
+        if not self._tk_widget or not item._id:
+            return
+        
+        # Get current values
+        current_values = list(self._tk_widget.item(item._id, 'values'))
+        if not current_values:
+            return
+        
+        # Update checkbox symbol (first value when checkboxes enabled)
+        checkbox_symbol = '\u2611' if item.Checked else '\u2610'
+        current_values[0] = checkbox_symbol
+        
+        # Update the item in the treeview
+        self._tk_widget.item(item._id, values=current_values)
 
     def _on_key_down(self, event):
         self.KeyDown(self, EventArgs(event))
@@ -19360,6 +19671,27 @@ class ListView(ControlBase):
         self.MouseDoubleClick(self, EventArgs({'Button': 'Left', 'Clicks': 2, 'X': event.x, 'Y': event.y}))
 
     def _on_click(self, event):
+        # Check if click is on checkbox column
+        if self._check_boxes:
+            region = self._tk_widget.identify_region(event.x, event.y)
+            if region == 'cell':
+                column = self._tk_widget.identify_column(event.x)
+                # Column #0 or #1 depending on setup - checkbox is first column when enabled
+                if column == '#1':  # First value column (checkbox column)
+                    item_id = self._tk_widget.identify_row(event.y)
+                    if item_id:
+                        # Find the item and toggle its checked state
+                        for item in self._items:
+                            if item._id == item_id:
+                                item.Checked = not item.Checked
+                                # Update the UI
+                                self._update_item_checkbox(item)
+                                # Fire ItemCheck event
+                                self.ItemCheck(self, EventArgs({'Item': item, 'Checked': item.Checked}))
+                                self.AfterCheck(self, EventArgs({'Item': item}))
+                                break
+                        return  # Don't process normal click events
+        
         self.Click(self, EventArgs(event))
         self.MouseClick(self, EventArgs({'Button': 'Left', 'Clicks': 1, 'X': event.x, 'Y': event.y}))
         item = self.GetItemAt(event.x, event.y)
@@ -22351,9 +22683,129 @@ class MonthCalendar(ControlBase):
             self._calendar.calevent_remove('all', 'bold')
             self._bolded_dates.clear()
 
+    def UpdateBoldedDates(self):
+        """Updates the display of bolded dates.
+        
+        This method is provided for compatibility with Windows Forms MonthCalendar.
+        In tkcalendar, dates are updated immediately when added, so this is a no-op.
+        """
+        pass
+
     def SetDate(self, date):
         """Sets the selected date."""
         self.SelectionStart = date
+
+    def _apply_visual_config(self):
+        """Override to prevent takefocus configuration on tkcalendar.Calendar widget."""
+        if not self._tk_widget:
+            return
+        
+        config = {}
+        
+        # Apply colors
+        if self.BackColor is not None:
+            config['bg'] = self.BackColor
+        if self.ForeColor is not None:
+            config['fg'] = self.ForeColor
+        
+        # Apply font
+        if self.Font is not None:
+            f = self.Font
+            if hasattr(f, '_tk_font'):
+                f = f._tk_font
+            config['font'] = f
+        
+        # Apply enabled/disabled state
+        if not self.Enabled:
+            config['state'] = 'disabled'
+        else:
+            config['state'] = 'normal'
+        
+        # Apply border/relief
+        if self.BorderStyle is not None:
+            relief_map = {
+                'None': 'flat', 'Fixed3D': 'groove', 'FixedSingle': 'solid',
+                'fixed_single': 'solid', 'fixed_3d': 'groove',
+                'flat': 'flat', 'groove': 'groove', 'raised': 'raised',
+                'ridge': 'ridge', 'solid': 'solid', 'sunken': 'sunken',
+                BorderStyle.None_: 'flat', BorderStyle.Fixed3D: 'groove', BorderStyle.FixedSingle: 'solid',
+                0: 'flat', 1: 'solid', 2: 'groove'
+            }
+            config['relief'] = relief_map.get(self.BorderStyle, 'flat')
+            
+            if self.BorderWidth is not None:
+                config['borderwidth'] = self.BorderWidth
+            elif self.BorderStyle in ['FixedSingle', 'solid', 'fixed_single', BorderStyle.FixedSingle, 1]:
+                config['borderwidth'] = 3
+            elif self.BorderStyle in ['Fixed3D', 'ridge', 'groove', 'sunken', 'raised', 'fixed_3d', BorderStyle.Fixed3D, 2]:
+                config['borderwidth'] = 3
+            else:
+                config['borderwidth'] = 0
+        elif self.BorderWidth is not None:
+            config['borderwidth'] = self.BorderWidth
+        
+        # Apply background image
+        if self.BackgroundImage is not None:
+            config['image'] = self.BackgroundImage
+        
+        # NOTE: DO NOT apply 'takefocus' - tkcalendar.Calendar does not support it
+
+        # Apply configuration to widget
+        if config:
+            try:
+                self._tk_widget.config(**config)
+            except tk.TclError:
+                # Some widgets do not support all options
+                for key, value in config.items():
+                    try:
+                        self._tk_widget.config(**{key: value})
+                    except tk.TclError:
+                        pass
+
+    def _update_widget_properties(self):
+        """Override to prevent takefocus configuration on tkcalendar.Calendar widget."""
+        if not self._tk_widget or not hasattr(self, '_visible'):
+            return
+        
+        config = {}
+        
+        # Apply BorderStyle and BorderWidth (if supported)
+        if hasattr(self, 'BorderStyle') and self.BorderStyle is not None:
+            relief_map = {
+                'None': 'flat', 'none': 'flat', 0: 'flat', BorderStyle.None_: 'flat',
+                'FixedSingle': 'solid', 'fixed_single': 'solid', 1: 'solid', BorderStyle.FixedSingle: 'solid',
+                'Fixed3D': 'raised', 'fixed_3d': 'raised', 2: 'raised', BorderStyle.Fixed3D: 'raised'
+            }
+            config['relief'] = relief_map.get(self.BorderStyle, 'flat')
+            
+            if self.BorderWidth is not None:
+                config['borderwidth'] = self.BorderWidth
+            elif self.BorderStyle in ['FixedSingle', 'solid', 'fixed_single', BorderStyle.FixedSingle, 1]:
+                config['borderwidth'] = 3
+            elif self.BorderStyle in ['Fixed3D', 'ridge', 'groove', 'sunken', 'raised', 'fixed_3d', BorderStyle.Fixed3D, 2]:
+                config['borderwidth'] = 3
+            else:
+                config['borderwidth'] = 0
+        elif self.BorderWidth is not None:
+            config['borderwidth'] = self.BorderWidth
+        
+        # Apply background image
+        if hasattr(self, 'BackgroundImage') and self.BackgroundImage is not None:
+            config['image'] = self.BackgroundImage
+        
+        # NOTE: DO NOT apply 'takefocus' - tkcalendar.Calendar does not support it
+        
+        # Apply configuration to widget
+        if config:
+            try:
+                self._tk_widget.config(**config)
+            except tk.TclError:
+                # Some widgets do not support all options
+                for key, value in config.items():
+                    try:
+                        self._tk_widget.config(**{key: value})
+                    except tk.TclError:
+                        pass  # Ignore unsupported options
 
     # Properties
     @property

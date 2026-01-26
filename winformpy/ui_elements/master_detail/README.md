@@ -67,17 +67,18 @@ form.Show()
 
 ## Quick Demo
 
-Run built-in demos from the command line:
+Run the standalone form:
 
 ```bash
-# DataGrid as master (Customer → Orders)
-python -m winformpy.ui_elements.master_detail.master_detail_ui --demo grid
+# Standalone master-detail form with demo backend
+python -m winformpy.ui_elements.master_detail.master_detail_ui
+```
 
-# ListView as master (Category → Products)  
-python -m winformpy.ui_elements.master_detail.master_detail_ui --demo list
+For interactive demos with different layouts and backends, use the Panel version:
 
-# Vertical layout
-python -m winformpy.ui_elements.master_detail.master_detail_ui --demo vertical
+```bash
+# Interactive demo with multiple options
+python -m winformpy.ui_elements.master_detail.master_detail_panel
 ```
 
 ## Architecture

@@ -216,43 +216,14 @@ class ChangePasswordForm(Form):
 
 # Demo / Test
 if __name__ == "__main__":
-    from login_backend import LoginBackend, AuthResult, PasswordChangeResult
+    from login_backend import LoginBackend, AuthResult
     
-    # Demo backend
     class DemoBackend(LoginBackend):
-        """Demo backend for testing."""
-        
-        def __init__(self):
-            self._users = {
-                'admin': {'password': 'admin123', 'name': 'Administrator'},
-                'user': {'password': 'user123', 'name': 'Test User'}
-            }
-        
+        """Simple demo backend."""
         def authenticate(self, username, password):
-            user = self._users.get(username)
-            if user and user['password'] == password:
-                return AuthResult(
-                    success=True,
-                    user_id=username,
-                    username=username,
-                    display_name=user['name']
-                )
-            return AuthResult(success=False, error="Invalid username or password")
-        
-        def change_password(self, username, old_password, new_password):
-            user = self._users.get(username)
-            if not user:
-                return PasswordChangeResult(success=False, error="User not found")
-            if user['password'] != old_password:
-                return PasswordChangeResult(success=False, error="Current password is incorrect")
-            user['password'] = new_password
-            return PasswordChangeResult(success=True)
+            if username == 'admin' and password == 'admin':
+                return AuthResult(True, 'admin', 'admin', 'Admin')
+            return AuthResult(False, error="Invalid credentials")
     
-    # Show login form
-    backend = DemoBackend()
-    login = LoginForm(backend=backend)
-    
-    if login.ShowDialog():
-        print(f"Login successful! Welcome, {login.authenticated_user.display_name}")
-    else:
-        print("Login cancelled")
+    login = LoginForm(backend=DemoBackend())
+    login.ShowDialog()

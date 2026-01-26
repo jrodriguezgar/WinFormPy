@@ -3,12 +3,8 @@ Advanced Controls Example - WinFormPy
 Demonstrates: LinkLabel, DomainUpDown, NumericUpDown, RichTextBox
 """
 
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from winformpy.winformpy import (
-    Form, Label, LinkLabel, DomainUpDown, NumericUpDown, 
+    Application, Form, Label, LinkLabel, DomainUpDown, NumericUpDown, 
     RichTextBox, Button, Line, MessageBox, ColorDialog, DialogResult,
     Color, Font, FontStyle
 )
@@ -310,9 +306,8 @@ class MoreControlsForm(Form):
     
     def on_clear_format_click(self, sender, event):
         """Clear formatting from selected text"""
-        # Restore default font (TkDefaultFont is the system default)
-        from tkinter import font as tkfont
-        default_font = tkfont.nametofont("TkDefaultFont")
+        # Restore default font (Segoe UI 9 is the WinFormPy default)
+        default_font = Font('Segoe UI', 9)
         self.richtextbox.SelectionFont = default_font
         self.richtextbox.SelectionColor = "black"
     
@@ -359,5 +354,5 @@ class MoreControlsForm(Form):
 
 if __name__ == "__main__":
     form = MoreControlsForm()
-    form.ShowDialog()
+    Application.Run(form)
 

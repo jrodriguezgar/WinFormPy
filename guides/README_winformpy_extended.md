@@ -5,6 +5,101 @@
 
 ---
 
+## Image and Graphics Classes
+
+### PhotoImage
+
+A WinFormPy wrapper for `tkinter.PhotoImage` that provides a WinForms-style interface for creating and managing images without requiring direct tkinter imports in user code.
+
+#### Key Features
+
+*   **No Direct Tkinter Import:** Use images without importing tkinter directly in your code
+*   **Multiple Creation Methods:** Create blank images, load from files, or use base64 data
+*   **Pixel Manipulation:** Set and get individual pixel colors
+*   **Image Transformation:** Copy, subsample (reduce), and zoom (enlarge) images
+*   **File I/O:** Write images to files in various formats
+
+#### Constructor
+
+```python
+PhotoImage(**kwargs)
+```
+
+**Parameters:**
+- `file` (str): Path to image file (GIF, PGM, PPM, PNG with PIL)
+- `data` (str): Image data in base64 or XPM format
+- `width` (int): Width for blank image
+- `height` (int): Height for blank image
+- `format` (str): Image format ('gif', 'png', 'ppm', 'pgm')
+
+#### Methods
+
+| Method | Description |
+| :--- | :--- |
+| `put(color, to=None)` | Set pixel color(s). `to` can be (x,y) for single pixel or ((x1,y1),(x2,y2)) for rectangle |
+| `get(x, y)` | Get RGB values of pixel at (x, y) |
+| `copy()` | Create a copy of the image |
+| `subsample(x, y=None)` | Return a reduced-size version (divides by x and y) |
+| `zoom(x, y=None)` | Return an enlarged version (multiplies by x and y) |
+| `write(filename, format=None)` | Write image to file |
+| `width()` | Get image width in pixels |
+| `height()` | Get image height in pixels |
+| `get_image()` | Get underlying tkinter PhotoImage (for internal use) |
+
+#### Usage Examples
+
+**Create a blank image and draw pixels:**
+```python
+from winformpy_extended import PhotoImage
+
+# Create 32x32 blank image
+img = PhotoImage(width=32, height=32)
+
+# Draw a blue square with white center
+for y in range(32):
+    for x in range(32):
+        if 4 <= x <= 27 and 4 <= y <= 27:
+            img.put('#3498DB', (x, y))  # Blue background
+            if 12 <= x <= 19 and 8 <= y <= 14:
+                img.put('#FFFFFF', (x, y))  # White circle for head
+```
+
+**Load from file:**
+```python
+img = PhotoImage(file='icon.png')
+```
+
+**Use with ImageList:**
+```python
+from winformpy import ImageList
+from winformpy_extended import PhotoImage
+
+# Create ImageList
+image_list = ImageList({'ImageSize': (32, 32)})
+
+# Create and add icon
+icon = PhotoImage(width=32, height=32)
+icon.put('#FF0000')  # Fill with red
+image_list.Images.Add(icon, 0)
+```
+
+**Transform images:**
+```python
+# Create original image
+original = PhotoImage(width=64, height=64)
+
+# Make smaller version (32x32)
+smaller = original.subsample(2, 2)
+
+# Make larger version (128x128)
+larger = original.zoom(2, 2)
+
+# Copy image
+copy = original.copy()
+```
+
+---
+
 ## Standard Extended Controls
 
 ### ExtendedLabel
@@ -319,9 +414,101 @@ form.Show()
 | Control | Type | Description |
 | :--- | :--- | :--- |
 | `ExtendedLabel` | Standard | Multiline label with dynamic text wrapping |
+| `ConsoleTextBox` | Standard | Multi-colored text output control for console-style display |
 | `WinUIColors` | Utility | WinUI 3 color palette |
 | `WinUIFonts` | Utility | WinUI 3 font definitions |
 | `WinUIToggleSwitch` | WinUI | Windows 11 style toggle switch |
 | `WinUIExpander` | WinUI | Collapsible content container |
 | `WinUITextBox` | WinUI | TextBox with accent underline |
 | `WinUIProgressBar` | WinUI | ProgressBar with accent colors |
+
+---
+
+## ConsoleTextBox
+
+A multi-line text control with support for multiple text colors. Ideal for console-style output, log viewers, or any multi-colored text display.
+
+### Key Features
+
+*   **Colored Text:** Write text in different colors using tags
+*   **Auto-Scroll:** Automatically scrolls to show new content
+*   **Read-Only Mode:** Optional read-only mode for output-only displays
+*   **Auto-Hide Scrollbar:** Scrollbar only appears when content exceeds visible area
+*   **MaxLines:** Limit the number of lines to prevent memory issues
+*   **Predefined Methods:** `WriteError`, `WriteWarning`, `WriteSuccess`, `WriteInfo` for common scenarios
+
+### Properties
+
+| Property | Type | Description | Default |
+| :--- | :--- | :--- | :--- |
+| `Text` | `str` | Gets/sets all text content | `''` |
+| `BackColor` | `str` | Background color | `'#FFFFFF'` |
+| `ForeColor` | `str` | Default text color | `'#000000'` |
+| `ReadOnly` | `bool` | If True, text cannot be edited | `False` |
+| `WordWrap` | `bool` | Enable word wrapping | `True` |
+| `MaxLines` | `int` | Maximum lines to keep (0 = unlimited) | `0` |
+| `Font` | `Font` | Font for the text | System default |
+| `Lines` | `list` | Gets all lines as a list | - |
+| `LineCount` | `int` | Gets the number of lines | - |
+
+### Methods
+
+| Method | Description |
+| :--- | :--- |
+| `Write(text, color=None)` | Write text without newline |
+| `WriteLine(text='', color=None)` | Write text with newline |
+| `WriteError(text)` | Write in red (#FF6B6B) |
+| `WriteWarning(text)` | Write in yellow (#FFD93D) |
+| `WriteSuccess(text)` | Write in green (#6BCB77) |
+| `WriteInfo(text)` | Write in blue (#4D96FF) |
+| `Clear()` | Clear all text |
+| `ScrollToEnd()` | Scroll to bottom |
+| `ScrollToStart()` | Scroll to top |
+| `AppendText(text, color=None)` | Append text (alias for Write) |
+| `ConfigureTag(name, **kwargs)` | Configure a custom tag style |
+| `WriteWithTag(text, tag_name)` | Write text using a custom tag |
+
+### Usage Example
+
+```python
+from winformpy import Form, DockStyle
+from winformpy import ConsoleTextBox
+
+form = Form({'Text': 'Console Demo', 'Width': 600, 'Height': 400})
+form.ApplyLayout()
+
+# Create a dark-themed console
+console = ConsoleTextBox(form, {
+    'Dock': DockStyle.Fill,
+    'BackColor': '#1E1E1E',
+    'ForeColor': '#CCCCCC',
+    'ReadOnly': True,
+    'MaxLines': 1000
+})
+
+# Write different types of messages
+console.WriteLine("Application started")
+console.WriteSuccess("Connection established")
+console.WriteWarning("Cache is getting full")
+console.WriteError("Failed to load configuration")
+console.WriteInfo("Processing 150 items...")
+
+# Write with custom colors
+console.WriteLine("Custom purple text", '#9B59B6')
+console.WriteLine("Custom orange text", '#E67E22')
+
+# Configure and use custom tags
+console.ConfigureTag('highlight', foreground='#FFFF00', background='#333333')
+console.WriteWithTag("Highlighted text\n", 'highlight')
+
+form.ShowDialog()
+```
+
+### When to Use
+
+Use `ConsoleTextBox` when you need:
+1.  A log viewer or debug output panel
+2.  Console-style output with colored messages
+3.  Terminal emulator displays
+4.  Status messages with different severity levels
+

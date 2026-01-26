@@ -1,234 +1,315 @@
-import sys
-import os
+"""
+Dialogs Example
 
-# Add the parent directory to sys.path to import winformpy
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+This example demonstrates all available dialog controls in WinFormPy:
 
-from winformpy.winformpy import (
+- ColorDialog (color selection)
+- FontDialog (font selection)
+- OpenFileDialog (file opening)
+- SaveFileDialog (file saving)
+- PageSetupDialog (page setup for printing)
+- PrintDialog (printer selection)
+- PrintPreviewDialog (print preview)
+- MessageBox (message display)
+- InputBox (text input)
+- Font and Color classes (programmatic usage)
+"""
+
+from winformpy import (
     Form, Button, Label, Panel, TextBox,
     ColorDialog, FontDialog, OpenFileDialog, SaveFileDialog,
     PageSetupDialog, PrintDialog, PrintPreviewDialog,
     MessageBox, InputBox,
     DialogResult, Application,
-    Font, Color, FontStyle
+    Font, Color, FontStyle, DockStyle
 )
 
-class AllDialogsExampleForm(Form):
-    def __init__(self):
-        super().__init__()
-        self.Text = "All Dialogs Example"
-        self.Width = 800
-        self.Height = 600  # Increased height for more buttons
-        self.StartPosition = "CenterScreen"
-        
-        # --- UI Setup ---
-        self.lblInfo = Label(self)
-        self.lblInfo.Text = "Click buttons to test dialogs."
-        self.lblInfo.Top = 10
-        self.lblInfo.Left = 10
-        self.lblInfo.AutoSize = True
-        
-        self.txtResult = TextBox(self, {'Multiline': True, 'ScrollBars': 'Vertical'})
-        self.txtResult.Top = 40
-        self.txtResult.Left = 10
-        self.txtResult.Width = 460
-        self.txtResult.Height = 100
-        
-        # Buttons
-        y_start = 160
-        y_step = 40
-        
-        # Row 1: Common Dialogs
-        self.btnColor = Button(self)
-        self.btnColor.Text = "Color Dialog"
-        self.btnColor.Top = y_start
-        self.btnColor.Left = 10
-        self.btnColor.Click = self.btnColor_Click
-        
-        self.btnFont = Button(self)
-        self.btnFont.Text = "Font Dialog"
-        self.btnFont.Top = y_start
-        self.btnFont.Left = 120
-        self.btnFont.Click = self.btnFont_Click
-        
-        self.btnOpen = Button(self)
-        self.btnOpen.Text = "Open File"
-        self.btnOpen.Top = y_start
-        self.btnOpen.Left = 230
-        self.btnOpen.Click = self.btnOpen_Click
-        
-        self.btnSave = Button(self)
-        self.btnSave.Text = "Save File"
-        self.btnSave.Top = y_start
-        self.btnSave.Left = 340
-        self.btnSave.Click = self.btnSave_Click
-        
-        y_start += y_step
-        
-        # Row 2: Print Dialogs
-        self.btnPageSetup = Button(self)
-        self.btnPageSetup.Text = "Page Setup"
-        self.btnPageSetup.Top = y_start
-        self.btnPageSetup.Left = 10
-        self.btnPageSetup.Click = self.btnPageSetup_Click
-        
-        self.btnPrint = Button(self)
-        self.btnPrint.Text = "Print Dialog"
-        self.btnPrint.Top = y_start
-        self.btnPrint.Left = 120
-        self.btnPrint.Click = self.btnPrint_Click
-        
-        self.btnPreview = Button(self)
-        self.btnPreview.Text = "Print Preview"
-        self.btnPreview.Top = y_start
-        self.btnPreview.Left = 230
-        self.btnPreview.Click = self.btnPreview_Click
-        
-        y_start += y_step
 
-        # Row 3: MessageBox & InputBox
-        self.btnMsgBox = Button(self)
-        self.btnMsgBox.Text = "MessageBox"
-        self.btnMsgBox.Top = y_start
-        self.btnMsgBox.Left = 10
-        self.btnMsgBox.Click = self.btnMsgBox_Click
 
-        self.btnInputBox = Button(self)
-        self.btnInputBox.Text = "InputBox"
-        self.btnInputBox.Top = y_start
-        self.btnInputBox.Left = 120
-        self.btnInputBox.Click = self.btnInputBox_Click
-        
-        self.btnTestClasses = Button(self)
-        self.btnTestClasses.Text = "Test Font/Color Classes"
-        self.btnTestClasses.Top = y_start
-        self.btnTestClasses.Left = 230
-        self.btnTestClasses.Width = 140
-        self.btnTestClasses.Click = self.btnTestClasses_Click
-        
-        # Dialog Instances
-        self.colorDialog = ColorDialog()
-        self.fontDialog = FontDialog()
-        self.openFileDialog = OpenFileDialog()
-        self.saveFileDialog = SaveFileDialog()
-        self.pageSetupDialog = PageSetupDialog()
-        self.printDialog = PrintDialog()
-        self.printPreviewDialog = PrintPreviewDialog()
-
-    def log(self, msg):
-        current = self.txtResult.Text
-        self.txtResult.Text = current + msg + "\r\n"
-
-    def btnColor_Click(self, sender=None, e=None):
-        if self.colorDialog.ShowDialog() == DialogResult.OK:
-            color = self.colorDialog.Color
-            self.log(f"Color Selected: {color} (R={color.R}, G={color.G}, B={color.B})")
-            self.BackColor = color
+def main():
+    # =========================================================================
+    # Create main form
+    # =========================================================================
+    form = Form({
+        'Text': 'Dialogs Example',
+        'Width': 800,
+        'Height': 600,
+        'StartPosition': 'CenterScreen'
+    })
+    form.ApplyLayout()
+    
+    # =========================================================================
+    # Title Panel
+    # =========================================================================
+    title_panel = Panel(form, {
+        'Dock': DockStyle.Top,
+        'Height': 50,
+        'BackColor': '#0078D4'
+    })
+    
+    title_label = Label(title_panel, {
+        'Text': 'All Dialogs Demo',
+        'Left': 20,
+        'Top': 12,
+        'AutoSize': True,
+        'Font': Font('Segoe UI', 16, FontStyle.Bold),
+        'ForeColor': '#FFFFFF',
+        'BackColor': '#0078D4'
+    })
+    
+    # =========================================================================
+    # Main content panel
+    # =========================================================================
+    content_panel = Panel(form, {
+        'Dock': DockStyle.Fill,
+        'BackColor': '#FFFFFF',
+        'Padding': 10
+    })
+    
+    # Info label
+    lbl_info = Label(content_panel, {
+        'Text': 'Click buttons to test dialogs.',
+        'Top': 10,
+        'Left': 10,
+        'AutoSize': True
+    })
+    
+    # Result TextBox
+    txt_result = TextBox(content_panel, {
+        'Multiline': True,
+        'ScrollBars': 'Vertical',
+        'Top': 40,
+        'Left': 10,
+        'Width': 460,
+        'Height': 100
+    })
+    
+    def log(msg):
+        """Add message to result textbox."""
+        current = txt_result.Text
+        txt_result.Text = current + msg + '\r\n'
+    
+    # =========================================================================
+    # Dialog Instances
+    # =========================================================================
+    color_dialog = ColorDialog()
+    font_dialog = FontDialog()
+    open_file_dialog = OpenFileDialog()
+    save_file_dialog = SaveFileDialog()
+    page_setup_dialog = PageSetupDialog()
+    print_dialog = PrintDialog()
+    print_preview_dialog = PrintPreviewDialog()
+    
+    # =========================================================================
+    # Row 1: Common Dialogs
+    # =========================================================================
+    y_start = 160
+    y_step = 40
+    
+    btn_color = Button(content_panel, {
+        'Text': 'Color Dialog',
+        'Top': y_start,
+        'Left': 10
+    })
+    
+    btn_font = Button(content_panel, {
+        'Text': 'Font Dialog',
+        'Top': y_start,
+        'Left': 120
+    })
+    
+    btn_open = Button(content_panel, {
+        'Text': 'Open File',
+        'Top': y_start,
+        'Left': 230
+    })
+    
+    btn_save = Button(content_panel, {
+        'Text': 'Save File',
+        'Top': y_start,
+        'Left': 340
+    })
+    
+    # =========================================================================
+    # Row 2: Print Dialogs
+    # =========================================================================
+    y_start += y_step
+    
+    btn_page_setup = Button(content_panel, {
+        'Text': 'Page Setup',
+        'Top': y_start,
+        'Left': 10
+    })
+    
+    btn_print = Button(content_panel, {
+        'Text': 'Print Dialog',
+        'Top': y_start,
+        'Left': 120
+    })
+    
+    btn_preview = Button(content_panel, {
+        'Text': 'Print Preview',
+        'Top': y_start,
+        'Left': 230
+    })
+    
+    # =========================================================================
+    # Row 3: MessageBox & InputBox
+    # =========================================================================
+    y_start += y_step
+    
+    btn_msgbox = Button(content_panel, {
+        'Text': 'MessageBox',
+        'Top': y_start,
+        'Left': 10
+    })
+    
+    btn_inputbox = Button(content_panel, {
+        'Text': 'InputBox',
+        'Top': y_start,
+        'Left': 120
+    })
+    
+    btn_test_classes = Button(content_panel, {
+        'Text': 'Test Font/Color Classes',
+        'Top': y_start,
+        'Left': 230,
+        'Width': 140
+    })
+    
+    # =========================================================================
+    # Event Handlers
+    # =========================================================================
+    
+    def on_color_click(sender=None, e=None):
+        if color_dialog.ShowDialog() == DialogResult.OK:
+            color = color_dialog.Color
+            log(f'Color Selected: {color} (R={color.R}, G={color.G}, B={color.B})')
+            form.BackColor = color
         else:
-            self.log("Color Dialog Cancelled")
-
-    def btnFont_Click(self, sender=None, e=None):
-        if self.fontDialog.ShowDialog(self) == DialogResult.OK:
-            font = self.fontDialog.Font
+            log('Color Dialog Cancelled')
+    
+    def on_font_click(sender=None, e=None):
+        if font_dialog.ShowDialog(form) == DialogResult.OK:
+            font = font_dialog.Font
             style_info = []
-            if font.Bold: style_info.append("Bold")
-            if font.Italic: style_info.append("Italic")
-            if font.Underline: style_info.append("Underline")
-            if font.Strikeout: style_info.append("Strikeout")
-            style_str = " | ".join(style_info) if style_info else "Regular"
-            self.log(f"Font Selected: {font.Name}, {font.Size}pt, Style: {style_str}")
-            self.lblInfo.Font = font
+            if font.Bold: style_info.append('Bold')
+            if font.Italic: style_info.append('Italic')
+            if font.Underline: style_info.append('Underline')
+            if font.Strikeout: style_info.append('Strikeout')
+            style_str = ' | '.join(style_info) if style_info else 'Regular'
+            log(f'Font Selected: {font.Name}, {font.Size}pt, Style: {style_str}')
+            lbl_info.Font = font
         else:
-            self.log("Font Dialog Cancelled")
-
-    def btnOpen_Click(self, sender=None, e=None):
-        self.openFileDialog.Filter = "Text Files|*.txt|All Files|*.*"
-        self.openFileDialog.Title = "Select a Text File"
-        if self.openFileDialog.ShowDialog():
-            self.log(f"File Opened: {self.openFileDialog.FileName}")
+            log('Font Dialog Cancelled')
+    
+    def on_open_click(sender=None, e=None):
+        open_file_dialog.Filter = 'Text Files|*.txt|All Files|*.*'
+        open_file_dialog.Title = 'Select a Text File'
+        if open_file_dialog.ShowDialog():
+            log(f'File Opened: {open_file_dialog.FileName}')
         else:
-            self.log("Open File Cancelled")
-
-    def btnSave_Click(self, sender=None, e=None):
-        self.saveFileDialog.Filter = "Text Files|*.txt|All Files|*.*"
-        self.saveFileDialog.Title = "Save Text File"
-        if self.saveFileDialog.ShowDialog():
-            self.log(f"File Saved: {self.saveFileDialog.FileName}")
+            log('Open File Cancelled')
+    
+    def on_save_click(sender=None, e=None):
+        save_file_dialog.Filter = 'Text Files|*.txt|All Files|*.*'
+        save_file_dialog.Title = 'Save Text File'
+        if save_file_dialog.ShowDialog():
+            log(f'File Saved: {save_file_dialog.FileName}')
         else:
-            self.log("Save File Cancelled")
-
-    def btnPageSetup_Click(self, sender=None, e=None):
-        if self.pageSetupDialog.ShowDialog() == DialogResult.OK:
-            self.log(f"Page Setup OK: {self.pageSetupDialog.PaperSize}, {self.pageSetupDialog.Orientation}, Margins: {self.pageSetupDialog.Margins}")
+            log('Save File Cancelled')
+    
+    def on_page_setup_click(sender=None, e=None):
+        if page_setup_dialog.ShowDialog() == DialogResult.OK:
+            log(f'Page Setup OK: {page_setup_dialog.PaperSize}, {page_setup_dialog.Orientation}, Margins: {page_setup_dialog.Margins}')
         else:
-            self.log("Page Setup Cancelled")
-
-    def btnPrint_Click(self, sender=None, e=None):
-        if self.printDialog.ShowDialog() == DialogResult.OK:
-            self.log(f"Print Dialog OK: Printer={self.printDialog.PrinterName}, Copies={self.printDialog.Copies}")
+            log('Page Setup Cancelled')
+    
+    def on_print_click(sender=None, e=None):
+        if print_dialog.ShowDialog() == DialogResult.OK:
+            log(f'Print Dialog OK: Printer={print_dialog.PrinterName}, Copies={print_dialog.Copies}')
         else:
-            self.log("Print Dialog Cancelled")
-
-    def btnPreview_Click(self, sender=None, e=None):
-        if self.printPreviewDialog.ShowDialog() == DialogResult.OK:
-            self.log("Print Preview OK")
+            log('Print Dialog Cancelled')
+    
+    def on_preview_click(sender=None, e=None):
+        if print_preview_dialog.ShowDialog() == DialogResult.OK:
+            log('Print Preview OK')
         else:
-            self.log("Print Preview Cancelled")
-
-    def btnMsgBox_Click(self, sender=None, e=None):
+            log('Print Preview Cancelled')
+    
+    def on_msgbox_click(sender=None, e=None):
         result = MessageBox.Show(
-            "This is a test message box.\nDo you want to continue?",
-            "MessageBox Test",
-            "YesNoCancel",
-            "Question"
+            'This is a test message box.\nDo you want to continue?',
+            'MessageBox Test',
+            'YesNoCancel',
+            'Question'
         )
-        self.log(f"MessageBox Result: {result}")
-
-    def btnInputBox_Click(self, sender=None, e=None):
+        log(f'MessageBox Result: {result}')
+    
+    def on_inputbox_click(sender=None, e=None):
         result = InputBox.Show(
-            "Please enter your name:",
-            "InputBox Test",
-            "User"
+            'Please enter your name:',
+            'InputBox Test',
+            'User'
         )
         if result:
-            self.log(f"InputBox Result: {result}")
+            log(f'InputBox Result: {result}')
         else:
-            self.log("InputBox Cancelled or Empty")
-
-    def btnTestClasses_Click(self, sender=None, e=None):
+            log('InputBox Cancelled or Empty')
+    
+    def on_test_classes_click(sender=None, e=None):
         """Demonstrate programmatic use of Font, Color, and FontStyle classes."""
-        self.log("\n=== Testing Font & Color Classes ===")
+        log('\n=== Testing Font & Color Classes ===')
         
         # Test Color class
-        self.log("\n--- Color Examples ---")
+        log('\n--- Color Examples ---')
         color1 = Color(Color.Red)
-        self.log(f"Color(Color.Red): {color1} (R={color1.R}, G={color1.G}, B={color1.B})")
+        log(f'Color(Color.Red): {color1} (R={color1.R}, G={color1.G}, B={color1.B})')
         
         color2 = Color.FromRgb(100, 150, 200)
-        self.log(f"Color.FromRgb(100,150,200): {color2} (R={color2.R}, G={color2.G}, B={color2.B})")
+        log(f'Color.FromRgb(100,150,200): {color2} (R={color2.R}, G={color2.G}, B={color2.B})')
         
-        color3 = Color.FromHex("#FF8800")
-        self.log(f"Color.FromHex('#FF8800'): {color3} (R={color3.R}, G={color3.G}, B={color3.B})")
+        color3 = Color.FromHex('#FF8800')
+        log(f"Color.FromHex('#FF8800'): {color3} (R={color3.R}, G={color3.G}, B={color3.B})")
         
-        color4 = Color.FromName("blue")
-        self.log(f"Color.FromName('blue'): {color4} (R={color4.R}, G={color4.G}, B={color4.B})")
+        color4 = Color.FromName('blue')
+        log(f"Color.FromName('blue'): {color4} (R={color4.R}, G={color4.G}, B={color4.B})")
         
         # Test Font class
-        self.log("\n--- Font Examples ---")
-        font1 = Font("Arial", 12, FontStyle.Bold)
-        self.log(f"Font('Arial', 12, Bold): {font1}")
+        log('\n--- Font Examples ---')
+        font1 = Font('Arial', 12, FontStyle.Bold)
+        log(f"Font('Arial', 12, Bold): {font1}")
         
-        font2 = Font("Courier New", 10, FontStyle.Bold | FontStyle.Italic)
-        self.log(f"Font with Bold|Italic: {font2}")
+        font2 = Font('Courier New', 10, FontStyle.Bold | FontStyle.Italic)
+        log(f'Font with Bold|Italic: {font2}')
         
-        font3 = Font.FromSystemFont("Default")
-        self.log(f"System Font: {font3}")
+        font3 = Font.FromSystemFont('Default')
+        log(f'System Font: {font3}')
         
         # Apply to label temporarily
-        self.lblInfo.Font = font2
-        self.lblInfo.ForeColor = color3
-        self.log("\nLabel updated with custom font and color!")
-
-if __name__ == "__main__":
-    form = AllDialogsExampleForm()
+        lbl_info.Font = font2
+        lbl_info.ForeColor = color3
+        log('\nLabel updated with custom font and color!')
+    
+    # =========================================================================
+    # Bind Events
+    # =========================================================================
+    btn_color.Click = on_color_click
+    btn_font.Click = on_font_click
+    btn_open.Click = on_open_click
+    btn_save.Click = on_save_click
+    btn_page_setup.Click = on_page_setup_click
+    btn_print.Click = on_print_click
+    btn_preview.Click = on_preview_click
+    btn_msgbox.Click = on_msgbox_click
+    btn_inputbox.Click = on_inputbox_click
+    btn_test_classes.Click = on_test_classes_click
+    
+    # =========================================================================
+    # Show the form
+    # =========================================================================
     Application.Run(form)
+
+
+if __name__ == '__main__':
+    main()

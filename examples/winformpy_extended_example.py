@@ -1,41 +1,95 @@
 """
 Example of using ExtendedLabel from winformpy_extended.
 """
-import sys
-import os
 
-# Add the winformpy directory to sys.path
-# This script is in pentano/gui/windows/examples/
-# winformpy is in pentano/gui/windows/winformpy/
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# Go up to 'windows' then down to 'winformpy'
-winformpy_dir = os.path.join(os.path.dirname(current_dir), 'winformpy')
-sys.path.insert(0, winformpy_dir)
-
-try:
-    from winformpy import Form, AnchorStyles, Button, ContentAlignment
-    from winformpy_extended import ExtendedLabel
-except ImportError as e:
-    print(f"Error importing winformpy: {e}")
-    print(f"sys.path: {sys.path}")
-    sys.exit(1)
+from winformpy import (
+    Form, Panel, Button, Application,
+    AnchorStyles, ContentAlignment, DockStyle, Font, FontStyle
+)
+from winformpy.winformpy_extended import ExtendedLabel
 
 def main():
+    # =========================================================================
+    # Create main form
+    # =========================================================================
     form = Form({
-        'Text': 'Extended Label Example',
-        'Width': 500,
-        'Height': 450
+        'Text': 'ExtendedLabel Example',
+        'Width': 800,
+        'Height': 600,
+        'StartPosition': 'CenterScreen'
+    })
+    form.ApplyLayout()
+    
+    # =========================================================================
+    # TOP PANEL - Title bar
+    # =========================================================================
+    top_panel = Panel(form, {
+        'Height': 80,
+        'BackColor': '#0078D4'
+    })
+    top_panel.Dock = DockStyle.Top
+    
+    ExtendedLabel(top_panel, {
+        'Text': 'EXTENDED LABEL DEMONSTRATION',
+        'Left': 20,
+        'Top': 12,
+        'AutoSize': True,
+        'Font': Font('Segoe UI', 16, FontStyle.Bold),
+        'ForeColor': '#FFFFFF',
+        'BackColor': '#0078D4'
     })
     
+    ExtendedLabel(top_panel, {
+        'Text': 'Dynamic text wrapping with anchor support - Resize the window to see the effect',
+        'Left': 20,
+        'Top': 45,
+        'AutoSize': True,
+        'Font': Font('Segoe UI', 9),
+        'ForeColor': '#E0E0E0',
+        'BackColor': '#0078D4'
+    })
+    
+    # =========================================================================
+    # BOTTOM PANEL - Control buttons
+    # =========================================================================
+    bottom_panel = Panel(form, {
+        'Height': 70,
+        'BackColor': '#ECF0F1'
+    })
+    bottom_panel.Dock = DockStyle.Bottom
+    
+    ExtendedLabel(bottom_panel, {
+        'Text': 'Text Alignment:',
+        'Left': 20,
+        'Top': 25,
+        'AutoSize': True,
+        'Font': Font('Segoe UI', 9, FontStyle.Bold),
+        'BackColor': '#ECF0F1',
+        'ForeColor': '#2C3E50'
+    })
+    
+    # =========================================================================
+    # MAIN PANEL - Content area
+    # =========================================================================
+    main_panel = Panel(form, {
+        'BackColor': '#F5F5F5',
+        'Padding': 20
+    })
+    main_panel.Dock = DockStyle.Fill
+    
     # Instructions
-    lbl_info = ExtendedLabel(form, {
-        'Text': "Resize the window to see the text wrap dynamically. Use buttons below to change alignment.",
-        'Left': 10,
-        'Top': 10,
-        'Width': 460,
+    lbl_info = ExtendedLabel(main_panel, {
+        'Text': '📋 Instructions: Resize the window to see the text wrap dynamically. Use buttons below to change alignment.',
+        'Left': 20,
+        'Top': 20,
+        'Width': 740,
         'Height': 40,
         'Anchor': AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top,
-        'TextAlign': 'TopLeft'
+        'TextAlign': ContentAlignment.TopLeft,
+        'BackColor': '#FFF9E6',
+        'BorderStyle': 'FixedSingle',
+        'Font': Font('Segoe UI', 9),
+        'ForeColor': '#856404'
     })
     
     # The Extended Label
@@ -46,19 +100,26 @@ def main():
         "flow within those bounds.\n\n"
         "Try resizing the window horizontally! The text should re-wrap to fit the new width. "
         "This is useful for responsive layouts where you want text to fill the available space "
-        "without expanding the control beyond its limits."
+        "without expanding the control beyond its limits.\n\n"
+        "Features:\n"
+        "• Automatic text wrapping based on control width\n"
+        "• Support for Anchor styles (Left, Right, Top, Bottom)\n"
+        "• Configurable text alignment (Left, Center, Right)\n"
+        "• Responsive to window resize events"
     )
     
-    lbl_extended = ExtendedLabel(form, {
+    lbl_extended = ExtendedLabel(main_panel, {
         'Text': long_text,
-        'Left': 10,
-        'Top': 60,
-        'Width': 460,
-        'Height': 200,
+        'Left': 20,
+        'Top': 80,
+        'Width': 740,
+        'Height': 310,
         'Anchor': AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top | AnchorStyles.Bottom,
-        'BorderStyle': 'FixedSingle', # Visible border to see the control bounds
-        'TextAlign': 'TopLeft',
-        'BackColor': '#f0f0f0'
+        'BorderStyle': 'FixedSingle',
+        'TextAlign': ContentAlignment.TopLeft,
+        'BackColor': '#FFFFFF',
+        'Font': Font('Segoe UI', 10),
+        'ForeColor': '#2C3E50'
     })
     
     # Buttons to change alignment
@@ -71,34 +132,44 @@ def main():
     def set_align_right(sender, e):
         lbl_extended.TextAlign = ContentAlignment.TopRight
 
-    btn_left = Button(form, {
-        'Text': 'Left Align',
-        'Left': 10,
-        'Top': 270,
-        'Width': 100,
-        'Anchor': AnchorStyles.Left | AnchorStyles.Bottom
+    btn_left = Button(bottom_panel, {
+        'Text': '⬅️ Left Align',
+        'Left': 140,
+        'Top': 18,
+        'Width': 120,
+        'Height': 35,
+        'BackColor': '#3498DB',
+        'ForeColor': '#FFFFFF',
+        'Font': Font('Segoe UI', 9, FontStyle.Bold)
     })
     btn_left.Click = set_align_left
     
-    btn_center = Button(form, {
-        'Text': 'Center Align',
-        'Left': 120,
-        'Top': 270,
-        'Width': 100,
-        'Anchor': AnchorStyles.Left | AnchorStyles.Bottom
+    btn_center = Button(bottom_panel, {
+        'Text': '↔️ Center Align',
+        'Left': 270,
+        'Top': 18,
+        'Width': 130,
+        'Height': 35,
+        'BackColor': '#9B59B6',
+        'ForeColor': '#FFFFFF',
+        'Font': Font('Segoe UI', 9, FontStyle.Bold)
     })
     btn_center.Click = set_align_center
     
-    btn_right = Button(form, {
-        'Text': 'Right Align',
-        'Left': 230,
-        'Top': 270,
-        'Width': 100,
-        'Anchor': AnchorStyles.Left | AnchorStyles.Bottom
+    btn_right = Button(bottom_panel, {
+        'Text': 'Right Align ➡️',
+        'Left': 410,
+        'Top': 18,
+        'Width': 130,
+        'Height': 35,
+        'BackColor': '#E74C3C',
+        'ForeColor': '#FFFFFF',
+        'Font': Font('Segoe UI', 9, FontStyle.Bold)
     })
     btn_right.Click = set_align_right
     
-    form.ShowDialog()
+    # Run the application
+    Application.Run(form)
 
 if __name__ == '__main__':
     main()

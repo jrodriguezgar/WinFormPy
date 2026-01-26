@@ -14,7 +14,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 from winformpy.winformpy import (
-    Panel, Label, ListBox, Button,
+    Panel, Label, ListBox, Button, MessageBox,
     DockStyle, AnchorStyles, Font, FontStyle, ControlBase
 )
 from typing import Any, List, Dict, Optional, Callable
@@ -986,13 +986,12 @@ if __name__ == "__main__":
             def on_detail_double_click(sender, args):
                 order = args.get('record', {})
                 if order:
-                    from tkinter import messagebox
-                    messagebox.showinfo(
-                        "Order Details",
+                    MessageBox.Show(
                         f"Order #{order.get('order_id')}\n"
                         f"Product: {order.get('product')}\n"
                         f"Amount: ${order.get('amount', 0):,.2f}\n"
-                        f"Status: {order.get('status')}"
+                        f"Status: {order.get('status')}",
+                        "Order Details"
                     )
             
             panel.MasterSelectionChanged = on_master_changed

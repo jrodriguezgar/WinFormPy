@@ -3,30 +3,10 @@ Complete MaskedTextBox Implementation Example - WinFormPy
 Demonstrates various mask formats and validation scenarios
 """
 
-import sys
-import os
-import importlib.util
-
-# Add parent directory to path
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-lib_dir = os.path.join(parent_dir, "winformpy")
-sys.path.insert(0, parent_dir)
-
-# Import winformpy.py
-module_path = os.path.join(lib_dir, "winformpy.py")
-spec = importlib.util.spec_from_file_location("winform_py", module_path)
-winform_py = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(winform_py)
-
-# Extract classes
-Form = winform_py.Form
-Label = winform_py.Label
-Button = winform_py.Button
-MaskedTextBox = winform_py.MaskedTextBox
-ComboBox = winform_py.ComboBox
-CheckBox = winform_py.CheckBox
-GroupBox = winform_py.GroupBox
-ToolTip = winform_py.ToolTip
+from winformpy.winformpy import (
+    Application, Form, Label, Button, MaskedTextBox, ComboBox,
+    CheckBox, GroupBox, ToolTip, Panel, DockStyle, Font, FontStyle
+)
 
 
 def main():
@@ -36,26 +16,34 @@ def main():
     form.Width = 700
     form.Height = 710
     form.StartPosition = "CenterScreen"
-    form.BackColor = "whitesmoke"
+    form.BackColor = "#F5F5F5"
+    form.ApplyLayout()
     
-    # ===== TITLE SECTION =====
-    lbl_title = Label(form, {
+    # Title Panel
+    title_panel = Panel(form, {
+        'Height': 50,
+        'BackColor': '#0078D4',
+        'Dock': DockStyle.Top
+    })
+    
+    title_label = Label(title_panel, {
         'Text': 'MaskedTextBox Control Demonstration',
         'Left': 20,
-        'Top': 15,
+        'Top': 12,
         'Width': 650,
         'Height': 30,
-        'Font': ('Segoe UI', 16, 'bold'),
-        'ForeColor': 'darkblue'
+        'Font': Font('Segoe UI', 14, FontStyle.Bold),
+        'ForeColor': '#FFFFFF',
+        'BackColor': '#0078D4'
     })
     
     # ===== MASK SELECTOR SECTION =====
     lbl_select = Label(form, {
         'Text': 'Select Mask Format:',
         'Left': 20,
-        'Top': 55,
+        'Top': 65,
         'Width': 150,
-        'Font': ('Segoe UI', 10, 'bold')
+        'Font': Font('Segoe UI', 10, FontStyle.Bold)
     })
     
     # Dictionary of available masks
@@ -107,7 +95,7 @@ def main():
     # ComboBox for mask selection
     combo_mask = ComboBox(form, {
         'Left': 175,
-        'Top': 52,
+        'Top': 62,
         'Width': 250,
         'Items': list(masks.keys())
     })
@@ -117,19 +105,19 @@ def main():
     lbl_input = Label(form, {
         'Text': 'Enter Data:',
         'Left': 20,
-        'Top': 95,
+        'Top': 105,
         'Width': 150,
-        'Font': ('Segoe UI', 10, 'bold')
+        'Font': Font('Segoe UI', 10, FontStyle.Bold)
     })
     
     # MaskedTextBox - main control
     txt_masked = MaskedTextBox(form, {
         'Mask': masks['Phone (US)'],
         'Left': 175,
-        'Top': 92,
+        'Top': 102,
         'Width': 300,
         'Height': 25,
-        'Font': ('Courier New', 11),
+        'Font': Font('Courier New', 11),
         'PromptChar': '_',
         'BeepOnError': False
     })
@@ -184,8 +172,7 @@ def main():
     })
     
     # Separator line
-    from winformpy import Line
-    Line = winform_py.Line
+    from winformpy.winformpy import Line
     
     line_top = Line(form, {
         'Left': 20,
@@ -549,7 +536,7 @@ def main():
     # Initial status update
     update_status()
     
-    form.Show()
+    Application.Run(form)
 
 
 if __name__ == "__main__":

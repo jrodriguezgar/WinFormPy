@@ -528,8 +528,8 @@ form.ShowDialog()
 ### Running the Integration Demo
 
 ```bash
+# Interactive demo with multiple integration examples
 python winformpy/ui_elements/data_grid/data_grid_panel.py
-# Select option 2: DataGrid + RecordFormPanel integration
 ```
 
 ## Data Classes

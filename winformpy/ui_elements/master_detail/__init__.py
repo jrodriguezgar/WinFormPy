@@ -51,9 +51,7 @@ from .master_detail_manager import MasterDetailManager
 from .master_detail_panel import MasterDetailPanel
 from .master_detail_ui import (
     MasterDetailForm,
-    run_demo_grid_master,
-    run_demo_list_master,
-    run_demo_vertical,
+    run_demo,
 )
 
 __all__ = [
@@ -71,7 +69,5 @@ __all__ = [
     # Form
     'MasterDetailForm',
     # Demo functions
-    'run_demo_grid_master',
-    'run_demo_list_master',
-    'run_demo_vertical',
+    'run_demo',
 ]

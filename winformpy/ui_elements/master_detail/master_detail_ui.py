@@ -492,108 +492,12 @@ def run_demo():
     """Run the Master-Detail UI demo."""
     print("=" * 60)
     print("Master-Detail UI Demo")
-    print("=" * 60)
-    print("\nStandalone forms with MasterDetailPanel")
-    print("\nSelect demo:")
-    print("  1. Customer Orders - DataGrid master, vertical layout")
-    print("  2. Category Products - ListView master, horizontal layout")
-    print("  3. Customer Orders - DataGrid master, horizontal layout")
-    
-    choice = input("\nEnter choice (1-3): ").strip()
-    
-    if choice == '1':
-        # Customer Orders - DataGrid master, vertical layout
-        backend = CustomerOrdersBackend()
-        manager = MasterDetailManager(backend)
-        
-        form = Form()
-        form.Text = "Customer Orders - Vertical Layout"
-        form.Width = 1000
-        form.Height = 800
-        form.StartPosition = 'CenterScreen'
-        form.ApplyLayout()
-        
-        panel = MasterDetailPanel(form, props={
-            'Dock': DockStyle.Fill,
-            'Orientation': 'vertical',
-            'MasterHeight': 300,
-        }, manager=manager)
-        
-        manager.refresh_master()
-        Application.Run(form)
-    
-    elif choice == '2':
-        # Category Products - ListView master
-        backend = CategoryProductsBackend()
-        manager = MasterDetailManager(backend)
-        
-        form = Form()
-        form.Text = "Category Products - Master-Detail Demo"
-        form.Width = 1000
-        form.Height = 600
-        form.StartPosition = 'CenterScreen'
-        form.ApplyLayout()
-        
-        panel = MasterDetailPanel(form, props={
-            'Dock': DockStyle.Fill,
-            'Orientation': 'horizontal',
-            'MasterWidth': 250,
-        }, manager=manager)
-        
-        def on_category_changed(sender, args):
-            item = args.get('master_record', {})
-            if item:
-                text = item.text if isinstance(item, MasterItem) else item.get('text', 'Unknown')
-                form.Text = f"Products in: {text}"
-        
-        panel.MasterSelectionChanged = on_category_changed
-        
-        manager.refresh_master()
-        Application.Run(form)
-    
-    elif choice == '3':
-        # Customer Orders - DataGrid master, horizontal layout
-        backend = CustomerOrdersBackend()
-        manager = MasterDetailManager(backend)
-        
-        form = Form()
-        form.Text = "Customer Orders - Master-Detail Demo"
-        form.Width = 1200
-        form.Height = 700
-        form.StartPosition = 'CenterScreen'
-        form.ApplyLayout()
-        
-        panel = MasterDetailPanel(form, props={
-            'Dock': DockStyle.Fill,
-            'Orientation': 'horizontal',
-            'MasterWidth': 450,
-        }, manager=manager)
-        
-        def on_master_changed(sender, args):
-            customer = args.get('master_record', {})
-            if customer:
-                form.Text = f"Orders for: {customer.get('name', 'Unknown')}"
-        
-        def on_detail_double_click(sender, args):
-            order = args.get('record', {})
-            if order:
-                from tkinter import messagebox
-                messagebox.showinfo(
-                    "Order Details",
-                    f"Order #{order.get('order_id')}\n"
-                    f"Product: {order.get('product')}\n"
-                    f"Amount: ${order.get('amount', 0):,.2f}\n"
-                    f"Status: {order.get('status')}"
-                )
-        
-        panel.MasterSelectionChanged = on_master_changed
-        panel.DetailRowDoubleClick = on_detail_double_click
-        
-        manager.refresh_master()
-        Application.Run(form)
-    
-    else:
-        print("Invalid choice")
+def run_demo():
+    """Run simple demo."""
+    backend = CustomerOrdersBackend()
+    form = MasterDetailForm(backend=backend)
+    form.Show()
+    Application.Run(form)
 
 
 # =============================================================================

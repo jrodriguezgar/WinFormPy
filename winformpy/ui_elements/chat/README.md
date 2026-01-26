@@ -10,13 +10,13 @@ A Messenger-style chat interface component with modern features.
 
 ## Quick Demo
 
-Run the built-in demos to see the component in action:
+Run the demos to see the component in action:
 
 ```bash
-# Embeddable panel demo
+# Interactive demo with response handlers and features
 python winformpy/ui_elements/chat/chat_panel.py
 
-# Full Messenger-style form demo
+# Minimal standalone form (for integration in your app)
 python winformpy/ui_elements/chat/chat_ui.py
 ```
 

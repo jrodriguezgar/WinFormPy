@@ -978,6 +978,50 @@ listbox.SelectionMode = SelectionMode.Multiple
 listbox.SelectedIndexChanged = lambda s, e: print(listbox.SelectedItems)
 ```
 
+### ListView
+
+ListView control with support for different views, columns, and automatic default icons:
+
+```python
+from winformpy import ListView, ListViewItem, View
+
+# Create ListView (default icons are created automatically)
+listview = ListView(form, {
+    'View': View.LargeIcon,
+    'Width': 600,
+    'Height': 400
+})
+
+# Add columns (for Details view)
+listview.Columns.Add("Name")
+listview.Columns.Add("Size")
+listview.Columns.Add("Modified")
+
+# Configure icon sizes (optional)
+listview.SmallIconSize = 20      # 20x20 pixels
+listview.LargeIconSize = 48      # 48x48 pixels
+listview.SmallIconSpacing = 70   # Spacing between small icons
+listview.LargeIconSpacing = 100  # Spacing between large icons
+
+# Add items
+item = ListViewItem("Document.pdf")
+item.SubItems = ["125 KB", "2026-01-26"]
+item.ImageIndex = 0  # Uses default icon
+listview.Items.Add(item)
+
+# Change view mode
+listview.View = View.Details  # Details, List, LargeIcon, SmallIcon
+```
+
+**ListView Features:**
+- **Automatic default icons**: No need to create ImageLists manually
+- **Configurable icon sizes**: Customize small and large icon dimensions
+- **Multiple view modes**: Details, List, LargeIcon, SmallIcon
+- **Columns**: Support for multi-column display in Details view
+- **Selection**: Single and multi-select modes
+
+See: [ListView Example](examples/listview_example.py)
+
 ### DataGridView
 
 ```python
@@ -1383,15 +1427,18 @@ Detailed documentation guides covering specific aspects of the library:
 | ----------------------------------------------------------------- | ---------------------------- |
 | [AutoSize behavior](guides/README_Autosize.md)                       | Control automatic sizing     |
 | [Container best practices](guides/README_Container_Best_Practice.md) | Container usage patterns     |
-| [Dock and Anchor](guides/README_Dock_Anchor.md)                      | Layout anchoring and docking |
+| [**Dock and Anchor** ⚠️](guides/README_Dock_Anchor.md)               | **Layout anchoring and docking (includes CRITICAL initialization rules)** |
 | [GroupBox usage](guides/README_GroupBox.md)                          | GroupBox container guide     |
 | [Labelframe container](guides/README_Labelframe_Container.md)        | Labelframe patterns          |
 | [MaskedTextBox](guides/README_MaskedTextBox.md)                      | Input masking guide          |
 | [MAUI concepts](guides/README_MAUI.md)                               | MAUI-style architecture      |
 | [MDI patterns](guides/README_MDI.md)                                 | Multiple Document Interface  |
 | [Naming conventions](guides/README_Naming.md)                        | Naming best practices        |
+| [PrinterSettings](guides/README_PrinterSettings.md)                  | Printer configuration object |
 | [WinFormPy extended](guides/README_winformpy_extended.md)            | Extended module guide        |
 | [WinFormPy tools](guides/README_winformpy_tools.md)                  | Tools module guide           |
+
+> **⚠️ IMPORTANT:** When using Dock or Anchor properties, read the [Dock and Anchor guide](guides/README_Dock_Anchor.md) for critical initialization rules. Failure to follow these rules may result in controls not positioning or sizing correctly.
 
 ---
 
@@ -1399,22 +1446,43 @@ Detailed documentation guides covering specific aspects of the library:
 
 The `examples/` directory contains demonstration scripts for different library features:
 
-| Example                                                                                            | Description                                 |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| [autolayout_nested_example.py](examples/autolayout_nested_example.py)                                 | Nested AutoLayout containers                |
-| [autosize_example.py](examples/autosize_example.py)                                                   | AutoSize behavior                           |
-| [basic_controls_example.py](examples/basic_controls_example.py)                                       | Core controls (Button, Label, TextBox)      |
-| [dialogs_example.py](examples/dialogs_example.py)                                                     | Common dialogs usage                        |
-| [dock_anchor_example.py](examples/dock_anchor_example.py)                                             | Dock and Anchor settings                    |
-| [groupbox_autosizemode_radiobutton_example.py](examples/groupbox_autosizemode_radiobutton_example.py) | GroupBox with AutoSizeMode and RadioButtons |
-| [hierarchical_visibility_example.py](examples/hierarchical_visibility_example.py)                     | Parent-child visibility rules               |
-| [layouts_example.py](examples/layouts_example.py)                                                     | Layout patterns overview                    |
-| [layout_manager_example.py](examples/layout_manager_example.py)                                       | Layout manager usage                        |
-| [maskedtextbox_example.py](examples/maskedtextbox_example.py)                                         | MaskedTextBox control                       |
-| [more_controls_example.py](examples/more_controls_example.py)                                         | Additional controls showcase                |
-| [tooltip_example.py](examples/tooltip_example.py)                                                     | ToolTip configuration                       |
-| [winformpy_extended_example.py](examples/winformpy_extended_example.py)                               | Extended APIs demo                          |
-| [word_processor_example.py](examples/word_processor_example.py)                                       | Rich text editor                            |
+| Example                                                                                            | Description                                       |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [autosize_example.py](examples/autosize_example.py)                                                   | AutoSize behavior                                 |
+| [basic_controls_example.py](examples/basic_controls_example.py)                                       | Core controls (Button, Label, TextBox)            |
+| [chat_example.py](examples/chat_example.py)                                                           | Chat UI with smart response handler               |
+| [console_example.py](examples/console_example.py)                                                     | Console with full command handler                 |
+| [datagridview_example.py](examples/datagridview_example.py)                                           | DataGridView with data binding and filtering      |
+| [data_grid_crud_example.py](examples/data_grid_crud_example.py)                                       | Complete CRUD operations with DataGrid            |
+| [db_connection_example.py](examples/db_connection_example.py)                                         | Database connection manager demo                  |
+| [dialogs_example.py](examples/dialogs_example.py)                                                     | Common dialogs usage                              |
+| [dock_anchor_example.py](examples/dock_anchor_example.py)                                             | Dock and Anchor settings                          |
+| [email_example.py](examples/email_example.py)                                                         | Email client with folders and composition         |
+| [groupbox_autosizemode_radiobutton_example.py](examples/groupbox_autosizemode_radiobutton_example.py) | GroupBox with AutoSizeMode and RadioButtons       |
+| [hierarchical_visibility_example.py](examples/hierarchical_visibility_example.py)                     | Parent-child visibility rules                     |
+| [imagelist_example.py](examples/imagelist_example.py)                                                 | ImageList with ListView, TreeView, and Buttons    |
+| [layouts_example.py](examples/layouts_example.py)                                                     | FlowLayoutPanel and TableLayoutPanel              |
+| [layout_manager_example.py](examples/layout_manager_example.py)                                       | Layout manager usage                              |
+| [listbox_checkedlistbox_example.py](examples/listbox_checkedlistbox_example.py)                       | ListBox and CheckedListBox controls               |
+| [listview_example.py](examples/listview_example.py)                                                   | ListView with columns, sorting, and selection     |
+| [login_example.py](examples/login_example.py)                                                         | Login form with multiple users                    |
+| [maskedtextbox_example.py](examples/maskedtextbox_example.py)                                         | MaskedTextBox control                             |
+| [master_detail_example.py](examples/master_detail_example.py)                                         | Master-detail layouts (vertical/horizontal)       |
+| [menustrip_example.py](examples/menustrip_example.py)                                                 | MenuStrip with hierarchical menus                 |
+| [more_controls_example.py](examples/more_controls_example.py)                                         | Additional controls showcase                      |
+| [printersettings_example.py](examples/printersettings_example.py)                                     | PrinterSettings object usage and dialogs          |
+| [record_form_example.py](examples/record_form_example.py)                                             | RecordForm in different modes                     |
+| [richtextbox_example.py](examples/richtextbox_example.py)                                             | RichTextBox control with formatting               |
+| [splitcontainer_example.py](examples/splitcontainer_example.py)                                       | SplitContainer with resizable panels              |
+| [statusbar_example.py](examples/statusbar_example.py)                                                 | StatusBar control                                 |
+| [statusstrip_example.py](examples/statusstrip_example.py)                                             | StatusStrip with multiple panels                  |
+| [tooltip_example.py](examples/tooltip_example.py)                                                     | ToolTip configuration                             |
+| [toolstrip_example.py](examples/toolstrip_example.py)                                                 | ToolStrip toolbar with buttons and separators     |
+| [trackbar_example.py](examples/trackbar_example.py)                                                   | TrackBar slider controls                          |
+| [treeview_example.py](examples/treeview_example.py)                                                   | TreeView with hierarchical data                   |
+| [web_browser_example.py](examples/web_browser_example.py)                                             | Web browser with tabs and navigation              |
+| [winformpy_extended_example.py](examples/winformpy_extended_example.py)                               | Extended APIs demo                                |
+| [word_processor_example.py](examples/word_processor_example.py)                                       | WordPad-style word processor                      |
 
 **Run any example:**
 

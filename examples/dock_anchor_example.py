@@ -1,5 +1,5 @@
 """
-Dock and Anchor Demonstration for WinFormPy.
+Dock and Anchor Demonstration
 
 This example demonstrates the two main layout mechanisms in WinFormPy:
 
@@ -17,200 +17,257 @@ ANCHORING:
 This demo shows practical examples of both mechanisms.
 """
 
-import sys
-import os
-sys.path.append(os.getcwd())
+from winformpy import (
+    Form, Button, Panel, Label, Application,
+    DockStyle, AnchorStyles, Font, FontStyle
+)
 
-from winformpy.winformpy import Form, Button, Panel, Label, Application
+
 
 def main():
-    """Main entry point for the Dock and Anchor demonstration."""
-    form = Form()
-    form.Text = "Dock and Anchor Demo - WinFormPy"
-    form.Size = (1000, 700)
+    # =========================================================================
+    # Create main form
+    # =========================================================================
+    form = Form({
+        'Text': 'Dock and Anchor Demo',
+        'Width': 1000,
+        'Height': 700,
+        'StartPosition': 'CenterScreen'
+    })
+    form.ApplyLayout()
 
-    # ================================================================
-    # TOP PANEL - Created first to claim top edge
-    # ================================================================
-    top_panel = Panel(form)
-    top_panel.BackColor = "lightblue"
-    top_panel.Dock = "Top"
-    top_panel.Height = 120
+    # =========================================================================
+    # TOP PANEL - Docked to top edge
+    # =========================================================================
+    top_panel = Panel(form, {
+        'Height': 100,
+        'BackColor': '#0078D4'
+    })
+    top_panel.Dock = DockStyle.Top
     
-    # Add label to top panel
-    lbl_top = Label(top_panel)
-    lbl_top.Text = "[PANEL] TOP PANEL - Docked to Top"
-    lbl_top.Location = (10, 10)
-    lbl_top.AutoSize = True
-    lbl_top.Font = ('Arial', 12, 'bold')
+    Label(top_panel, {
+        'Text': 'TOP PANEL - Docked to Top',
+        'Left': 10,
+        'Top': 10,
+        'AutoSize': True,
+        'Font': Font('Segoe UI', 12, FontStyle.Bold),
+        'ForeColor': '#FFFFFF',
+        'BackColor': '#0078D4'
+    })
 
-    # Add buttons to top panel
-    btn1 = Button(top_panel)
-    btn1.Text = "[Button] 1"
-    btn1.Location = (10, 50)
-    btn1.Size = (100, 30)
+    Button(top_panel, {
+        'Text': 'Button 1',
+        'Left': 10,
+        'Top': 50,
+        'Width': 100,
+        'Height': 30
+    })
     
-    btn2 = Button(top_panel)
-    btn2.Text = "[Button] 2"
-    btn2.Location = (120, 50)
-    btn2.Size = (100, 30)
+    Button(top_panel, {
+        'Text': 'Button 2',
+        'Left': 120,
+        'Top': 50,
+        'Width': 100,
+        'Height': 30
+    })
 
-    # ================================================================
-    # BOTTOM PANEL - Created second with HIGH VISIBILITY
-    # ================================================================
-    bottom_panel = Panel(form)
-    bottom_panel.BackColor = "red"  # BRIGHT RED for maximum visibility
-    bottom_panel.Dock = "Bottom"
-    bottom_panel.Height = 120  # Increased height
-    bottom_panel.BorderStyle = "raised"
-    bottom_panel.BringToFront()  # FORCE to front of z-order
+    # =========================================================================
+    # BOTTOM PANEL - Docked to bottom edge
+    # =========================================================================
+    bottom_panel = Panel(form, {
+        'Height': 100,
+        'BackColor': '#D83B01'
+    })
+    bottom_panel.Dock = DockStyle.Bottom
     
-    # Status label with large font
-    lbl_status = Label(bottom_panel)
-    lbl_status.Text = "[Label] ⬇️ BOTTOM PANEL - THIS SHOULD BE VISIBLE ⬇️"
-    lbl_status.Location = (10, 10)
-    lbl_status.AutoSize = True
-    lbl_status.ForeColor = "yellow"
-    lbl_status.Font = ('Arial', 12, 'bold')
+    lbl_status = Label(bottom_panel, {
+        'Text': '⬇️ BOTTOM PANEL - Status: Ready',
+        'Left': 10,
+        'Top': 10,
+        'AutoSize': True,
+        'ForeColor': '#FFFFFF',
+        'Font': Font('Segoe UI', 11, FontStyle.Bold),
+        'BackColor': '#D83B01'
+    })
     
-    # Add multiple buttons to bottom panel for visibility
-    btn_bottom1 = Button(bottom_panel)
-    btn_bottom1.Text = "[Button] Test 1"
-    btn_bottom1.Location = (10, 60)
-    btn_bottom1.Size = (120, 40)
-    btn_bottom1.BackColor = "lime"
+    Button(bottom_panel, {
+        'Text': 'Test 1',
+        'Left': 10,
+        'Top': 50,
+        'Width': 100,
+        'Height': 35,
+        'BackColor': '#90EE90'
+    })
     
-    btn_bottom2 = Button(bottom_panel)
-    btn_bottom2.Text = "[Button] Test 2"
-    btn_bottom2.Location = (140, 60)
-    btn_bottom2.Size = (120, 40)
-    btn_bottom2.BackColor = "cyan"
+    Button(bottom_panel, {
+        'Text': 'Test 2',
+        'Left': 120,
+        'Top': 50,
+        'Width': 100,
+        'Height': 35,
+        'BackColor': '#00CED1'
+    })
     
-    btn_bottom3 = Button(bottom_panel)
-    btn_bottom3.Text = "[Button] Test 3"
-    btn_bottom3.Location = (270, 60)
-    btn_bottom3.Size = (120, 40)
-    btn_bottom3.BackColor = "yellow"
+    Button(bottom_panel, {
+        'Text': 'Test 3',
+        'Left': 230,
+        'Top': 50,
+        'Width': 100,
+        'Height': 35,
+        'BackColor': '#FFFF00',
+        'ForeColor': '#000000'
+    })
 
-    # ================================================================
-    # LEFT PANEL - Created third
-    # ================================================================
-    left_panel = Panel(form)
-    left_panel.BackColor = "lightsteelblue"
-    left_panel.Dock = "Left"
-    left_panel.Width = 150
+    # =========================================================================
+    # LEFT PANEL - Docked to left edge
+    # =========================================================================
+    left_panel = Panel(form, {
+        'Width': 150,
+        'BackColor': '#B0C4DE'
+    })
+    left_panel.Dock = DockStyle.Left
     
-    # Add label to left panel
-    lbl_left = Label(left_panel)
-    lbl_left.Text = "[PANEL]\nLEFT\nPANEL"
-    lbl_left.Location = (35, 50)
-    lbl_left.AutoSize = True
-    lbl_left.Font = ('Arial', 10, 'bold')
+    Label(left_panel, {
+        'Text': 'LEFT\nPANEL',
+        'Left': 40,
+        'Top': 50,
+        'AutoSize': True,
+        'Font': Font('Segoe UI', 10, FontStyle.Bold),
+        'ForeColor': '#000000'
+    })
 
-    # ================================================================
-    # MAIN PANEL - Created last, fills remaining space
-    # ================================================================
-    main_panel = Panel(form)
-    main_panel.BackColor = "whitesmoke"
-    main_panel.Dock = "Fill"
+    # =========================================================================
+    # MAIN PANEL - Fills remaining space
+    # =========================================================================
+    main_panel = Panel(form, {
+        'BackColor': '#F5F5F5'
+    })
+    main_panel.Dock = DockStyle.Fill
     
     # Title
-    lbl_title = Label(main_panel)
-    lbl_title.Text = "[PANEL] ⚓ ANCHORING DEMONSTRATION - Resize the window!"
-    lbl_title.Location = (20, 15)
-    lbl_title.AutoSize = True
-    lbl_title.Font = ('Arial', 12, 'bold')
+    Label(main_panel, {
+        'Text': '⚓ ANCHORING DEMONSTRATION - Resize the window!',
+        'Left': 20,
+        'Top': 15,
+        'AutoSize': True,
+        'Font': Font('Segoe UI', 12, FontStyle.Bold),
+        'ForeColor': '#000000'
+    })
     
     # Info label
-    lbl_info = Label(main_panel)
-    lbl_info.Text = "[Label] Anchor controls maintain FIXED DISTANCE from edges"
-    lbl_info.Location = (20, 45)
-    lbl_info.AutoSize = True
-    lbl_info.Font = ('Arial', 9)
+    Label(main_panel, {
+        'Text': 'Anchor controls maintain FIXED DISTANCE from edges',
+        'Left': 20,
+        'Top': 45,
+        'AutoSize': True,
+        'Font': Font('Segoe UI', 9),
+        'ForeColor': '#666666'
+    })
+    
+    # =========================================================================
+    # Anchored Buttons - Demonstrate different anchor combinations
+    # =========================================================================
     
     # Top-Left button (default anchor)
-    btn_tl = Button(main_panel)
-    btn_tl.Text = "[Button]\nTop+Left\n(Default)"
-    btn_tl.Location = (20, 80)
-    btn_tl.Size = (110, 60)
-    btn_tl.Anchor = ["Top", "Left"]
-    btn_tl.BackColor = "dodgerblue"
-    btn_tl.ForeColor = "white"
+    btn_tl = Button(main_panel, {
+        'Text': 'Top+Left\n(Default)',
+        'Left': 20,
+        'Top': 80,
+        'Width': 110,
+        'Height': 60,
+        'BackColor': '#1E90FF',
+        'ForeColor': '#FFFFFF'
+    })
+    btn_tl.Anchor = AnchorStyles.Top | AnchorStyles.Left
     
     def on_tl_click(sender, event):
-        lbl_status.Text = "Status: Top+Left anchor - Fixed position"
+        lbl_status.Text = 'Status: Top+Left anchor - Fixed position'
     btn_tl.Click = on_tl_click
     
     # Top-Right button
-    btn_tr = Button(main_panel)
-    btn_tr.Text = "[Button]\nTop+Right\n→ Moves"
-    btn_tr.Location = (580, 80)
-    btn_tr.Size = (110, 60)
-    btn_tr.Anchor = ["Top", "Right"]
-    btn_tr.BackColor = "seagreen"
-    btn_tr.ForeColor = "white"
+    btn_tr = Button(main_panel, {
+        'Text': 'Top+Right\n→ Moves',
+        'Left': 580,
+        'Top': 80,
+        'Width': 110,
+        'Height': 60,
+        'BackColor': '#2E8B57',
+        'ForeColor': '#FFFFFF'
+    })
+    btn_tr.Anchor = AnchorStyles.Top | AnchorStyles.Right
     
     def on_tr_click(sender, event):
-        lbl_status.Text = "Status: Top+Right anchor - Moves right on resize"
+        lbl_status.Text = 'Status: Top+Right anchor - Moves right on resize'
     btn_tr.Click = on_tr_click
     
     # Center label demonstrating vertical stretch
-    lbl_stretch_v = Label(main_panel)
-    lbl_stretch_v.Text = "[Label]\nTop+Bottom+Left\nStretches\nVertically"
-    lbl_stretch_v.Location = (200, 80)
-    lbl_stretch_v.Size = (200, 150)
-    lbl_stretch_v.Anchor = ["Top", "Bottom", "Left"]
-    lbl_stretch_v.BackColor = "lightyellow"
-    lbl_stretch_v.BorderStyle = "fixed"
-    lbl_stretch_v.TextAlign = "center"
-    lbl_stretch_v.Font = ('Arial', 14, 'bold')
+    lbl_stretch_v = Label(main_panel, {
+        'Text': 'Top+Bottom+Left\nStretches\nVertically',
+        'Left': 200,
+        'Top': 80,
+        'Width': 200,
+        'Height': 150,
+        'BackColor': '#FFFFE0',
+        'BorderStyle': 'solid',
+        'TextAlign': 'center',
+        'Font': Font('Segoe UI', 14, FontStyle.Bold)
+    })
+    lbl_stretch_v.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left
     
     # Bottom-Left button
-    btn_bl = Button(main_panel)
-    btn_bl.Text = "[Button]\nBottom+Left\n↓ Moves"
-    btn_bl.Location = (20, 350)
-    btn_bl.Size = (110, 60)
-    btn_bl.Anchor = ["Bottom", "Left"]
-    btn_bl.BackColor = "mediumpurple"
-    btn_bl.ForeColor = "white"
+    btn_bl = Button(main_panel, {
+        'Text': 'Bottom+Left\n↓ Moves',
+        'Left': 20,
+        'Top': 350,
+        'Width': 110,
+        'Height': 60,
+        'BackColor': '#9370DB',
+        'ForeColor': '#FFFFFF'
+    })
+    btn_bl.Anchor = AnchorStyles.Bottom | AnchorStyles.Left
     
     def on_bl_click(sender, event):
-        lbl_status.Text = "Status: Bottom+Left anchor - Moves down on resize"
+        lbl_status.Text = 'Status: Bottom+Left anchor - Moves down on resize'
     btn_bl.Click = on_bl_click
     
     # Bottom-Right button
-    btn_br = Button(main_panel)
-    btn_br.Text = "[Button]\nBottom+Right\n↘ Corner"
-    btn_br.Location = (580, 350)
-    btn_br.Size = (110, 60)
-    btn_br.Anchor = ["Bottom", "Right"]
-    btn_br.BackColor = "indianred"
-    btn_br.ForeColor = "white"
+    btn_br = Button(main_panel, {
+        'Text': 'Bottom+Right\n↘ Corner',
+        'Left': 580,
+        'Top': 350,
+        'Width': 110,
+        'Height': 60,
+        'BackColor': '#CD5C5C',
+        'ForeColor': '#FFFFFF'
+    })
+    btn_br.Anchor = AnchorStyles.Bottom | AnchorStyles.Right
     
     def on_br_click(sender, event):
-        lbl_status.Text = "Status: Bottom+Right anchor - Moves to corner"
+        lbl_status.Text = 'Status: Bottom+Right anchor - Moves to corner'
     btn_br.Click = on_br_click
     
     # Stretch button (Bottom+Left+Right)
-    btn_stretch = Button(main_panel)
-    btn_stretch.Text = "[Button] Bottom+Left+Right → STRETCHES HORIZONTALLY ←"
-    btn_stretch.Location = (20, 420)
-    btn_stretch.Size = (670, 40)
-    btn_stretch.Anchor = ["Bottom", "Left", "Right"]
-    btn_stretch.BackColor = "orange"
-    btn_stretch.ForeColor = "white"
-    btn_stretch.Font = ('Arial', 10, 'bold')
+    btn_stretch = Button(main_panel, {
+        'Text': 'Bottom+Left+Right → STRETCHES HORIZONTALLY ←',
+        'Left': 20,
+        'Top': 420,
+        'Width': 670,
+        'Height': 40,
+        'BackColor': '#FFA500',
+        'ForeColor': '#FFFFFF',
+        'Font': Font('Segoe UI', 10, FontStyle.Bold)
+    })
+    btn_stretch.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
     
     def on_stretch_click(sender, event):
-        lbl_status.Text = "Status: Bottom+Left+Right anchor - Stretches horizontally!"
+        lbl_status.Text = 'Status: Bottom+Left+Right anchor - Stretches horizontally!'
     btn_stretch.Click = on_stretch_click
 
-    # ================================================================
-    # RUN THE APPLICATION
-    # ================================================================
+    # =========================================================================
+    # Run the application
+    # =========================================================================
     Application.Run(form)
 
 
-if __name__ == "__main__":
-    # Entry point: Execute the demonstration
+if __name__ == '__main__':
     main()

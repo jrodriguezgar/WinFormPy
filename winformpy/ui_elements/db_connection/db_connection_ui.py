@@ -585,8 +585,8 @@ class DBConnectionUI(Form):
 
 # ===== DEMO =====
 if __name__ == "__main__":
+    from db_connection_manager import DBConnectionManager
     
-    # --- Demo Storage Backend (simulates external backend) ---
     class DemoStorageBackend:
         """
         Demo backend for testing purposes.
@@ -678,38 +678,6 @@ if __name__ == "__main__":
             else:
                 return False, f"Cannot reach {host} (demo simulation)."
     
-    # --- Demo ---
-    print("=" * 50)
-    print("  DATABASE CONNECTION MANAGER - DEMO (ListView)")
-    print("=" * 50)
-    print()
-    print("Architecture:")
-    print("  ┌─────────────────────────────────┐")
-    print("  │  Visual (same level)            │")
-    print("  │  - DBConnectionUI (Form)        │")
-    print("  │  - DBConnectionPanel (Panel)    │")
-    print("  └───────────────┬─────────────────┘")
-    print("                  │")
-    print("  ┌───────────────▼─────────────────┐")
-    print("  │  DBConnectionManager (Service)  │")
-    print("  └───────────────┬─────────────────┘")
-    print("                  │")
-    print("  ┌───────────────▼─────────────────┐")
-    print("  │  Storage Backend (External)     │")
-    print("  └─────────────────────────────────┘")
-    print()
-    
-    # Layer 1: External backend
-    backend = DemoStorageBackend()
-    
-    # Layer 2: Manager (service layer)
-    manager = DBConnectionManager(backend)
-    
-    # Layer 3: Visual UI with ListView
-    ui = DBConnectionUI(manager, {'Text': "Database Connection Manager - DEMO (ListView)"})
-    
-    # Show visual interface
+    manager = DBConnectionManager(DemoStorageBackend())
+    ui = DBConnectionUI(manager)
     ui.show_dialog()
-    
-    print()
-    print("Demo finished.")
