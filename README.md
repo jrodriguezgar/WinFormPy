@@ -81,6 +81,25 @@ cd WinFormPy
 pip install -e .
 ```
 
+### Optional Dependencies
+
+WinFormPy uses **lazy import** pattern for optional dependencies, ensuring the library works even if they are not installed:
+
+```bash
+# For ImageList with advanced image processing (auto-resize, format conversion)
+pip install Pillow
+
+# For web browser control
+pip install tkinterweb
+
+# For calendar controls
+pip install tkcalendar
+```
+
+**Note:** All examples and library code use lazy import, so they will run with degraded functionality if optional packages are missing, showing helpful status messages instead of crashing.
+
+See [Lazy Import Guide](guides/README_Lazy_Import.md) for implementation details.
+
 ---
 
 ## Quick Start
@@ -1430,6 +1449,7 @@ Detailed documentation guides covering specific aspects of the library:
 | [**Dock and Anchor** ⚠️](guides/README_Dock_Anchor.md)               | **Layout anchoring and docking (includes CRITICAL initialization rules)** |
 | [GroupBox usage](guides/README_GroupBox.md)                          | GroupBox container guide     |
 | [Labelframe container](guides/README_Labelframe_Container.md)        | Labelframe patterns          |
+| [**Lazy Import Pattern**](guides/README_Lazy_Import.md)              | **Optional dependencies lazy loading (PIL, tkinterweb, etc.)** |
 | [MaskedTextBox](guides/README_MaskedTextBox.md)                      | Input masking guide          |
 | [MAUI concepts](guides/README_MAUI.md)                               | MAUI-style architecture      |
 | [MDI patterns](guides/README_MDI.md)                                 | Multiple Document Interface  |
@@ -1474,10 +1494,9 @@ The `examples/` directory contains demonstration scripts for different library f
 | [record_form_example.py](examples/record_form_example.py)                                             | RecordForm in different modes                     |
 | [richtextbox_example.py](examples/richtextbox_example.py)                                             | RichTextBox control with formatting               |
 | [splitcontainer_example.py](examples/splitcontainer_example.py)                                       | SplitContainer with resizable panels              |
-| [statusbar_example.py](examples/statusbar_example.py)                                                 | StatusBar control                                 |
-| [statusstrip_example.py](examples/statusstrip_example.py)                                             | StatusStrip with multiple panels                  |
+| [statusbar_example.py](examples/statusbar_example.py)                                                 | StatusBar control (.NET 1.x)                      |
+| [dotnet2_controls_example.py](examples/dotnet2_controls_example.py)                                   | .NET 2.0 controls (MenuStrip, ToolStrip, StatusStrip, ContextMenuStrip) |
 | [tooltip_example.py](examples/tooltip_example.py)                                                     | ToolTip configuration                             |
-| [toolstrip_example.py](examples/toolstrip_example.py)                                                 | ToolStrip toolbar with buttons and separators     |
 | [trackbar_example.py](examples/trackbar_example.py)                                                   | TrackBar slider controls                          |
 | [treeview_example.py](examples/treeview_example.py)                                                   | TreeView with hierarchical data                   |
 | [web_browser_example.py](examples/web_browser_example.py)                                             | Web browser with tabs and navigation              |

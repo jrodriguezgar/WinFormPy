@@ -200,12 +200,16 @@ class TrackBarExampleForm(Form):
         })
         
         # Visual brightness indicator
-        self.brightness_indicator = Panel(section, {
+        self.brightness_indicator = Label(section, {
+            'Text': '💡 Brightness Level',
             'Left': 15,
             'Top': 85,
             'Width': 350,
-            'Height': 20,
-            'BackColor': '#FFD700'
+            'Height': 25,
+            'BackColor': '#B8B8B8',
+            'Font': Font('Segoe UI', 10, FontStyle.Bold),
+            'ForeColor': '#000000',
+            'BorderStyle': 'FixedSingle'
         })
     
     def _create_zoom_section(self, parent):
@@ -262,16 +266,16 @@ class TrackBarExampleForm(Form):
         })
         
         btn_50 = Button(section, {'Text': '50%', 'Left': 80, 'Top': 92, 'Width': 50, 'Height': 25})
-        btn_50.Click = lambda s, e: setattr(self.track_zoom, 'Value', 50)
+        btn_50.Click = lambda s, e: self._set_zoom(50)
         
         btn_100 = Button(section, {'Text': '100%', 'Left': 135, 'Top': 92, 'Width': 50, 'Height': 25})
-        btn_100.Click = lambda s, e: setattr(self.track_zoom, 'Value', 100)
+        btn_100.Click = lambda s, e: self._set_zoom(100)
         
         btn_150 = Button(section, {'Text': '150%', 'Left': 190, 'Top': 92, 'Width': 50, 'Height': 25})
-        btn_150.Click = lambda s, e: setattr(self.track_zoom, 'Value', 150)
+        btn_150.Click = lambda s, e: self._set_zoom(150)
         
         btn_200 = Button(section, {'Text': '200%', 'Left': 245, 'Top': 92, 'Width': 50, 'Height': 25})
-        btn_200.Click = lambda s, e: setattr(self.track_zoom, 'Value', 200)
+        btn_200.Click = lambda s, e: self._set_zoom(200)
     
     def _create_rgb_section(self, parent):
         """Create RGB color mixer section."""
@@ -426,13 +430,27 @@ class TrackBarExampleForm(Form):
         """Handle brightness change."""
         value = self.track_brightness.Value
         self.lbl_brightness.Text = f"{value}%"
-        # Adjust brightness indicator opacity/color
-        # (Visual simulation only)
+        
+        # Simulate brightness change (0=black, 100=white)
+        brightness_val = int((value / 100) * 255)
+        brightness_color = f"#{brightness_val:02X}{brightness_val:02X}{brightness_val:02X}"
+        self.brightness_indicator.BackColor = brightness_color
+        
+        # Adjust text color for better contrast
+        text_color = '#FFFFFF' if value < 50 else '#000000'
+        self.brightness_indicator.ForeColor = text_color
+        
         self.lbl_status.Text = f"Brightness: {value}%"
     
     def _on_zoom_changed(self, sender, e):
         """Handle zoom change."""
         value = self.track_zoom.Value
+        self.lbl_zoom.Text = f"{value}%"
+        self.lbl_status.Text = f"Zoom: {value}%"
+    
+    def _set_zoom(self, value):
+        """Set zoom value and update label."""
+        self.track_zoom.Value = value
         self.lbl_zoom.Text = f"{value}%"
         self.lbl_status.Text = f"Zoom: {value}%"
     
