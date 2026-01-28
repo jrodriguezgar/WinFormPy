@@ -10,6 +10,76 @@ Note: Uses lazy imports for all optional dependencies (PIL, PyMuPDF, python-docx
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Any
 import io
+import sys
+import subprocess
+
+
+# =============================================================
+# Lazy Library Import Management (supports pip and uv)
+# =============================================================
+
+def _is_uv_managed_environment() -> bool:
+    """Check if the current Python environment is managed by uv."""
+    if os.environ.get('UV_PROJECT_ENVIRONMENT'):
+        return True
+    if 'uv' in sys.executable.lower():
+        return True
+    exe_dir = os.path.dirname(sys.executable)
+    venv_dir = os.path.dirname(exe_dir)
+    pyvenv_cfg = os.path.join(venv_dir, 'pyvenv.cfg')
+    if os.path.exists(pyvenv_cfg):
+        try:
+            with open(pyvenv_cfg, 'r') as f:
+                content = f.read()
+                if 'uv =' in content or 'uv=' in content:
+                    return True
+        except:
+            pass
+    return False
+
+
+def _find_pyproject_dir() -> str:
+    """Find the directory containing pyproject.toml."""
+    current = os.getcwd()
+    while current != os.path.dirname(current):
+        if os.path.exists(os.path.join(current, 'pyproject.toml')):
+            return current
+        current = os.path.dirname(current)
+    return None
+
+
+def install_library(library_name: str, import_name: str = None) -> bool:
+    """
+    Checks if a library is installed and, if not, attempts to install it.
+    Uses 'uv add' if the environment is uv-managed, otherwise uses pip.
+    """
+    check_name = import_name if import_name else library_name
+    try:
+        __import__(check_name)
+        return True
+    except ImportError:
+        print(f"Installing '{library_name}'...")
+        try:
+            if _is_uv_managed_environment():
+                project_dir = _find_pyproject_dir()
+                if project_dir:
+                    subprocess.check_call(["uv", "add", library_name], cwd=project_dir)
+                else:
+                    subprocess.check_call(["uv", "pip", "install", "--system", library_name])
+            else:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", library_name])
+            print(f"✓ '{library_name}' installed")
+            return True
+        except subprocess.CalledProcessError:
+            print(f"✗ Failed to install '{library_name}'")
+            return False
+        except FileNotFoundError:
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", library_name])
+                return True
+            except subprocess.CalledProcessError:
+                print(f"✗ Failed. For uv envs: uv add {library_name}")
+                return False
 
 
 class DocumentBackend(ABC):
@@ -19,7 +89,7 @@ class DocumentBackend(ABC):
     Each document type (PDF, Word, Excel, etc.) should implement
     this interface to provide document loading and rendering.
     
-    Note: PIL is loaded lazily when needed.
+    Note: PIL is loaded lazily when needed via install_library.
     """
     
     _Image = None
@@ -28,14 +98,20 @@ class DocumentBackend(ABC):
     
     @classmethod
     def _ensure_pil(cls):
-        """Lazy import of PIL library."""
+        """Lazy import of PIL library with auto-install."""
         if cls._Image is None:
-            try:
-                from PIL import Image, ImageDraw, ImageFont
-                cls._Image = Image
-                cls._ImageDraw = ImageDraw
-                cls._ImageFont = ImageFont
-            except ImportError:
+            if install_library("Pillow", "PIL"):
+                try:
+                    from PIL import Image, ImageDraw, ImageFont
+                    cls._Image = Image
+                    cls._ImageDraw = ImageDraw
+                    cls._ImageFont = ImageFont
+                except ImportError:
+                    raise ImportError(
+                        "Pillow (PIL) is required for document viewing.\n"
+                        "Install it with: pip install Pillow"
+                    )
+            else:
                 raise ImportError(
                     "Pillow (PIL) is required for document viewing.\n"
                     "Install it with: pip install Pillow"
@@ -128,12 +204,18 @@ class PDFBackend(DocumentBackend):
         self._fitz = None
     
     def _ensure_fitz(self):
-        """Lazy import of PyMuPDF library."""
+        """Lazy import of PyMuPDF library with auto-install."""
         if self._fitz is None:
-            try:
-                import fitz  # PyMuPDF
-                self._fitz = fitz
-            except ImportError:
+            if install_library("PyMuPDF", "fitz"):
+                try:
+                    import fitz  # PyMuPDF
+                    self._fitz = fitz
+                except ImportError:
+                    raise ImportError(
+                        "PyMuPDF (fitz) is required for PDF support.\n"
+                        "Install it with: pip install PyMuPDF"
+                    )
+            else:
                 raise ImportError(
                     "PyMuPDF (fitz) is required for PDF support.\n"
                     "Install it with: pip install PyMuPDF"
@@ -228,12 +310,18 @@ class WordBackend(DocumentBackend):
         self._Document = None
     
     def _ensure_docx(self):
-        """Lazy import of python-docx library."""
+        """Lazy import of python-docx library with auto-install."""
         if self._Document is None:
-            try:
-                from docx import Document
-                self._Document = Document
-            except ImportError:
+            if install_library("python-docx", "docx"):
+                try:
+                    from docx import Document
+                    self._Document = Document
+                except ImportError:
+                    raise ImportError(
+                        "python-docx is required for Word support.\n"
+                        "Install it with: pip install python-docx"
+                    )
+            else:
                 raise ImportError(
                     "python-docx is required for Word support.\n"
                     "Install it with: pip install python-docx"

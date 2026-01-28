@@ -216,7 +216,7 @@ class ChangePasswordForm(Form):
 
 # Demo / Test
 if __name__ == "__main__":
-    from login_backend import LoginBackend, AuthResult
+    from login_backend import LoginBackend, AuthResult, PasswordChangeResult
     
     class DemoBackend(LoginBackend):
         """Simple demo backend."""
@@ -224,6 +224,12 @@ if __name__ == "__main__":
             if username == 'admin' and password == 'admin':
                 return AuthResult(True, 'admin', 'admin', 'Admin')
             return AuthResult(False, error="Invalid credentials")
+        
+        def change_password(self, username, old_password, new_password):
+            # Demo implementation - just verify old password and accept new one
+            if username == 'admin' and old_password == 'admin':
+                return PasswordChangeResult(True)
+            return PasswordChangeResult(False, error="Current password is incorrect")
     
     login = LoginForm(backend=DemoBackend())
     login.ShowDialog()

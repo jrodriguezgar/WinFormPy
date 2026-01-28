@@ -25,13 +25,83 @@
 # Dependencies:
 #   - Python 3.7+
 #   - tkinter (standard library)
-#   - Pillow (optional, for image support)
+#   - Pillow (optional, for image support - auto-installed on demand)
 # =============================================================
 
 import tkinter as tk
 from tkinter import ttk
 from datetime import datetime, date, time
 import calendar
+import sys
+import subprocess
+
+
+# =============================================================
+# Lazy Library Import Management (supports pip and uv)
+# =============================================================
+
+def _is_uv_managed_environment() -> bool:
+    """Check if the current Python environment is managed by uv."""
+    if os.environ.get('UV_PROJECT_ENVIRONMENT'):
+        return True
+    if 'uv' in sys.executable.lower():
+        return True
+    exe_dir = os.path.dirname(sys.executable)
+    venv_dir = os.path.dirname(exe_dir)
+    pyvenv_cfg = os.path.join(venv_dir, 'pyvenv.cfg')
+    if os.path.exists(pyvenv_cfg):
+        try:
+            with open(pyvenv_cfg, 'r') as f:
+                content = f.read()
+                if 'uv =' in content or 'uv=' in content:
+                    return True
+        except:
+            pass
+    return False
+
+
+def _find_pyproject_dir() -> str:
+    """Find the directory containing pyproject.toml."""
+    current = os.getcwd()
+    while current != os.path.dirname(current):
+        if os.path.exists(os.path.join(current, 'pyproject.toml')):
+            return current
+        current = os.path.dirname(current)
+    return None
+
+
+def install_library(library_name: str, import_name: str = None) -> bool:
+    """
+    Checks if a library is installed and, if not, attempts to install it.
+    Uses 'uv add' if the environment is uv-managed, otherwise uses pip.
+    """
+    check_name = import_name if import_name else library_name
+    try:
+        __import__(check_name)
+        return True
+    except ImportError:
+        print(f"Installing '{library_name}'...")
+        try:
+            if _is_uv_managed_environment():
+                project_dir = _find_pyproject_dir()
+                if project_dir:
+                    subprocess.check_call(["uv", "add", library_name], cwd=project_dir)
+                else:
+                    subprocess.check_call(["uv", "pip", "install", "--system", library_name])
+            else:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", library_name])
+            print(f"✓ '{library_name}' installed")
+            return True
+        except subprocess.CalledProcessError:
+            print(f"✗ Failed to install '{library_name}'")
+            return False
+        except FileNotFoundError:
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", library_name])
+                return True
+            except subprocess.CalledProcessError:
+                print(f"✗ Failed. For uv envs: uv add {library_name}")
+                return False
 
 
 class EventArgs:
@@ -1368,18 +1438,23 @@ class Image:
             
     def Load(self, source):
         """Loads an image from file."""
-        try:
-            from PIL import Image as PILImage, ImageTk
-            img = PILImage.open(source)
-            self._image = ImageTk.PhotoImage(img)
-            self._widget.configure(image=self._image)
-        except ImportError:
-            # Fallback for GIF/PGM/PPM without Pillow
+        # Try to use Pillow with lazy install
+        if install_library("Pillow", "PIL"):
             try:
-                self._image = tk.PhotoImage(file=source)
+                from PIL import Image as PILImage, ImageTk
+                img = PILImage.open(source)
+                self._image = ImageTk.PhotoImage(img)
                 self._widget.configure(image=self._image)
-            except:
-                self._widget.configure(text=f"[Image: {source}]")
+                return
+            except Exception:
+                pass
+        
+        # Fallback for GIF/PGM/PPM without Pillow
+        try:
+            self._image = tk.PhotoImage(file=source)
+            self._widget.configure(image=self._image)
+        except:
+            self._widget.configure(text=f"[Image: {source}]")
 
 # =============================================================================
 # ADDITIONAL MAUI COMPONENTS
