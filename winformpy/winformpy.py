@@ -110,24 +110,93 @@ import warnings
 # Lazy Library Import Management
 # =============================================================
 
+def _is_uv_managed_environment() -> bool:
+    """Check if the current Python environment is managed by uv."""
+    # Check if running via 'uv run' (UV_PROJECT_ENVIRONMENT is set)
+    if os.environ.get('UV_PROJECT_ENVIRONMENT'):
+        return True
+    # Check if python is in uv's managed path
+    if 'uv' in sys.executable.lower():
+        return True
+    
+    # Check pyvenv.cfg in the venv directory (from executable path)
+    # sys.executable is typically .venv/Scripts/python.exe on Windows
+    exe_dir = os.path.dirname(sys.executable)
+    venv_dir = os.path.dirname(exe_dir)  # Go up from Scripts to .venv
+    pyvenv_cfg = os.path.join(venv_dir, 'pyvenv.cfg')
+    if os.path.exists(pyvenv_cfg):
+        try:
+            with open(pyvenv_cfg, 'r') as f:
+                content = f.read()
+                # uv adds 'uv = x.x.x' line to pyvenv.cfg
+                if 'uv =' in content or 'uv=' in content:
+                    return True
+        except:
+            pass
+    
+    # Fallback: Check VIRTUAL_ENV environment variable
+    venv = os.environ.get('VIRTUAL_ENV', '')
+    if venv and os.path.exists(os.path.join(venv, 'pyvenv.cfg')):
+        try:
+            with open(os.path.join(venv, 'pyvenv.cfg'), 'r') as f:
+                content = f.read()
+                if 'uv =' in content or 'uv=' in content:
+                    return True
+        except:
+            pass
+    return False
+
+
+def _find_pyproject_dir() -> str:
+    """Find the directory containing pyproject.toml."""
+    # Start from current working directory and search up
+    current = os.getcwd()
+    while current != os.path.dirname(current):
+        if os.path.exists(os.path.join(current, 'pyproject.toml')):
+            return current
+        current = os.path.dirname(current)
+    return None
+
+
 def install_library(library_name: str, import_name: str = None) -> bool:
     """
-    Checks if a library is installed and, if not, attempts to install it via pip.
+    Checks if a library is installed and, if not, attempts to install it.
+    Uses 'uv add' if the environment is uv-managed, otherwise uses pip.
     """
+    check_name = import_name if import_name else library_name
     try:
-        if import_name:
-            library_name = import_name
-        __import__(library_name)
+        __import__(check_name)
         return True
     except ImportError:
-        print(f"Library '{library_name}' not found. Attempting to install...")
+        print(f"Installing '{library_name}'...")
         try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", library_name])
+            if _is_uv_managed_environment():
+                # Find pyproject.toml directory for uv add
+                project_dir = _find_pyproject_dir()
+                if project_dir:
+                    # Use 'uv add' which properly updates pyproject.toml and installs
+                    subprocess.check_call(["uv", "add", library_name], cwd=project_dir)
+                else:
+                    # Fallback to uv pip install with system flag
+                    subprocess.check_call(["uv", "pip", "install", "--system", library_name])
+            else:
+                # Use pip for regular environments
+                subprocess.check_call([sys.executable, "-m", "pip", "install", library_name])
             print(f"Library '{library_name}' installed successfully.")
             return True
-        except subprocess.CalledProcessError:
-            print(f"Error: Failed to install '{library_name}'.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error: Failed to install '{library_name}'. {e}")
             return False
+        except FileNotFoundError:
+            # uv not found, try pip as fallback (may fail on externally-managed)
+            print("Note: 'uv' not found. Trying pip...")
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", library_name])
+                print(f"Library '{library_name}' installed successfully.")
+                return True
+            except subprocess.CalledProcessError:
+                print(f"Error: Failed to install '{library_name}'. For uv-managed environments, run: uv add {library_name}")
+                return False
 
 
 def _resolve_master_widget(master_form):
@@ -7964,6 +8033,49 @@ class TextBox(ControlBase):
                 self._tk_widget.edit_undo()
             except:
                 pass
+
+    @property
+    def PasswordChar(self):
+        """Gets the character used to mask characters of a password in a single-line TextBox."""
+        return getattr(self, '_password_char', '')
+    
+    @PasswordChar.setter
+    def PasswordChar(self, value):
+        """Sets the character used to mask characters of a password in a single-line TextBox."""
+        self._password_char = value if value else ''
+        
+        # Only single-line Entry widgets support 'show' option
+        if not self.Multiline and hasattr(self, '_tk_widget') and self._tk_widget:
+            try:
+                if value:
+                    self._tk_widget.config(show=value)
+                elif getattr(self, 'UseSystemPasswordChar', False):
+                    self._tk_widget.config(show='*')
+                else:
+                    self._tk_widget.config(show='')
+            except tk.TclError:
+                pass  # Widget may not support 'show' option
+    
+    @property
+    def UseSystemPasswordChar(self):
+        """Gets a value indicating whether the text should be displayed with the system password character."""
+        return getattr(self, '_use_system_password_char', False)
+    
+    @UseSystemPasswordChar.setter
+    def UseSystemPasswordChar(self, value):
+        """Sets whether the text should be displayed with the system password character."""
+        self._use_system_password_char = bool(value)
+        
+        # Only apply if PasswordChar is not set
+        if not self.PasswordChar:
+            if not self.Multiline and hasattr(self, '_tk_widget') and self._tk_widget:
+                try:
+                    if value:
+                        self._tk_widget.config(show='*')
+                    else:
+                        self._tk_widget.config(show='')
+                except tk.TclError:
+                    pass
 
 
 # ConsoleTextBox has been moved to winformpy_extended.py
@@ -23839,14 +23951,18 @@ HtmlFrame = None
 
 
 def _ensure_tkinterweb():
-    """Lazy load tkinterweb module. Returns True if available."""
+    """Lazy load tkinterweb module with auto-install. Returns True if available."""
     global TKINTERWEB_AVAILABLE, HtmlFrame
     if TKINTERWEB_AVAILABLE is None:
-        try:
-            from tkinterweb import HtmlFrame as _HtmlFrame
-            HtmlFrame = _HtmlFrame
-            TKINTERWEB_AVAILABLE = True
-        except ImportError:
+        if install_library("tkinterweb"):
+            try:
+                from tkinterweb import HtmlFrame as _HtmlFrame
+                HtmlFrame = _HtmlFrame
+                TKINTERWEB_AVAILABLE = True
+            except ImportError:
+                TKINTERWEB_AVAILABLE = False
+                HtmlFrame = None
+        else:
             TKINTERWEB_AVAILABLE = False
             HtmlFrame = None
     return TKINTERWEB_AVAILABLE

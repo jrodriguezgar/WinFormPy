@@ -9,7 +9,7 @@ description = "Extended Layout Controls (FlowLayoutPanel, TableLayoutPanel), adv
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "tkcalendar>=1.6.1"
+    "tkcalendar>=1.6.1",
 ]
 
 [tool.setuptools]

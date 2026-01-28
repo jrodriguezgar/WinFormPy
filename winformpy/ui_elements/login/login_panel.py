@@ -262,15 +262,33 @@ class LoginPanel(Panel):
         y += 22
         
         # Password input - apply Inputs sub-properties
+        # Create a container for password input and toggle button
+        password_toggle_width = 35
         self._password_input = TextBox(view, {
             'Left': left_margin, 'Top': y,
-            'Width': input_width,
+            'Width': input_width - password_toggle_width - 5,
             'Height': input_height,
             'Font': input_font,
             'BackColor': input_bg,
             'BorderStyle': 'FixedSingle',
             'PasswordChar': '●'
         })
+        
+        # Show/hide password toggle button
+        self._password_toggle = Button(view, {
+            'Text': '👁',
+            'Left': left_margin + input_width - password_toggle_width,
+            'Top': y,
+            'Width': password_toggle_width,
+            'Height': input_height,
+            'Font': Font('Segoe UI', 10),
+            'BackColor': '#F0F0F0',
+            'FlatStyle': 'Flat'
+        })
+        self._password_visible = False
+        self._password_toggle.Click = lambda s, e: self._toggle_password_visibility(
+            self._password_input, '_password_visible', self._password_toggle
+        )
         y += input_height + 10
         
         # Remember me & Forgot password row
@@ -376,14 +394,34 @@ class LoginPanel(Panel):
         })
         y += 22
         
+        # Create a container for current password input and toggle button
+        pw_toggle_width = 35
+        pw_input_width = self.Width - 60 - pw_toggle_width - 5
+        
         self._current_pw_input = TextBox(view, {
             'Left': 30, 'Top': y,
-            'Width': self.Width - 60,
+            'Width': pw_input_width,
             'Height': 35,
             'Font': Font('Segoe UI', 11),
             'BorderStyle': 'FixedSingle',
             'PasswordChar': '●'
         })
+        
+        # Show/hide current password toggle
+        self._current_pw_toggle = Button(view, {
+            'Text': '👁',
+            'Left': 30 + pw_input_width + 5,
+            'Top': y,
+            'Width': pw_toggle_width,
+            'Height': 35,
+            'Font': Font('Segoe UI', 10),
+            'BackColor': '#F0F0F0',
+            'FlatStyle': 'Flat'
+        })
+        self._current_pw_visible = False
+        self._current_pw_toggle.Click = lambda s, e: self._toggle_password_visibility(
+            self._current_pw_input, '_current_pw_visible', self._current_pw_toggle
+        )
         y += 50
         
         # New password label
@@ -399,13 +437,29 @@ class LoginPanel(Panel):
         
         self._new_pw_input = TextBox(view, {
             'Left': 30, 'Top': y,
-            'Width': self.Width - 60,
+            'Width': pw_input_width,
             'Height': 35,
             'Font': Font('Segoe UI', 11),
             'BorderStyle': 'FixedSingle',
             'PasswordChar': '●'
         })
         self._new_pw_input.TextChanged = self._on_new_password_changed
+        
+        # Show/hide new password toggle
+        self._new_pw_toggle = Button(view, {
+            'Text': '👁',
+            'Left': 30 + pw_input_width + 5,
+            'Top': y,
+            'Width': pw_toggle_width,
+            'Height': 35,
+            'Font': Font('Segoe UI', 10),
+            'BackColor': '#F0F0F0',
+            'FlatStyle': 'Flat'
+        })
+        self._new_pw_visible = False
+        self._new_pw_toggle.Click = lambda s, e: self._toggle_password_visibility(
+            self._new_pw_input, '_new_pw_visible', self._new_pw_toggle
+        )
         y += 40
         
         # Password strength indicator
@@ -442,12 +496,28 @@ class LoginPanel(Panel):
         
         self._confirm_pw_input = TextBox(view, {
             'Left': 30, 'Top': y,
-            'Width': self.Width - 60,
+            'Width': pw_input_width,
             'Height': 35,
             'Font': Font('Segoe UI', 11),
             'BorderStyle': 'FixedSingle',
             'PasswordChar': '●'
         })
+        
+        # Show/hide confirm password toggle
+        self._confirm_pw_toggle = Button(view, {
+            'Text': '👁',
+            'Left': 30 + pw_input_width + 5,
+            'Top': y,
+            'Width': pw_toggle_width,
+            'Height': 35,
+            'Font': Font('Segoe UI', 10),
+            'BackColor': '#F0F0F0',
+            'FlatStyle': 'Flat'
+        })
+        self._confirm_pw_visible = False
+        self._confirm_pw_toggle.Click = lambda s, e: self._toggle_password_visibility(
+            self._confirm_pw_input, '_confirm_pw_visible', self._confirm_pw_toggle
+        )
         y += 50
         
         # Error message
@@ -611,6 +681,28 @@ class LoginPanel(Panel):
         self._reset_error_label.Text = ''
         self._reset_error_label.Visible = False
         self._reset_success_label.Visible = False
+    
+    def _toggle_password_visibility(self, textbox: TextBox, visibility_attr: str, toggle_button: Button):
+        """
+        Toggle password visibility for a TextBox.
+        
+        Args:
+            textbox: The password TextBox to toggle
+            visibility_attr: The attribute name storing visibility state (e.g., '_password_visible')
+            toggle_button: The toggle button to update text
+        """
+        current_visible = getattr(self, visibility_attr)
+        new_visible = not current_visible
+        setattr(self, visibility_attr, new_visible)
+        
+        if new_visible:
+            # Show password - remove PasswordChar
+            textbox.PasswordChar = ''
+            toggle_button.Text = '🙈'
+        else:
+            # Hide password - set PasswordChar
+            textbox.PasswordChar = '●'
+            toggle_button.Text = '👁'
     
     def _show_login_error(self, message: str):
         """Show error on login view."""
