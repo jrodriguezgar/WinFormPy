@@ -23,10 +23,16 @@ from winformpy import (
     TabControl, TabPage, TreeView, PictureBox, MessageBox
 )
 
-from winformpy_extended import WinUIToggleSwitch, WinUIExpander, ExtendedLabel, WinUITextBox, WinUIProgressBar
+from winformpy.winui3 import (
+    WinUIToggleSwitch, WinUIExpander, WinUITextBox, WinUIProgressBar,
+    WinUIColors, WinUIFonts, WinUIButton, WinUILabel, WinUIPanel
+)
+from winformpy.winformpy_extended import ExtendedLabel
+# Import WinUI 3 controls from the new winui3 module
+from winformpy.winui3 import WinUIToggleSwitch, WinUIExpander, WinUITextBox, WinUIProgressBar
 
 # --- Design System (WinUI 3 Theme - Light Mode) ---
-# Colores extraídos de las guías de diseño de Windows 11
+# Template-specific color palette (customized from default WinUI 3)
 
 class WinUIColors:
     # Fondos
@@ -37,7 +43,7 @@ class WinUIColors:
     CardBorder = "#E5E5E5"    # Borde sutil para tarjetas
     
     # Interacción
-    Accent = "#0067C0"        # Windows Blue
+    Accent = "#0067C0"        # Windows Blue (template custom color)
     AccentHover = "#1975C5"
     AccentText = "#FFFFFF"
     
@@ -47,7 +53,6 @@ class WinUIColors:
     NavHover = "#EAEAEA"
     NavPressed = "#EDEDED"
     NavSelectedLine = "#0067C0" # Indicador de selección
-    
     # Texto
     TextPrimary = "#202020"   # Casi negro
     TextSecondary = "#5D5D5D" # Gris oscuro

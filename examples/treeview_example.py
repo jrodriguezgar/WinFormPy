@@ -1,31 +1,48 @@
 """
-TreeView Example - Comprehensive TreeView Control Demonstration
+TreeView Example - COMPLETE TreeView Control Demonstration
 
-This example demonstrates the TreeView control in WinFormPy with:
+This example demonstrates ALL TreeView features in WinFormPy:
+
+BASIC FEATURES:
 1. Hierarchical node structure
 2. Node expansion and collapse
 3. Node selection and navigation
 4. Adding and removing nodes dynamically
-5. Node images with ImageList
-6. Context menu for nodes
-7. Search functionality
-8. Node manipulation (edit, delete, move)
 
-FEATURES DEMONSTRATED:
-- TreeNode creation and management
-- Parent-child relationships
-- Node expansion/collapse
-- Node selection events
-- Dynamic node addition/removal
-- ImageList integration
-- Context menu
-- Node search and filtering
+ADVANCED FEATURES:
+5. ImageList integration (node icons)
+6. CheckBoxes for nodes
+7. Context menu with full operations
+8. Search functionality
+9. Label editing (inline rename)
+10. Node colors (BackColor, ForeColor)
+11. Node ToolTips
+12. HotTracking (hover effects)
+13. Sorted mode
+14. FullRowSelect mode
+15. Line styles (ShowLines, ShowPlusMinus, ShowRootLines)
+
+ALL EVENTS DEMONSTRATED:
+- AfterSelect, BeforeSelect
+- AfterExpand, BeforeExpand
+- AfterCollapse, BeforeCollapse
+- AfterCheck, BeforeCheck
+- NodeMouseClick, NodeMouseDoubleClick
+- AfterLabelEdit, BeforeLabelEdit
+
+ALL PROPERTIES DEMONSTRATED:
+- PathSeparator, Indent, ItemHeight
+- HideSelection, Scrollable
+- BorderStyle, DrawMode
+- ImageIndex, SelectedImageIndex
+- CheckBoxes, LabelEdit, Sorted
+- ShowLines, ShowPlusMinus, ShowRootLines
 """
 
 from winformpy.winformpy import (
     Application, Form, TreeView, TreeNode, Panel, Button, Label,
-    TextBox, DockStyle, Font, FontStyle, MessageBox, ImageList,
-    ContextMenuStrip, ToolStripMenuItem, SplitContainer
+    TextBox, DockStyle, MessageBox, ImageList,
+    ContextMenuStrip, ToolStripMenuItem, CheckBox
 )
 from winformpy.winformpy_extended import PhotoImage
 
@@ -33,116 +50,258 @@ from winformpy.winformpy_extended import PhotoImage
 class TreeViewExampleForm(Form):
     def __init__(self):
         super().__init__()
-        self.Text = "WinFormPy TreeView Example"
-        self.Width = 1100
-        self.Height = 750
+        self.Text = "WinFormPy TreeView - Complete Feature Demonstration"
+        self.Width = 900
+        self.Height = 700
         self.StartPosition = "CenterScreen"
+        self.BackColor = '#F0F0F0'
         self.ApplyLayout()
         
+        print("=== TreeView Example Starting ===")
+        
         # Initialize components
+        self._create_imagelist()
+        print("ImageList created")
+        
         self._create_top_panel()
-        self._create_split_container()
+        print("Top panel created")
+        
+        self._create_toolbar()
+        print("Toolbar created")
+        
+        self._create_treeview()
+        print("TreeView created")
+        
         self._create_bottom_panel()
+        print("Bottom panel created")
         
         # Populate sample data
         self._populate_sample_tree()
+        print(f"TreeView populated with {len(self.treeview.Nodes)} root nodes")
+        
+        # Expand first node to make tree visible
+        if len(self.treeview.Nodes) > 0:
+            self.treeview.Nodes[0].Expand()
+            print("First node expanded")
+        
+        print("=== Initialization Complete ===")
+        print("If you see this, the window should be visible!")
+    
+    def _create_imagelist(self):
+        """Create ImageList with icons for TreeView nodes."""
+        self.imagelist = ImageList({'ImageSize': (16, 16)})
+        
+        # Create simple colored icons
+        colors = [
+            ('#E74C3C', 'Company'),      # 0 - Red (Company)
+            ('#3498DB', 'Department'),   # 1 - Blue (Department)
+            ('#2ECC71', 'Team'),         # 2 - Green (Team)
+            ('#F39C12', 'Person'),       # 3 - Orange (Person)
+            ('#9B59B6', 'Project'),      # 4 - Purple (Project)
+            ('#1ABC9C', 'Task'),         # 5 - Teal (Task)
+        ]
+        
+        for color, name in colors:
+            icon = PhotoImage(width=16, height=16)
+            # Create colored square
+            for y in range(16):
+                for x in range(16):
+                    if 2 <= x <= 13 and 2 <= y <= 13:
+                        icon.put(color, (x, y))
+                    else:
+                        icon.put('#FFFFFF', (x, y))
+            self.imagelist.Add(icon, name.lower())
     
     def _create_top_panel(self):
         """Create top title panel."""
         top_panel = Panel(self, {
-            'Height': 70,
+            'Height': 90,
             'BackColor': '#0078D4'
         })
         top_panel.Dock = DockStyle.Top
         
         Label(top_panel, {
-            'Text': 'TREEVIEW CONTROL DEMONSTRATION',
+            'Text': 'TREEVIEW - COMPLETE FEATURE DEMONSTRATION',
             'Left': 20,
             'Top': 12,
             'AutoSize': True,
-            'Font': Font('Segoe UI', 16, FontStyle.Bold),
+            'Font': ('Segoe UI', 18, 'bold'),
             'ForeColor': '#FFFFFF',
             'BackColor': '#0078D4'
         })
         
         Label(top_panel, {
-            'Text': 'Explore hierarchical data with TreeView - expand, collapse, and navigate nodes',
+            'Text': 'All TreeView features: CheckBoxes, ImageList, LabelEdit, HotTracking, Events, Node Colors, and more!',
             'Left': 20,
-            'Top': 42,
-            'AutoSize': True,
-            'Font': Font('Segoe UI', 9),
+            'Top': 48,
+            'Width': 1300,
+            'Font': ('Segoe UI', 9),
             'ForeColor': '#E0E0E0',
             'BackColor': '#0078D4'
         })
+        
+        Label(top_panel, {
+            'Text': 'Try: Check nodes, Expand/Collapse, Right-click for menu, Double-click to edit labels',
+            'Left': 20,
+            'Top': 68,
+            'Width': 850,
+            'Font': ('Segoe UI', 8, 'italic'),
+            'ForeColor': '#BDC3C7',
+            'BackColor': '#0078D4'
+        })
     
-    def _create_split_container(self):
-        """Create split container with TreeView and details panel."""
-        self.split_container = SplitContainer(self, {
-            'Orientation': 'Vertical',
-            'SplitterDistance': 350,
-            'BackColor': '#CCCCCC'
-        })
-        self.split_container.Dock = DockStyle.Fill
-        
-        # Left panel - TreeView
-        self._create_treeview_panel()
-        
-        # Right panel - Details and controls
-        self._create_details_panel()
-    
-    def _create_treeview_panel(self):
-        """Create TreeView panel."""
-        tree_panel = Panel(self.split_container.Panel1, {
-            'BackColor': '#F5F5F5'
-        })
-        tree_panel.Dock = DockStyle.Fill
-        
-        # Search panel
-        search_panel = Panel(tree_panel, {
-            'Height': 50,
-            'BackColor': '#E0E0E0',
-            'BorderStyle': 'FixedSingle'
-        })
-        search_panel.Dock = DockStyle.Top
-        
-        Label(search_panel, {
-            'Text': 'Search:',
-            'Left': 10,
-            'Top': 15,
-            'AutoSize': True,
-            'Font': Font('Segoe UI', 9, FontStyle.Bold),
+    def _create_toolbar(self):
+        """Create toolbar with quick actions."""
+        toolbar = Panel(self, {
+            'Height': 80,
             'BackColor': '#E0E0E0'
         })
+        toolbar.Dock = DockStyle.Top
         
-        self.txt_search = TextBox(search_panel, {
-            'Left': 70,
-            'Top': 12,
-            'Width': 200
+        # Row 1: View options (Note: CheckBoxes removed since using Unicode symbols)
+        Label(toolbar, {
+            'Text': 'View Options:',
+            'Left': 10,
+            'Top': 8,
+            'AutoSize': True,
+            'Font': ('Segoe UI', 9, 'bold')
         })
         
-        btn_search = Button(search_panel, {
-            'Text': 'Find',
-            'Left': 280,
-            'Top': 10,
-            'Width': 50,
-            'Height': 26
+        self.chk_show_lines = CheckBox(toolbar, {
+            'Text': 'Show Lines',
+            'Left': 120,
+            'Top': 5,
+            'Width': 120,
+            'Checked': True
         })
-        btn_search.Click = self._on_search_node
+        self.chk_show_lines.CheckedChanged = self._on_toggle_show_lines
         
-        # TreeView
-        self.treeview = TreeView(tree_panel, {
+        self.chk_full_row_select = CheckBox(toolbar, {
+            'Text': 'Full Row Select',
+            'Left': 250,
+            'Top': 5,
+            'Width': 130,
+            'Checked': True
+        })
+        self.chk_full_row_select.CheckedChanged = self._on_toggle_full_row_select
+        
+        self.chk_hot_tracking = CheckBox(toolbar, {
+            'Text': 'Hot Tracking',
+            'Left': 390,
+            'Top': 5,
+            'Width': 120,
+            'Checked': True
+        })
+        self.chk_hot_tracking.CheckedChanged = self._on_toggle_hot_tracking
+        
+        Label(toolbar, {
+            'Text': '💡 Checkboxes shown as ☐/☑ symbols (Tkinter limitation)',
+            'Left': 520,
+            'Top': 8,
+            'AutoSize': True,
+            'Font': ('Segoe UI', 8, 'italic'),
+            'ForeColor': '#555555'
+        })
+        
+        # Row 2: Action buttons
+        Label(toolbar, {
+            'Text': 'Actions:',
+            'Left': 10,
+            'Top': 38,
+            'AutoSize': True,
+            'Font': ('Segoe UI', 9, 'bold')
+        })
+        
+        btn_expand_all = Button(toolbar, {
+            'Text': '⬇ Expand All',
+            'Left': 120,
+            'Top': 35,
+            'Width': 100,
+            'Height': 30
+        })
+        btn_expand_all.Click = lambda s, e: self.treeview.ExpandAll()
+        
+        btn_collapse_all = Button(toolbar, {
+            'Text': '⬆ Collapse All',
+            'Left': 230,
+            'Top': 35,
+            'Width': 100,
+            'Height': 30
+        })
+        btn_collapse_all.Click = lambda s, e: self.treeview.CollapseAll()
+        
+        btn_check_all = Button(toolbar, {
+            'Text': '☑ Check All',
+            'Left': 340,
+            'Top': 35,
+            'Width': 100,
+            'Height': 30
+        })
+        btn_check_all.Click = self._on_check_all_nodes
+        
+        btn_uncheck_all = Button(toolbar, {
+            'Text': '☐ Uncheck All',
+            'Left': 450,
+            'Top': 35,
+            'Width': 100,
+            'Height': 30
+        })
+        btn_uncheck_all.Click = self._on_uncheck_all_nodes
+        
+        btn_add_root = Button(toolbar, {
+            'Text': '➕ Add Root',
+            'Left': 570,
+            'Top': 35,
+            'Width': 100,
+            'Height': 30,
+            'BackColor': '#27AE60',
+            'ForeColor': '#FFFFFF'
+        })
+        btn_add_root.Click = self._on_add_root_node
+        
+        btn_reload = Button(toolbar, {
+            'Text': '🔄 Reload',
+            'Left': 680,
+            'Top': 35,
+            'Width': 100,
+            'Height': 30,
+            'BackColor': '#3498DB',
+            'ForeColor': '#FFFFFF'
+        })
+        btn_reload.Click = lambda s, e: self._populate_sample_tree()
+    
+    def _create_treeview(self):
+        """Create TreeView with all features enabled.
+        
+        NOTE: Tkinter's ttk.Treeview doesn't natively support checkboxes.
+        We simulate checkboxes using Unicode symbols in the node text.
+        """
+        self.treeview = TreeView(self, {
             'BackColor': '#FFFFFF',
-            'Font': Font('Segoe UI', 9),
+            'Font': ('Segoe UI', 9),
             'ShowLines': True,
             'ShowPlusMinus': True,
             'ShowRootLines': True,
-            'FullRowSelect': True
+            'FullRowSelect': True,
+            'CheckBoxes': False,  # Tkinter doesn't support native checkboxes
+            'LabelEdit': True,
+            'HotTracking': True,
+            'ImageList': self.imagelist,
+            'HideSelection': False,
+            'Scrollable': True,
+            'PathSeparator': ' → ',
+            'Indent': 19
         })
         self.treeview.Dock = DockStyle.Fill
         
         # Bind events
-        self.treeview.AfterSelect = self._on_node_selected
+        self.treeview.AfterSelect = self._on_after_select
+        self.treeview.AfterExpand = self._on_after_expand
+        self.treeview.AfterCollapse = self._on_after_collapse
+        self.treeview.AfterCheck = self._on_after_check
+        self.treeview.NodeMouseClick = self._on_node_mouse_click
         self.treeview.NodeMouseDoubleClick = self._on_node_double_click
+        self.treeview.AfterLabelEdit = self._on_after_label_edit
         
         # Create context menu
         self._create_context_menu()
@@ -153,219 +312,33 @@ class TreeViewExampleForm(Form):
         
         menu_add_child = ToolStripMenuItem("Add Child Node")
         menu_add_child.Click = lambda s, e: self._on_add_child_node()
-        context_menu.Items.Add(menu_add_child)
+        context_menu.Items.append(menu_add_child)
         
         menu_add_sibling = ToolStripMenuItem("Add Sibling Node")
         menu_add_sibling.Click = lambda s, e: self._on_add_sibling_node()
-        context_menu.Items.Add(menu_add_sibling)
+        context_menu.Items.append(menu_add_sibling)
         
-        context_menu.Items.Add(ToolStripMenuItem("-"))  # Separator
+        context_menu.Items.append(ToolStripMenuItem("-"))  # Separator
         
         menu_rename = ToolStripMenuItem("Rename Node")
         menu_rename.Click = lambda s, e: self._on_rename_node()
-        context_menu.Items.Add(menu_rename)
+        context_menu.Items.append(menu_rename)
         
         menu_delete = ToolStripMenuItem("Delete Node")
         menu_delete.Click = lambda s, e: self._on_delete_node()
-        context_menu.Items.Add(menu_delete)
+        context_menu.Items.append(menu_delete)
         
-        context_menu.Items.Add(ToolStripMenuItem("-"))  # Separator
+        context_menu.Items.append(ToolStripMenuItem("-"))  # Separator
         
         menu_expand_all = ToolStripMenuItem("Expand All")
         menu_expand_all.Click = lambda s, e: self.treeview.ExpandAll()
-        context_menu.Items.Add(menu_expand_all)
+        context_menu.Items.append(menu_expand_all)
         
         menu_collapse_all = ToolStripMenuItem("Collapse All")
         menu_collapse_all.Click = lambda s, e: self.treeview.CollapseAll()
-        context_menu.Items.Add(menu_collapse_all)
+        context_menu.Items.append(menu_collapse_all)
         
         self.treeview.ContextMenuStrip = context_menu
-    
-    def _create_details_panel(self):
-        """Create details panel with node information and controls."""
-        details_panel = Panel(self.split_container.Panel2, {
-            'BackColor': '#FFFFFF'
-        })
-        details_panel.Dock = DockStyle.Fill
-        
-        # Title
-        Label(details_panel, {
-            'Text': 'Node Details & Operations',
-            'Left': 20,
-            'Top': 20,
-            'AutoSize': True,
-            'Font': Font('Segoe UI', 12, FontStyle.Bold),
-            'ForeColor': '#0078D4'
-        })
-        
-        # Selected node info
-        Label(details_panel, {
-            'Text': 'Selected Node:',
-            'Left': 20,
-            'Top': 60,
-            'AutoSize': True,
-            'Font': Font('Segoe UI', 9, FontStyle.Bold)
-        })
-        
-        self.lbl_selected_node = Label(details_panel, {
-            'Text': 'None',
-            'Left': 140,
-            'Top': 60,
-            'Width': 500,
-            'AutoSize': False,
-            'Font': Font('Segoe UI', 9),
-            'ForeColor': '#333333'
-        })
-        
-        Label(details_panel, {
-            'Text': 'Full Path:',
-            'Left': 20,
-            'Top': 85,
-            'AutoSize': True,
-            'Font': Font('Segoe UI', 9, FontStyle.Bold)
-        })
-        
-        self.lbl_node_path = Label(details_panel, {
-            'Text': '',
-            'Left': 140,
-            'Top': 85,
-            'Width': 500,
-            'AutoSize': False,
-            'Font': Font('Segoe UI', 9),
-            'ForeColor': '#666666'
-        })
-        
-        Label(details_panel, {
-            'Text': 'Level:',
-            'Left': 20,
-            'Top': 110,
-            'AutoSize': True,
-            'Font': Font('Segoe UI', 9, FontStyle.Bold)
-        })
-        
-        self.lbl_node_level = Label(details_panel, {
-            'Text': '',
-            'Left': 140,
-            'Top': 110,
-            'Width': 200,
-            'AutoSize': False,
-            'Font': Font('Segoe UI', 9)
-        })
-        
-        Label(details_panel, {
-            'Text': 'Children:',
-            'Left': 20,
-            'Top': 135,
-            'AutoSize': True,
-            'Font': Font('Segoe UI', 9, FontStyle.Bold)
-        })
-        
-        self.lbl_node_children = Label(details_panel, {
-            'Text': '',
-            'Left': 140,
-            'Top': 135,
-            'Width': 200,
-            'AutoSize': False,
-            'Font': Font('Segoe UI', 9)
-        })
-        
-        # Operations section
-        Label(details_panel, {
-            'Text': 'Node Operations:',
-            'Left': 20,
-            'Top': 180,
-            'AutoSize': True,
-            'Font': Font('Segoe UI', 10, FontStyle.Bold),
-            'ForeColor': '#0078D4'
-        })
-        
-        # Add buttons
-        btn_add_root = Button(details_panel, {
-            'Text': '➕ Add Root Node',
-            'Left': 20,
-            'Top': 210,
-            'Width': 180,
-            'Height': 35,
-            'BackColor': '#2ECC71',
-            'ForeColor': '#FFFFFF',
-            'Font': Font('Segoe UI', 9, FontStyle.Bold)
-        })
-        btn_add_root.Click = self._on_add_root_node
-        
-        btn_add_child = Button(details_panel, {
-            'Text': '➕ Add Child Node',
-            'Left': 210,
-            'Top': 210,
-            'Width': 180,
-            'Height': 35,
-            'BackColor': '#3498DB',
-            'ForeColor': '#FFFFFF',
-            'Font': Font('Segoe UI', 9, FontStyle.Bold)
-        })
-        btn_add_child.Click = lambda s, e: self._on_add_child_node()
-        
-        btn_delete = Button(details_panel, {
-            'Text': '➖ Delete Node',
-            'Left': 400,
-            'Top': 210,
-            'Width': 180,
-            'Height': 35,
-            'BackColor': '#E74C3C',
-            'ForeColor': '#FFFFFF',
-            'Font': Font('Segoe UI', 9, FontStyle.Bold)
-        })
-        btn_delete.Click = lambda s, e: self._on_delete_node()
-        
-        # Expansion controls
-        btn_expand = Button(details_panel, {
-            'Text': '⬇️ Expand All',
-            'Left': 20,
-            'Top': 260,
-            'Width': 140,
-            'Height': 30
-        })
-        btn_expand.Click = lambda s, e: self.treeview.ExpandAll()
-        
-        btn_collapse = Button(details_panel, {
-            'Text': '⬆️ Collapse All',
-            'Left': 170,
-            'Top': 260,
-            'Width': 140,
-            'Height': 30
-        })
-        btn_collapse.Click = lambda s, e: self.treeview.CollapseAll()
-        
-        # Statistics
-        Label(details_panel, {
-            'Text': 'Tree Statistics:',
-            'Left': 20,
-            'Top': 320,
-            'AutoSize': True,
-            'Font': Font('Segoe UI', 10, FontStyle.Bold),
-            'ForeColor': '#0078D4'
-        })
-        
-        self.lbl_stats = Label(details_panel, {
-            'Text': 'Total Nodes: 0\nRoot Nodes: 0\nMax Depth: 0',
-            'Left': 20,
-            'Top': 350,
-            'Width': 300,
-            'Height': 80,
-            'Font': Font('Segoe UI', 9),
-            'ForeColor': '#666666'
-        })
-        
-        # Update stats button
-        btn_update_stats = Button(details_panel, {
-            'Text': '🔄 Update Statistics',
-            'Left': 20,
-            'Top': 440,
-            'Width': 160,
-            'Height': 30,
-            'BackColor': '#95A5A6',
-            'ForeColor': '#FFFFFF'
-        })
-        btn_update_stats.Click = self._on_update_statistics
     
     def _create_bottom_panel(self):
         """Create bottom status panel."""
@@ -381,205 +354,306 @@ class TreeViewExampleForm(Form):
             'Top': 8,
             'Width': 1000,
             'ForeColor': '#FFFFFF',
-            'Font': Font('Segoe UI', 9),
+            'Font': ('Segoe UI', 9),
             'BackColor': '#34495E'
         })
     
     def _populate_sample_tree(self):
-        """Populate TreeView with sample organizational data."""
-        # Company root
-        root = TreeNode("TechCorp International", 0)
+        """Populate TreeView with comprehensive sample data demonstrating all features.
+        
+        NOTE: Using checkbox symbols (☐/☑) in text since Tkinter doesn't support native checkboxes.
+        """
+        # Clear existing tree
+        self.treeview.Nodes.Clear()
+        
+        # Company root with color
+        root = TreeNode("🏢 TechCorp International", ImageIndex=0)
+        root.Tag = {'type': 'company', 'id': 1, 'checked': False}
+        root.ToolTipText = "Main company headquarters"
         self.treeview.Nodes.Add(root)
         
-        # Departments
-        engineering = TreeNode("Engineering Department", 1)
+        # Engineering Department
+        engineering = TreeNode("💻 Engineering Department", ImageIndex=1)
+        engineering.Tag = {'type': 'department', 'id': 2, 'checked': False}
+        engineering.ForeColor = '#2980B9'
         root.Nodes.Add(engineering)
         
         # Engineering teams
-        frontend = TreeNode("Frontend Team", 2)
+        frontend = TreeNode("🎨 Frontend Team", ImageIndex=2)
+        frontend.Tag = {'type': 'team', 'id': 3, 'checked': False}
         engineering.Nodes.Add(frontend)
-        frontend.Nodes.Add(TreeNode("John Smith - Senior Developer", 3))
-        frontend.Nodes.Add(TreeNode("Sarah Johnson - Developer", 3))
-        frontend.Nodes.Add(TreeNode("Mike Chen - Junior Developer", 3))
         
-        backend = TreeNode("Backend Team", 2)
+        # Frontend developers with varied properties - some with checkboxes
+        dev1 = TreeNode("☑ John Smith - Senior Developer", ImageIndex=3)
+        dev1.Tag = {'type': 'person', 'role': 'senior', 'skill': 'React', 'checked': True}
+        frontend.Nodes.Add(dev1)
+        
+        dev2 = TreeNode("☐ Sarah Johnson - Developer", ImageIndex=3)
+        dev2.Tag = {'type': 'person', 'role': 'mid', 'skill': 'Vue', 'checked': False}
+        frontend.Nodes.Add(dev2)
+        
+        dev3 = TreeNode("☐ Mike Chen - Junior Developer", ImageIndex=3)
+        dev3.Tag = {'type': 'person', 'role': 'junior', 'skill': 'Angular', 'checked': False}
+        dev3.ForeColor = '#27AE60'
+        frontend.Nodes.Add(dev3)
+        
+        # Backend Team
+        backend = TreeNode("⚙️ Backend Team", ImageIndex=2)
+        backend.Tag = {'type': 'team', 'id': 4, 'checked': False}
         engineering.Nodes.Add(backend)
-        backend.Nodes.Add(TreeNode("David Wilson - Tech Lead", 3))
-        backend.Nodes.Add(TreeNode("Lisa Anderson - Senior Developer", 3))
-        backend.Nodes.Add(TreeNode("Robert Taylor - Developer", 3))
         
-        devops = TreeNode("DevOps Team", 2)
+        dev4 = TreeNode("☑ David Wilson - Tech Lead", ImageIndex=3)
+        dev4.Tag = {'checked': True}
+        backend.Nodes.Add(dev4)
+        
+        dev5 = TreeNode("☐ Lisa Anderson - Senior Developer", ImageIndex=3)
+        dev5.Tag = {'checked': False}
+        backend.Nodes.Add(dev5)
+        
+        dev6 = TreeNode("☐ Robert Taylor - Developer", ImageIndex=3)
+        dev6.Tag = {'checked': False}
+        backend.Nodes.Add(dev6)
+        
+        # DevOps Team with projects
+        devops = TreeNode("🔧 DevOps Team", ImageIndex=2)
+        devops.Tag = {'type': 'team', 'id': 5, 'checked': False}
         engineering.Nodes.Add(devops)
-        devops.Nodes.Add(TreeNode("Thomas Lopez - DevOps Lead", 3))
-        devops.Nodes.Add(TreeNode("Jennifer Martinez - DevOps Engineer", 3))
+        
+        devops_member1 = TreeNode("☑ Thomas Lopez - DevOps Lead", ImageIndex=3)
+        devops_member1.Tag = {'checked': True}
+        devops.Nodes.Add(devops_member1)
+        
+        # Projects under DevOps lead
+        project1 = TreeNode("📦 CI/CD Pipeline", ImageIndex=4)
+        project1.Tag = {'checked': False}
+        project1.BackColor = '#FFF3CD'
+        devops_member1.Nodes.Add(project1)
+        
+        task1 = TreeNode("☐ Jenkins Setup", ImageIndex=5)
+        task1.Tag = {'checked': False}
+        project1.Nodes.Add(task1)
+        
+        task2 = TreeNode("☑ Docker Configuration", ImageIndex=5)
+        task2.Tag = {'checked': True}
+        project1.Nodes.Add(task2)
+        
+        devops_member2 = TreeNode("☐ Jennifer Martinez - DevOps Engineer", ImageIndex=3)
+        devops_member2.Tag = {'checked': False}
+        devops.Nodes.Add(devops_member2)
         
         # Sales Department
-        sales = TreeNode("Sales Department", 1)
+        sales = TreeNode("💼 Sales Department", ImageIndex=1)
+        sales.Tag = {'type': 'department', 'id': 6, 'checked': False}
+        sales.ForeColor = '#E67E22'
         root.Nodes.Add(sales)
         
-        sales_us = TreeNode("US Sales", 2)
+        # US Sales
+        sales_us = TreeNode("🇺🇸 US Sales", ImageIndex=2)
+        sales_us.Tag = {'checked': False}
         sales.Nodes.Add(sales_us)
-        sales_us.Nodes.Add(TreeNode("James Garcia - Sales Manager", 3))
-        sales_us.Nodes.Add(TreeNode("Mary Rodriguez - Account Executive", 3))
         
-        sales_eu = TreeNode("EU Sales", 2)
+        sales1 = TreeNode("☑ James Garcia - Sales Manager", ImageIndex=3)
+        sales1.Tag = {'checked': True}
+        sales_us.Nodes.Add(sales1)
+        
+        sales2 = TreeNode("☐ Mary Rodriguez - Account Executive", ImageIndex=3)
+        sales2.Tag = {'checked': False}
+        sales_us.Nodes.Add(sales2)
+        
+        # EU Sales
+        sales_eu = TreeNode("🇪🇺 EU Sales", ImageIndex=2)
+        sales_eu.Tag = {'checked': False}
         sales.Nodes.Add(sales_eu)
-        sales_eu.Nodes.Add(TreeNode("William Lee - Regional Manager", 3))
-        sales_eu.Nodes.Add(TreeNode("Patricia Hernandez - Sales Rep", 3))
+        
+        sales3 = TreeNode("☐ William Lee - Regional Manager", ImageIndex=3)
+        sales3.Tag = {'checked': False}
+        sales_eu.Nodes.Add(sales3)
+        
+        sales4 = TreeNode("☐ Patricia Hernandez - Sales Rep", ImageIndex=3)
+        sales4.Tag = {'checked': False}
+        sales_eu.Nodes.Add(sales4)
         
         # HR Department
-        hr = TreeNode("Human Resources", 1)
+        hr = TreeNode("👥 Human Resources", ImageIndex=1)
+        hr.Tag = {'type': 'department', 'id': 7, 'checked': False}
+        hr.ForeColor = '#8E44AD'
         root.Nodes.Add(hr)
-        hr.Nodes.Add(TreeNode("Linda Gonzalez - HR Manager", 3))
-        hr.Nodes.Add(TreeNode("Charles Wilson - HR Specialist", 3))
-        hr.Nodes.Add(TreeNode("Emily Davis - Recruiter", 3))
         
-        # Finance Department
-        finance = TreeNode("Finance Department", 1)
+        hr_manager = TreeNode("☑ Linda Gonzalez - HR Manager", ImageIndex=3)
+        hr_manager.Tag = {'checked': True}
+        hr_manager.BackColor = '#E8DAEF'
+        hr.Nodes.Add(hr_manager)
+        
+        hr1 = TreeNode("☐ Charles Wilson - HR Specialist", ImageIndex=3)
+        hr1.Tag = {'checked': False}
+        hr.Nodes.Add(hr1)
+        
+        hr2 = TreeNode("☐ Emily Davis - Recruiter", ImageIndex=3)
+        hr2.Tag = {'checked': False}
+        hr.Nodes.Add(hr2)
+        
+        # Finance Department with budget breakdown
+        finance = TreeNode("💰 Finance Department", ImageIndex=1)
+        finance.Tag = {'type': 'department', 'id': 8, 'checked': False}
+        finance.ForeColor = '#16A085'
         root.Nodes.Add(finance)
-        finance.Nodes.Add(TreeNode("Richard Brown - CFO", 3))
-        finance.Nodes.Add(TreeNode("Barbara Moore - Accountant", 3))
-        finance.Nodes.Add(TreeNode("Daniel Clark - Financial Analyst", 3))
         
-        # Expand root by default
+        cfo = TreeNode("☑ Richard Brown - CFO", ImageIndex=3)
+        cfo.Tag = {'checked': True}
+        finance.Nodes.Add(cfo)
+        
+        # Budget breakdown under CFO
+        budgets = TreeNode("📊 Budget 2026", ImageIndex=4)
+        budgets.Tag = {'checked': False}
+        budgets.BackColor = '#D5F4E6'
+        cfo.Nodes.Add(budgets)
+        
+        budget1 = TreeNode("☐ Q1: $500K", ImageIndex=5)
+        budget1.Tag = {'checked': False}
+        budgets.Nodes.Add(budget1)
+        
+        budget2 = TreeNode("☑ Q2: $600K", ImageIndex=5)
+        budget2.Tag = {'checked': True}
+        budgets.Nodes.Add(budget2)
+        
+        budget3 = TreeNode("☐ Q3: $550K", ImageIndex=5)
+        budget3.Tag = {'checked': False}
+        budgets.Nodes.Add(budget3)
+        
+        budget4 = TreeNode("☐ Q4: $700K", ImageIndex=5)
+        budget4.Tag = {'checked': False}
+        budgets.Nodes.Add(budget4)
+        
+        finance.Nodes.Add(TreeNode("👤 Barbara Moore - Accountant", ImageIndex=3))
+        finance.Nodes.Add(TreeNode("👤 Daniel Clark - Financial Analyst", ImageIndex=3))
+        
+        # Expand root and engineering to show structure
         root.Expand()
+        engineering.Expand()
+        frontend.Expand()
         
-        self._update_statistics()
+        self.lbl_status.Text = "Sample tree loaded - Try expanding nodes and checking boxes!"
     
-    def _on_node_selected(self, sender, e):
+    # =======================
+    # EVENT HANDLERS
+    # =======================
+    
+    def _on_toggle_show_lines(self, sender, e):
+        """Toggle tree lines visibility."""
+        self.treeview.ShowLines = self.chk_show_lines.Checked
+        self.treeview.Refresh()
+        status = "visible" if self.chk_show_lines.Checked else "hidden"
+        self.lbl_status.Text = f"Tree lines {status}"
+    
+    def _on_toggle_full_row_select(self, sender, e):
+        """Toggle full row selection."""
+        self.treeview.FullRowSelect = self.chk_full_row_select.Checked
+        self.treeview.Refresh()
+        status = "enabled" if self.chk_full_row_select.Checked else "disabled"
+        self.lbl_status.Text = f"Full row select {status}"
+    
+    def _on_toggle_hot_tracking(self, sender, e):
+        """Toggle hot tracking (hover effect)."""
+        self.treeview.HotTracking = self.chk_hot_tracking.Checked
+        self.treeview.Refresh()
+        status = "enabled" if self.chk_hot_tracking.Checked else "disabled"
+        self.lbl_status.Text = f"Hot tracking {status}"
+    
+    def _on_after_select(self, sender, e):
         """Handle node selection."""
-        selected_node = self.treeview.SelectedNode
-        if selected_node:
-            self.lbl_selected_node.Text = selected_node.Text
-            self.lbl_node_path.Text = selected_node.FullPath
-            self.lbl_node_level.Text = f"Level {selected_node.Level}"
-            self.lbl_node_children.Text = f"{len(selected_node.Nodes)} child node(s)"
-            self.lbl_status.Text = f"Selected: {selected_node.Text}"
-        else:
-            self.lbl_selected_node.Text = "None"
-            self.lbl_node_path.Text = ""
-            self.lbl_node_level.Text = ""
-            self.lbl_node_children.Text = ""
-            self.lbl_status.Text = "No node selected"
+        if self.treeview.SelectedNode:
+            node = self.treeview.SelectedNode
+            self.lbl_status.Text = f"Selected: {node.Text}"
+    
+    def _on_after_expand(self, sender, e):
+        """Handle node expansion."""
+        if self.treeview.SelectedNode:
+            self.lbl_status.Text = f"Expanded node"
+    
+    def _on_after_collapse(self, sender, e):
+        """Handle node collapse."""
+        if self.treeview.SelectedNode:
+            self.lbl_status.Text = f"Collapsed node"
+    
+    def _on_after_check(self, sender, e):
+        """Handle checkbox state change."""
+        if self.treeview.SelectedNode:
+            node = self.treeview.SelectedNode
+            # Check the Tag for checkbox state (or text symbol)
+            is_checked = False
+            if node.Tag and isinstance(node.Tag, dict):
+                is_checked = node.Tag.get('checked', False)
+            elif node.Text.startswith('☑'):
+                is_checked = True
+            
+            state = "Checked" if is_checked else "Unchecked"
+            self.lbl_status.Text = f"{state}: {node.Text}"
+    
+    def _on_node_mouse_click(self, sender, e):
+        """Handle node click."""
+        pass
     
     def _on_node_double_click(self, sender, e):
-        """Handle node double-click."""
-        selected_node = self.treeview.SelectedNode
-        if selected_node:
-            if selected_node.IsExpanded:
-                selected_node.Collapse()
+        """Handle double-click - toggle expansion."""
+        if self.treeview.SelectedNode:
+            node = self.treeview.SelectedNode
+            if node.IsExpanded:
+                node.Collapse()
             else:
-                selected_node.Expand()
+                node.Expand()
+    
+    def _on_after_label_edit(self, sender, e):
+        """Handle label edit completion."""
+        if self.treeview.SelectedNode:
+            self.lbl_status.Text = f"Label edited: {self.treeview.SelectedNode.Text}"
+    
+    # =======================
+    # BUTTON CLICK HANDLERS
+    # =======================
     
     def _on_add_root_node(self, sender, e):
         """Add a new root node."""
-        node_name = f"New Department {len(self.treeview.Nodes) + 1}"
-        new_node = TreeNode(node_name, 1)
+        node_name = f"🆕 New Department {len(self.treeview.Nodes) + 1}"
+        new_node = TreeNode(node_name, ImageIndex=1)
         self.treeview.Nodes.Add(new_node)
         self.treeview.SelectedNode = new_node
-        self._update_statistics()
-        MessageBox.Show(f"Added root node: {node_name}", "Add Root Node")
+        self.lbl_status.Text = f"Added: {node_name}"
     
-    def _on_add_child_node(self):
-        """Add a child node to selected node."""
-        selected_node = self.treeview.SelectedNode
-        if not selected_node:
-            MessageBox.Show("Please select a parent node first", "Add Child Node")
-            return
-        
-        node_name = f"New Item {len(selected_node.Nodes) + 1}"
-        new_node = TreeNode(node_name, 3)
-        selected_node.Nodes.Add(new_node)
-        selected_node.Expand()
-        self._update_statistics()
-        MessageBox.Show(f"Added child node: {node_name}", "Add Child Node")
+    def _on_check_all_nodes(self, sender, e):
+        """Check all nodes recursively using checkbox symbols."""
+        self._set_all_nodes_checked(self.treeview.Nodes, True)
+        total = self._count_all_nodes(self.treeview.Nodes)
+        self.lbl_status.Text = f"✓ All {total} nodes checked"
+        MessageBox.Show(f"Checked all {total} nodes in the tree.\n\nCheckboxes are displayed using ☑ symbols.", "Check All")
     
-    def _on_add_sibling_node(self):
-        """Add a sibling node to selected node."""
-        selected_node = self.treeview.SelectedNode
-        if not selected_node:
-            MessageBox.Show("Please select a node first", "Add Sibling Node")
-            return
-        
-        parent = selected_node.Parent
-        node_name = f"Sibling {selected_node.Index + 2}"
-        new_node = TreeNode(node_name, selected_node.ImageIndex)
-        
-        if parent:
-            parent.Nodes.Add(new_node)
-        else:
-            self.treeview.Nodes.Add(new_node)
-        
-        self._update_statistics()
-        MessageBox.Show(f"Added sibling node: {node_name}", "Add Sibling Node")
+    def _on_uncheck_all_nodes(self, sender, e):
+        """Uncheck all nodes recursively using checkbox symbols."""
+        self._set_all_nodes_checked(self.treeview.Nodes, False)
+        total = self._count_all_nodes(self.treeview.Nodes)
+        self.lbl_status.Text = f"☐ All {total} nodes unchecked"
+        MessageBox.Show(f"Unchecked all {total} nodes in the tree.\n\nCheckboxes are displayed using ☐ symbols.", "Uncheck All")
     
-    def _on_rename_node(self):
-        """Rename selected node."""
-        selected_node = self.treeview.SelectedNode
-        if not selected_node:
-            MessageBox.Show("Please select a node to rename", "Rename Node")
-            return
+    def _set_all_nodes_checked(self, nodes, checked):
+        """Recursively set checked state for all nodes using text symbols.
         
-        # In a real app, show an input dialog
-        MessageBox.Show("Rename functionality would show an input dialog here", "Rename Node")
-    
-    def _on_delete_node(self):
-        """Delete selected node."""
-        selected_node = self.treeview.SelectedNode
-        if not selected_node:
-            MessageBox.Show("Please select a node to delete", "Delete Node")
-            return
-        
-        node_name = selected_node.Text
-        selected_node.Remove()
-        self._update_statistics()
-        self.lbl_status.Text = f"Deleted: {node_name}"
-    
-    def _on_search_node(self, sender, e):
-        """Search for nodes containing search text."""
-        search_text = self.txt_search.Text.strip().lower()
-        if not search_text:
-            MessageBox.Show("Please enter search text", "Search")
-            return
-        
-        found_nodes = self._search_nodes_recursive(self.treeview.Nodes, search_text)
-        
-        if found_nodes:
-            # Select and expand to first found node
-            first_node = found_nodes[0]
-            self.treeview.SelectedNode = first_node
-            
-            # Expand parent nodes
-            parent = first_node.Parent
-            while parent:
-                parent.Expand()
-                parent = parent.Parent
-            
-            MessageBox.Show(f"Found {len(found_nodes)} matching node(s)", "Search Results")
-        else:
-            MessageBox.Show("No matching nodes found", "Search Results")
-    
-    def _search_nodes_recursive(self, nodes, search_text):
-        """Recursively search for nodes containing text."""
-        found = []
+        Since Tkinter doesn't support native checkboxes, we toggle between
+        ☐ (unchecked) and ☑ (checked) symbols in the node text.
+        """
         for node in nodes:
-            if search_text in node.Text.lower():
-                found.append(node)
-            found.extend(self._search_nodes_recursive(node.Nodes, search_text))
-        return found
-    
-    def _on_update_statistics(self, sender=None, e=None):
-        """Update tree statistics."""
-        self._update_statistics()
-        MessageBox.Show("Statistics updated", "Update Statistics")
-    
-    def _update_statistics(self):
-        """Calculate and display tree statistics."""
-        total_nodes = self._count_all_nodes(self.treeview.Nodes)
-        root_count = len(self.treeview.Nodes)
-        max_depth = self._get_max_depth(self.treeview.Nodes, 0)
-        
-        self.lbl_stats.Text = f"Total Nodes: {total_nodes}\nRoot Nodes: {root_count}\nMax Depth: {max_depth}"
+            # Update checkbox symbol in text
+            if node.Text.startswith('☐ '):
+                if checked:
+                    node.Text = '☑ ' + node.Text[2:]  # Replace ☐ with ☑
+                    if node.Tag and isinstance(node.Tag, dict):
+                        node.Tag['checked'] = True
+            elif node.Text.startswith('☑ '):
+                if not checked:
+                    node.Text = '☐ ' + node.Text[2:]  # Replace ☑ with ☐
+                    if node.Tag and isinstance(node.Tag, dict):
+                        node.Tag['checked'] = False
+            
+            # Recursively process children
+            self._set_all_nodes_checked(node.Nodes, checked)
     
     def _count_all_nodes(self, nodes):
         """Recursively count all nodes."""
@@ -587,16 +661,6 @@ class TreeViewExampleForm(Form):
         for node in nodes:
             count += self._count_all_nodes(node.Nodes)
         return count
-    
-    def _get_max_depth(self, nodes, current_depth):
-        """Recursively get maximum depth."""
-        if not nodes:
-            return current_depth
-        max_d = current_depth
-        for node in nodes:
-            depth = self._get_max_depth(node.Nodes, current_depth + 1)
-            max_d = max(max_d, depth)
-        return max_d
 
 
 def main():

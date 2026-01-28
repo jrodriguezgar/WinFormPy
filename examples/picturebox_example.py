@@ -8,14 +8,28 @@ This example demonstrates PictureBox control functionality:
 - Creating images programmatically
 - Click events on images
 - Image borders and styling
+
+DEPENDENCIES:
+• winformpy (required)
+• PIL/Pillow (optional but recommended) - Install with: pip install Pillow
+
+LAZY IMPORT PATTERN:
+PIL is only imported when actually needed for image creation/manipulation.
+The example will run without PIL but with limited functionality.
 """
 
 from winformpy import (
     Application, Form, Label, Button, PictureBox, Panel, ComboBox,
-    OpenFileDialog, MessageBox, DockStyle, Font, FontStyle
+    OpenFileDialog, MessageBox, DockStyle, Font, FontStyle, PictureBoxSizeMode
 )
-from PIL import Image, ImageDraw, ImageFont
 import os
+
+# Check PIL availability without importing (lazy import pattern)
+try:
+    import importlib.util
+    PIL_AVAILABLE = importlib.util.find_spec('PIL') is not None
+except (ImportError, AttributeError):
+    PIL_AVAILABLE = False
 
 
 class PictureBoxForm(Form):
@@ -29,6 +43,10 @@ class PictureBoxForm(Form):
         # Current image path
         self.current_image_path = None
         self.current_image = None
+        
+        # Store original PictureBox size for restoring after AutoSize
+        self.original_pic_width = 800
+        self.original_pic_height = 500
         
         # Apply layout before adding controls
         self.ApplyLayout()
@@ -53,6 +71,7 @@ class PictureBoxForm(Form):
             'Text': 'PictureBox Control Examples',
             'Font': Font('Segoe UI', 16, FontStyle.Bold),
             'ForeColor': 'white',
+            'BackColor': '#2c3e50',
             'Left': 20,
             'Top': 15,
             'AutoSize': True
@@ -65,87 +84,37 @@ class PictureBoxForm(Form):
             'BackColor': '#ecf0f1'
         })
         
-        # Different SizeMode examples
-        y = 20
-        size_modes = [
-            ('Normal', 'Normal'),
-            ('StretchImage', 'StretchImage'),
-            ('AutoSize', 'AutoSize'),
-            ('CenterImage', 'CenterImage'),
-            ('Zoom', 'Zoom')
-        ]
-        
-        x = 20
-        for mode_name, mode_value in size_modes:
-            # Label
-            Label(content, {
-                'Text': mode_name,
-                'Font': Font('Segoe UI', 10, FontStyle.Bold),
-                'Left': x,
-                'Top': y,
-                'Width': 200,
-                'TextAlign': 'MiddleCenter'
-            })
-            
-            # PictureBox
-            picbox = PictureBox(content, {
-                'Left': x,
-                'Top': y + 30,
-                'Width': 200,
-                'Height': 200,
-                'BorderStyle': 'FixedSingle',
-                'BackColor': 'white',
-                'SizeMode': mode_value
-            })
-            picbox.Click = lambda s, e, m=mode_name: self._on_picturebox_click(m)
-            
-            # Store reference based on mode
-            if mode_name == 'Normal':
-                self.pic_normal = picbox
-            elif mode_name == 'StretchImage':
-                self.pic_stretch = picbox
-            elif mode_name == 'AutoSize':
-                self.pic_autosize = picbox
-            elif mode_name == 'CenterImage':
-                self.pic_center = picbox
-            elif mode_name == 'Zoom':
-                self.pic_zoom = picbox
-            
-            x += 220
-            
-            # Move to second row after 3 items
-            if mode_name == 'AutoSize':
-                x = 20
-                y = 260
-        
-        # Main large PictureBox
+        # Title
         Label(content, {
-            'Text': 'Main Image Viewer',
+            'Text': 'Image Viewer - Change SizeMode to see different display options',
             'Font': Font('Segoe UI', 11, FontStyle.Bold),
             'Left': 20,
-            'Top': 500,
-            'AutoSize': True
+            'Top': 20,
+            'Width': 800,
+            'AutoSize': False
         })
         
+        # Main large PictureBox
         self.pic_main = PictureBox(content, {
             'Left': 20,
-            'Top': 530,
-            'Width': 640,
-            'Height': 140,
+            'Top': 60,
+            'Width': 800,
+            'Height': 500,
             'BorderStyle': 'Fixed3D',
-            'BackColor': '#f8f9fa',
-            'SizeMode': 'Zoom'
+            'BackColor': '#ffffff',
+            'SizeMode': PictureBoxSizeMode.Normal
         })
         
         # Image info
         self.lbl_image_info = Label(content, {
-            'Text': 'No image loaded',
-            'Left': 680,
-            'Top': 530,
-            'Width': 280,
-            'Height': 140,
+            'Text': 'No image loaded\nSizeMode: Normal',
+            'Left': 20,
+            'Top': 580,
+            'Width': 800,
+            'Height': 100,
             'BorderStyle': 'FixedSingle',
             'BackColor': 'white',
+            'Font': Font('Segoe UI', 9),
             'Padding': (10, 10, 10, 10)
         })
     
@@ -162,6 +131,7 @@ class PictureBoxForm(Form):
             'Text': 'Image Controls',
             'Font': Font('Segoe UI', 11, FontStyle.Bold),
             'ForeColor': 'white',
+            'BackColor': '#34495e',
             'Left': 20,
             'Top': 20,
             'AutoSize': True
@@ -191,6 +161,7 @@ class PictureBoxForm(Form):
         Label(panel, {
             'Text': 'Rotation:',
             'ForeColor': 'white',
+            'BackColor': '#34495e',
             'Left': 20,
             'Top': 160,
             'AutoSize': True
@@ -218,6 +189,7 @@ class PictureBoxForm(Form):
         Label(panel, {
             'Text': 'Flip:',
             'ForeColor': 'white',
+            'BackColor': '#34495e',
             'Left': 20,
             'Top': 235,
             'AutoSize': True
@@ -255,6 +227,7 @@ class PictureBoxForm(Form):
         Label(panel, {
             'Text': 'Main SizeMode:',
             'ForeColor': 'white',
+            'BackColor': '#34495e',
             'Left': 20,
             'Top': 380,
             'AutoSize': True
@@ -267,7 +240,7 @@ class PictureBoxForm(Form):
             'DropDownStyle': 'DropDownList'
         })
         self.combo_sizemode.Items.extend(['Normal', 'StretchImage', 'AutoSize', 'CenterImage', 'Zoom'])
-        self.combo_sizemode.SelectedIndex = 4  # Zoom
+        self.combo_sizemode.SelectedIndex = 0  # Normal
         self.combo_sizemode.SelectedIndexChanged = self._change_main_sizemode
     
     def _init_footer(self):
@@ -279,10 +252,10 @@ class PictureBoxForm(Form):
         })
         
         Label(footer, {
-            'Text': 'Click on any PictureBox to see which mode it uses',
+            'Text': 'Use the "Main SizeMode" dropdown to see how different modes display the image',
             'Left': 20,
             'Top': 15,
-            'Width': 400,
+            'Width': 600,
             'ForeColor': '#666666'
         })
         
@@ -297,23 +270,30 @@ class PictureBoxForm(Form):
     
     def _create_default_image(self):
         """Create a default placeholder image"""
-        # Create a simple colored image with text
-        img = Image.new('RGB', (400, 300), color='#3498db')
+        if not PIL_AVAILABLE:
+            MessageBox.Show("PIL/Pillow is required to create images.", "PIL Not Available", "OK", "Warning")
+            return
+        
+        from PIL import Image, ImageDraw, ImageFont
+        
+        # Create a smaller image (300x200) to demonstrate SizeMode differences
+        # The PictureBox is 640x140, so this smaller image will show the modes clearly
+        img = Image.new('RGB', (300, 200), color='#3498db')
         draw = ImageDraw.Draw(img)
         
         # Draw some shapes
-        draw.rectangle([50, 50, 350, 250], outline='white', width=3)
-        draw.ellipse([100, 100, 300, 200], fill='#e74c3c', outline='white', width=2)
+        draw.rectangle([30, 30, 270, 170], outline='white', width=3)
+        draw.ellipse([75, 60, 225, 140], fill='#e74c3c', outline='white', width=2)
         
         # Add text
         try:
             # Try to use a nice font
-            font = ImageFont.truetype("arial.ttf", 24)
+            font = ImageFont.truetype("arial.ttf", 20)
         except:
             font = ImageFont.load_default()
         
-        text = "WinFormPy\nPictureBox\nDemo"
-        draw.text((200, 120), text, fill='white', anchor='mm', font=font, align='center')
+        text = "WinFormPy\nDemo"
+        draw.text((150, 100), text, fill='white', anchor='mm', font=font, align='center')
         
         # Save to temp file
         temp_path = os.path.join(os.path.expanduser('~'), 'temp_picturebox_demo.png')
@@ -326,7 +306,8 @@ class PictureBoxForm(Form):
             "Default Sample Image\n"
             f"Size: {img.width}x{img.height}\n"
             "Format: PNG\n"
-            "Mode: RGB"
+            "Mode: RGB\n"
+            f"SizeMode: {self.combo_sizemode.SelectedItem}"
         )
     
     def _load_image(self, sender, e):
@@ -341,46 +322,52 @@ class PictureBoxForm(Form):
     def _load_image_from_path(self, path):
         """Load image from specified path"""
         try:
-            # Load with PIL to get info
-            self.current_image = Image.open(path)
-            self.current_image_path = path
+            if PIL_AVAILABLE:
+                from PIL import Image
+                # Load with PIL to get info
+                self.current_image = Image.open(path)
+                self.current_image_path = path
             
-            # Load into all PictureBoxes
-            self.pic_normal.Load(path)
-            self.pic_stretch.Load(path)
-            self.pic_autosize.Load(path)
-            self.pic_center.Load(path)
-            self.pic_zoom.Load(path)
+            # Load into main PictureBox
             self.pic_main.Load(path)
             
             # Update info
-            self.lbl_image_info.Text = (
-                f"Filename: {os.path.basename(path)}\n"
-                f"Size: {self.current_image.width}x{self.current_image.height}\n"
-                f"Format: {self.current_image.format}\n"
-                f"Mode: {self.current_image.mode}"
-            )
+            if PIL_AVAILABLE and self.current_image:
+                self.lbl_image_info.Text = (
+                    f"Filename: {os.path.basename(path)}\n"
+                    f"Size: {self.current_image.width}x{self.current_image.height}\n"
+                    f"Format: {self.current_image.format}\n"
+                    f"Mode: {self.current_image.mode}\n"
+                    f"SizeMode: {self.combo_sizemode.SelectedItem}"
+                )
+            else:
+                self.lbl_image_info.Text = f"Filename: {os.path.basename(path)}\nSizeMode: {self.combo_sizemode.SelectedItem}"
             
         except Exception as ex:
             MessageBox.Show(f'Error loading image: {str(ex)}', 'Error', 'OK', 'Error')
     
     def _create_sample_image(self, sender, e):
         """Create a new sample image"""
+        if not PIL_AVAILABLE:
+            MessageBox.Show('PIL/Pillow is required to create images.', 'PIL Not Available', 'OK', 'Warning')
+            return
+        
+        from PIL import Image, ImageDraw, ImageFont
         import random
         
-        # Create random colored image
+        # Create random colored image - smaller size to show SizeMode differences
         colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c']
         bg_color = random.choice(colors)
         
-        img = Image.new('RGB', (500, 400), color=bg_color)
+        img = Image.new('RGB', (350, 250), color=bg_color)
         draw = ImageDraw.Draw(img)
         
         # Draw random shapes
         for _ in range(5):
-            x1 = random.randint(0, 400)
-            y1 = random.randint(0, 300)
-            x2 = x1 + random.randint(50, 150)
-            y2 = y1 + random.randint(50, 150)
+            x1 = random.randint(0, 280)
+            y1 = random.randint(0, 180)
+            x2 = x1 + random.randint(40, 100)
+            y2 = y1 + random.randint(40, 100)
             
             shape_type = random.choice(['rect', 'ellipse'])
             color = random.choice(colors)
@@ -409,6 +396,10 @@ class PictureBoxForm(Form):
             MessageBox.Show('No image loaded', 'Info', 'OK', 'Information')
             return
         
+        if not PIL_AVAILABLE:
+            MessageBox.Show('PIL/Pillow is required for image rotation.', 'PIL Not Available', 'OK', 'Warning')
+            return
+        
         try:
             # Rotate the image
             rotated = self.current_image.rotate(-degrees, expand=True)
@@ -429,7 +420,12 @@ class PictureBoxForm(Form):
             MessageBox.Show('No image loaded', 'Info', 'OK', 'Information')
             return
         
+        if not PIL_AVAILABLE:
+            MessageBox.Show('PIL/Pillow is required for image flipping.', 'PIL Not Available', 'OK', 'Warning')
+            return
+        
         try:
+            from PIL import Image
             # Flip the image
             if direction == 'horizontal':
                 flipped = self.current_image.transpose(Image.FLIP_LEFT_RIGHT)
@@ -448,11 +444,6 @@ class PictureBoxForm(Form):
     
     def _clear_image(self, sender, e):
         """Clear all images"""
-        self.pic_normal.Image = None
-        self.pic_stretch.Image = None
-        self.pic_autosize.Image = None
-        self.pic_center.Image = None
-        self.pic_zoom.Image = None
         self.pic_main.Image = None
         
         self.current_image = None
@@ -464,17 +455,45 @@ class PictureBoxForm(Form):
         """Change SizeMode of main PictureBox"""
         selected = self.combo_sizemode.SelectedItem
         if selected:
-            self.pic_main.SizeMode = selected
-    
-    def _on_picturebox_click(self, mode_name):
-        """Handle PictureBox click"""
-        MessageBox.Show(
-            f'This PictureBox uses SizeMode: {mode_name}\n\n'
-            f'Click "Load Image..." to load your own image and see how different SizeModes display it.',
-            'SizeMode Info',
-            'OK',
-            'Information'
-        )
+            # Convert string to PictureBoxSizeMode enum
+            size_mode_map = {
+                'Normal': PictureBoxSizeMode.Normal,
+                'StretchImage': PictureBoxSizeMode.StretchImage,
+                'AutoSize': PictureBoxSizeMode.AutoSize,
+                'CenterImage': PictureBoxSizeMode.CenterImage,
+                'Zoom': PictureBoxSizeMode.Zoom
+            }
+            
+            size_mode = size_mode_map.get(selected)
+            if size_mode:
+                # Restore original size if changing from AutoSize to another mode
+                if selected != 'AutoSize':
+                    self.pic_main.Width = self.original_pic_width
+                    self.pic_main.Height = self.original_pic_height
+                    self.pic_main._place_control(self.original_pic_width, self.original_pic_height)
+                
+                # Use the set_SizeMode method to properly update the control
+                self.pic_main.set_SizeMode(size_mode)
+                
+                # Reload current image to show the effect of the new SizeMode
+                if self.current_image_path and os.path.exists(self.current_image_path):
+                    self.pic_main.Load(self.current_image_path)
+                
+                # Update info label to show current mode
+                current_info = self.lbl_image_info.Text
+                if '\nSizeMode:' in current_info:
+                    # Replace existing SizeMode line
+                    lines = current_info.split('\n')
+                    lines = [line for line in lines if not line.startswith('SizeMode:')]
+                    lines.append(f'SizeMode: {selected}')
+                    self.lbl_image_info.Text = '\n'.join(lines)
+                else:
+                    # Add SizeMode info
+                    self.lbl_image_info.Text = f'{current_info}\nSizeMode: {selected}'
+                
+                # Refresh the PictureBox to apply the new SizeMode
+                if hasattr(self.pic_main, 'Refresh'):
+                    self.pic_main.Refresh()
 
 
 def main():

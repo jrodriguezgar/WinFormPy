@@ -3062,6 +3062,33 @@ class ControlBase:
             except Exception:
                 pass
 
+    def BindEvent(self, event_name, handler):
+        """Binds a Tkinter event to a handler function.
+        
+        Args:
+            event_name: The Tkinter event name (e.g., 'FocusIn', 'FocusOut', 'Enter', 'Leave')
+            handler: The function to call when the event occurs.
+                     Receives (sender, event) parameters.
+        
+        Common event names:
+            - 'FocusIn': Widget gains keyboard focus
+            - 'FocusOut': Widget loses keyboard focus
+            - 'Enter': Mouse enters widget
+            - 'Leave': Mouse leaves widget
+            - 'Motion': Mouse moves within widget
+            - 'Configure': Widget is resized/moved
+        """
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            tk_event = f'<{event_name}>'
+            
+            def wrapper(event):
+                handler(self, event)
+            
+            try:
+                self._tk_widget.bind(tk_event, wrapper)
+            except Exception:
+                pass
+
     def Refresh(self):
         """Forces the control to invalidate and redraw itself and all child controls.
         
@@ -4924,7 +4951,7 @@ class ScrollBar(ControlBase):
     def _on_scroll(self, value):
         """Handler for the scroll event."""
         if self.Scroll:
-            self.Scroll()
+            self.Scroll(self, EventArgs.Empty)
     
     def _apply_properties(self):
         """Apply properties to the widget."""
@@ -5728,8 +5755,11 @@ class Form(ScrollableControlMixin):
         if value:
             # Build Tkinter menu
             menubar = tk.Menu(self._root)
-            for item in value.MenuItems:
-                self._build_menu(menubar, item)
+            # Support both traditional MainMenu (MenuItems) and MenuStrip (Items)
+            items = getattr(value, 'Items', None) or getattr(value, 'MenuItems', None)
+            if items:
+                for item in items:
+                    self._build_menu(menubar, item)
             self._root.config(menu=menubar)
         else:
             self._root.config(menu="")
@@ -5737,12 +5767,15 @@ class Form(ScrollableControlMixin):
     def _build_menu(self, parent_menu, item):
         if not item.Visible:
             return
-            
-        if item.MenuItems:
+        
+        # Support both traditional MenuItems and ToolStripMenuItem (DropDownItems)
+        subitems = getattr(item, 'DropDownItems', None) or getattr(item, 'MenuItems', None)
+        
+        if subitems and len(subitems) > 0:
             # Submenu
             submenu = tk.Menu(parent_menu, tearoff=0)
             parent_menu.add_cascade(label=item.Text, menu=submenu)
-            for subitem in item.MenuItems:
+            for subitem in subitems:
                 self._build_menu(submenu, subitem)
         else:
             # Command
@@ -5750,10 +5783,22 @@ class Form(ScrollableControlMixin):
                 parent_menu.add_separator()
             else:
                 state = "normal" if item.Enabled else "disabled"
+                # Support both traditional Shortcut and ShortcutKeys
+                shortcut = getattr(item, 'ShortcutKeys', None) or getattr(item, 'Shortcut', None)
+                
+                # Create command handler - support both PerformClick() and Click event
+                def create_handler(menu_item):
+                    if hasattr(menu_item, 'PerformClick') and callable(menu_item.PerformClick):
+                        return lambda: menu_item.PerformClick()
+                    elif hasattr(menu_item, 'Click') and callable(menu_item.Click):
+                        return lambda: menu_item.Click(menu_item, EventArgs.Empty)
+                    else:
+                        return lambda: None
+                
                 parent_menu.add_command(
                     label=item.Text, 
-                    command=lambda i=item: i.PerformClick(),
-                    accelerator=item.Shortcut if item.Shortcut else None,
+                    command=create_handler(item),
+                    accelerator=shortcut if shortcut else None,
                     state=state
                 )
 
@@ -6630,6 +6675,38 @@ class Button(ControlBase):
         # AUTO-REGISTRATION: Automatically add to the parent container
         self._auto_register_with_parent()
     
+    def _get_button_image(self):
+        """Retrieve the image for button from ImageList or direct Image property.
+        
+        Returns:
+            PhotoImage or None if no image available
+        """
+        # Direct Image property takes precedence
+        if self.Image:
+            return self.Image
+        
+        # Try ImageList
+        if not self.ImageList:
+            return None
+        
+        # Try ImageKey first (preferred in WinForms)
+        if self.ImageKey:
+            try:
+                return self.ImageList.Images[self.ImageKey]
+            except (KeyError, AttributeError):
+                pass
+        
+        # Try ImageIndex
+        if self.ImageIndex >= 0:
+            try:
+                images_dict = self.ImageList._images
+                if images_dict and self.ImageIndex < len(images_dict):
+                    return list(images_dict.values())[self.ImageIndex]
+            except (AttributeError, IndexError):
+                pass
+        
+        return None
+    
     def _apply_visual_config(self):
         """Applies visual configuration to the widget."""
         # Call base method first
@@ -6637,8 +6714,14 @@ class Button(ControlBase):
         
         # Apply Button-specific configurations
         config = {}
-        if self.Image:
-            config['image'] = self.Image
+        
+        # Get image from ImageList or direct Image property
+        button_image = self._get_button_image()
+        if button_image:
+            config['image'] = button_image
+            # Store reference to prevent garbage collection
+            self._current_image = button_image
+        
         if self.TextImageRelation:
             # Map TextImageRelation to compound
             # Overlay=0, ImageAboveText=1, TextAboveImage=2, ImageBeforeText=4, TextBeforeImage=8
@@ -12425,12 +12508,44 @@ class PictureBox(ControlBase):
                 except:
                     pass
         elif self.SizeMode == PictureBoxSizeMode.StretchImage:
-            # Requires PIL or complex canvas scaling. 
-            # Placeholder for standard Tkinter (no-op or center)
-            self._tk_widget.config(anchor='center')
+            # Stretch image to fit - requires resizing the image
+            if self.Image and hasattr(self, '_original_image_path'):
+                try:
+                    from PIL import Image as PILImage, ImageTk
+                    img = PILImage.open(self._original_image_path)
+                    img_resized = img.resize((self.Width, self.Height), PILImage.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(img_resized)
+                    self.Image = photo
+                    self._tk_widget.config(image=self.Image, anchor='nw')
+                except:
+                    # Fallback if PIL not available
+                    self._tk_widget.config(anchor='center')
+            else:
+                self._tk_widget.config(anchor='center')
         elif self.SizeMode == PictureBoxSizeMode.Zoom:
-            # Requires PIL. Placeholder.
-            self._tk_widget.config(anchor='center')
+            # Zoom - scale image to fit maintaining aspect ratio
+            if self.Image and hasattr(self, '_original_image_path'):
+                try:
+                    from PIL import Image as PILImage, ImageTk
+                    img = PILImage.open(self._original_image_path)
+                    
+                    # Calculate scaling to fit within bounds while maintaining aspect ratio
+                    img_width, img_height = img.size
+                    box_width, box_height = self.Width, self.Height
+                    
+                    scale = min(box_width / img_width, box_height / img_height)
+                    new_width = int(img_width * scale)
+                    new_height = int(img_height * scale)
+                    
+                    img_resized = img.resize((new_width, new_height), PILImage.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(img_resized)
+                    self.Image = photo
+                    self._tk_widget.config(image=self.Image, anchor='center')
+                except:
+                    # Fallback if PIL not available
+                    self._tk_widget.config(anchor='center')
+            else:
+                self._tk_widget.config(anchor='center')
             
     def Load(self, url=None):
         """Loads the image synchronously."""
@@ -12475,6 +12590,9 @@ class PictureBox(ControlBase):
     def _load_image_from_location(self):
         """Load the image from ImageLocation."""
         try:
+            # Store the original image path for Zoom and StretchImage modes
+            self._original_image_path = self.ImageLocation
+            
             # Basic implementation using tk.PhotoImage for supported formats (GIF, PNG, PPM/PGM)
             # For JPG and others, PIL is required but we avoid hard dependency here to prevent errors
             import threading
@@ -15359,6 +15477,36 @@ class TabControl(ControlBase):
                 
         self._style.configure(self._style_name, tabposition=position)
 
+    def _get_tab_image(self, tab_page):
+        """Retrieve the image for a tab page from ImageList.
+        
+        Args:
+            tab_page: TabPage to get image for
+            
+        Returns:
+            PhotoImage or None if no image available
+        """
+        if not self.ImageList:
+            return None
+        
+        # Try ImageKey first (preferred in WinForms)
+        if hasattr(tab_page, 'ImageKey') and tab_page.ImageKey:
+            try:
+                return self.ImageList.Images[tab_page.ImageKey]
+            except (KeyError, AttributeError):
+                pass
+        
+        # Try ImageIndex
+        if hasattr(tab_page, 'ImageIndex') and tab_page.ImageIndex >= 0:
+            try:
+                images_dict = self.ImageList._images
+                if images_dict and tab_page.ImageIndex < len(images_dict):
+                    return list(images_dict.values())[tab_page.ImageIndex]
+            except (AttributeError, IndexError):
+                pass
+        
+        return None
+    
     def AddTab(self, tab_page):
         """Add a TabPage to the TabControl with AUTO-REGISTRATION.
 
@@ -15376,11 +15524,16 @@ class TabControl(ControlBase):
         self.TabPages.append(tab_page)
         tab_page.Parent = self  # Assign Parent
         tab_page._root = self.master_form._root  # Assign _root for compatibility with child controls
-        self._tk_widget.add(tab_page._frame, text=tab_page.Text)
-        # Apply image if ImageList and ImageIndex/ImageKey
-        if self.ImageList and hasattr(tab_page, 'ImageIndex') and tab_page.ImageIndex >= 0:
-            # Placeholder: ttk.Notebook does not support images easily; use compound or custom
-            pass
+        
+        # Get image from ImageList if available
+        image = self._get_tab_image(tab_page)
+        
+        # Add tab with image (ttk.Notebook supports 'image' option)
+        if image:
+            self._tk_widget.add(tab_page._frame, text=tab_page.Text, image=image, compound='left')
+        else:
+            self._tk_widget.add(tab_page._frame, text=tab_page.Text)
+        
         # Force an update so that the tab text displays correctly
         if hasattr(self, 'master_form') and hasattr(self.master_form, 'Invalidate'):
             self.master_form.Invalidate()
@@ -15395,8 +15548,14 @@ class TabControl(ControlBase):
         tab_page.Parent = self
         tab_page._root = self.master_form._root
         
-        # ttk.Notebook.insert(index, child, **kw)
-        self._tk_widget.insert(index, tab_page._frame, text=tab_page.Text)
+        # Get image from ImageList if available
+        image = self._get_tab_image(tab_page)
+        
+        # Insert tab with image
+        if image:
+            self._tk_widget.insert(index, tab_page._frame, text=tab_page.Text, image=image, compound='left')
+        else:
+            self._tk_widget.insert(index, tab_page._frame, text=tab_page.Text)
         
         self.ControlAdded(self, tab_page)
 
@@ -15556,6 +15715,11 @@ class TabControl(ControlBase):
             
             e.Data = None
             self.SelectedIndexChanged(self, e)
+
+    @property
+    def TabCount(self):
+        """Gets the number of tabs in the TabControl."""
+        return len(self.TabPages)
 
     SelectedIndex = property(get_SelectedIndex, set_SelectedIndex)
 
@@ -17219,22 +17383,53 @@ class SplitContainer(ControlBase):
     def Panel1Collapsed(self): return self._panel1_collapsed
     @Panel1Collapsed.setter
     def Panel1Collapsed(self, value):
+        if self._panel1_collapsed == value:
+            return  # No change
+            
         self._panel1_collapsed = value
-        if value:
+        
+        # Remove all panels and re-add based on current state
+        try:
             self._tk_widget.forget(self.Panel1._tk_widget)
-        else:
+        except:
+            pass
+        try:
             self._tk_widget.forget(self.Panel2._tk_widget)
-            self._add_panels()
+        except:
+            pass
+            
+        # Re-add panels based on collapse state
+        self._add_panels()
+        
+        # Restore splitter distance if both panels are visible
+        if not self._panel1_collapsed and not self._panel2_collapsed:
+            self._tk_widget.after(10, lambda: self._restore_splitter_distance(self._splitter_distance))
 
     @property
     def Panel2Collapsed(self): return self._panel2_collapsed
     @Panel2Collapsed.setter
     def Panel2Collapsed(self, value):
+        if self._panel2_collapsed == value:
+            return  # No change
+            
         self._panel2_collapsed = value
-        if value:
+        
+        # Remove all panels and re-add based on current state
+        try:
+            self._tk_widget.forget(self.Panel1._tk_widget)
+        except:
+            pass
+        try:
             self._tk_widget.forget(self.Panel2._tk_widget)
-        else:
-            self._tk_widget.add(self.Panel2._tk_widget)
+        except:
+            pass
+            
+        # Re-add panels based on collapse state
+        self._add_panels()
+        
+        # Restore splitter distance if both panels are visible
+        if not self._panel1_collapsed and not self._panel2_collapsed:
+            self._tk_widget.after(10, lambda: self._restore_splitter_distance(self._splitter_distance))
 
 
 class StatusBar(ControlBase):
@@ -17895,13 +18090,45 @@ class ImageList:
         if hasattr(image, 'get_image'):
             image = image.get_image()
         
-        # TODO: Resize image to self.ImageSize if possible
-        # Without PIL, resizing is limited. We assume the user provides correct size
-        # or we use the image as is.
+        # Prepare and resize image
+        photo_image = self._prepare_image(image)
         
-        self._images[key] = image
+        self._images[key] = photo_image
         self.CollectionChanged()
         return key
+    
+    def _prepare_image(self, image):
+        """Convert and resize image to PhotoImage at ImageSize."""
+        try:
+            from PIL import Image as PILImage, ImageTk
+            
+            # If it's already a tkinter PhotoImage, return as-is
+            # (we can't easily extract and resize tkinter PhotoImages)
+            if isinstance(image, tk.PhotoImage):
+                return image
+            
+            # If it's a PIL Image
+            if isinstance(image, PILImage.Image):
+                # Resize to ImageSize if needed
+                if image.size != self.ImageSize:
+                    image = image.resize(self.ImageSize, PILImage.Resampling.LANCZOS)
+                
+                # Apply transparent color if set
+                if self.TransparentColor:
+                    if image.mode != 'RGBA':
+                        image = image.convert('RGBA')
+                    # Note: Full transparent color implementation would require
+                    # replacing pixels matching TransparentColor with alpha=0
+                
+                # Convert to PhotoImage for tkinter
+                return ImageTk.PhotoImage(image)
+            
+            # Unknown image type, return as-is
+            return image
+            
+        except ImportError:
+            # PIL not available, return image as-is
+            return image
 
     def _remove_image(self, key):
         """Internal method to remove image."""
@@ -19016,18 +19243,38 @@ class ListView(ControlBase):
             
             # Add icon if available
             icon_added = False
-            if image_list and hasattr(item, 'ImageIndex') and item.ImageIndex is not None and item.ImageIndex >= 0:
+            img = None
+            
+            # Try ImageKey first (preferred)
+            if image_list and hasattr(item, 'ImageKey') and item.ImageKey:
+                try:
+                    img = image_list.Images[item.ImageKey]
+                except (KeyError, AttributeError):
+                    pass
+            
+            # Try ImageIndex if ImageKey didn't work
+            if not img and image_list and hasattr(item, 'ImageIndex') and item.ImageIndex is not None and item.ImageIndex >= 0:
                 try:
                     images_dict = image_list._images
                     if images_dict and item.ImageIndex < len(images_dict):
                         img = list(images_dict.values())[item.ImageIndex]
-                        if img:
-                            # Resize image to match configured icon size
-                            resized_img = self._resize_image(img, icon_size, icon_size)
-                            icon_label = tk.Label(item_frame, image=resized_img, bg='white', bd=0)
-                            icon_label.image = resized_img  # Keep reference to prevent garbage collection
-                            icon_label.pack()
-                            icon_added = True
+                except (AttributeError, IndexError):
+                    pass
+            
+            # If we have an image, display it
+            if img:
+                try:
+                    # Check if resize is needed (ImageList already resizes to ImageSize)
+                    if img.width() == icon_size and img.height() == icon_size:
+                        # Already correct size, use as-is
+                        resized_img = img
+                    else:
+                        # Resize image to match configured icon size
+                        resized_img = self._resize_image(img, icon_size, icon_size)
+                    icon_label = tk.Label(item_frame, image=resized_img, bg='white', bd=0)
+                    icon_label.image = resized_img  # Keep reference to prevent garbage collection
+                    icon_label.pack()
+                    icon_added = True
                 except Exception as e:
                     # If image fails, continue to text
                     print(f"Icon error: {e}")
@@ -19043,8 +19290,12 @@ class ListView(ControlBase):
                             # Use first image as default
                             default_img = list(images_dict.values())[0]
                             if default_img:
-                                # Resize default image to match configured icon size
-                                resized_img = self._resize_image(default_img, icon_size, icon_size)
+                                # Check if resize is needed
+                                if default_img.width() == icon_size and default_img.height() == icon_size:
+                                    resized_img = default_img
+                                else:
+                                    # Resize default image to match configured icon size
+                                    resized_img = self._resize_image(default_img, icon_size, icon_size)
                                 icon_label = tk.Label(item_frame, image=resized_img, bg='white', bd=0)
                                 icon_label.image = resized_img
                                 icon_label.pack()
@@ -19493,6 +19744,36 @@ class ListView(ControlBase):
             self._items._items.sort(key=lambda x: x.Text, reverse=reverse)
             # Refresh UI
             self._refresh_items()
+    
+    def _get_item_image(self, item):
+        """Retrieve the image for an item from SmallImageList.
+        
+        Args:
+            item: ListViewItem to get image for
+            
+        Returns:
+            PhotoImage or None if no image available
+        """
+        if not self._small_image_list:
+            return None
+        
+        # Try ImageKey first (preferred in WinForms)
+        if hasattr(item, 'ImageKey') and item.ImageKey:
+            try:
+                return self._small_image_list.Images[item.ImageKey]
+            except (KeyError, AttributeError):
+                pass
+        
+        # Try ImageIndex
+        if hasattr(item, 'ImageIndex') and item.ImageIndex is not None and item.ImageIndex >= 0:
+            try:
+                images_dict = self._small_image_list._images
+                if images_dict and item.ImageIndex < len(images_dict):
+                    return list(images_dict.values())[item.ImageIndex]
+            except (AttributeError, IndexError):
+                pass
+        
+        return None
 
     def _add_item_to_ui(self, item):
         # In Details view (show='headings'), the 'text' parameter is not shown
@@ -19515,7 +19796,13 @@ class ListView(ControlBase):
         # Determine row tag for grid lines
         row_count = len(self._tk_widget.get_children())
         tag = 'evenrow' if row_count % 2 == 0 else 'oddrow'
-        item._id = self._tk_widget.insert('', 'end', text=item.Text, values=values, tags=(tag,))
+        
+        # Get image from SmallImageList if available
+        image = self._get_item_image(item)
+        
+        # Insert with image (ttk.Treeview supports 'image' parameter)
+        item._id = self._tk_widget.insert('', 'end', text=item.Text, values=values, 
+                                         tags=(tag,), image=image if image else '')
 
     def _insert_item_to_ui(self, index, item):
         # Include item.Text as the first value only for Details view
@@ -19536,7 +19823,13 @@ class ListView(ControlBase):
         
         # Determine row tag for grid lines
         tag = 'evenrow' if index % 2 == 0 else 'oddrow'
-        item._id = self._tk_widget.insert('', index, text=item.Text, values=values, tags=(tag,))
+        
+        # Get image from SmallImageList if available
+        image = self._get_item_image(item)
+        
+        # Insert with image
+        item._id = self._tk_widget.insert('', index, text=item.Text, values=values, 
+                                         tags=(tag,), image=image if image else '')
 
     def _update_columns(self):
         # Add checkbox column if CheckBoxes is enabled
@@ -20494,14 +20787,57 @@ class TreeView(ControlBase):
             child.Collapse()
             self._collapse_recursive(child)
 
+    def _get_node_image(self, node, selected=False):
+        """Retrieve the image for a tree node from ImageList.
+        
+        Args:
+            node: TreeNode to get image for
+            selected: If True, get SelectedImageIndex/Key, else ImageIndex/Key
+            
+        Returns:
+            PhotoImage or None if no image available
+        """
+        if not self.ImageList:
+            return None
+        
+        # Choose which image to get (selected or normal)
+        if selected:
+            image_key = node.SelectedImageKey if hasattr(node, 'SelectedImageKey') else ""
+            image_index = node.SelectedImageIndex if hasattr(node, 'SelectedImageIndex') else -1
+        else:
+            image_key = node.ImageKey if hasattr(node, 'ImageKey') else ""
+            image_index = node.ImageIndex if hasattr(node, 'ImageIndex') else -1
+        
+        # Try ImageKey first (preferred in WinForms)
+        if image_key:
+            try:
+                return self.ImageList.Images[image_key]
+            except (KeyError, AttributeError):
+                pass
+        
+        # Try ImageIndex
+        if image_index >= 0:
+            try:
+                images_dict = self.ImageList._images
+                if images_dict and image_index < len(images_dict):
+                    return list(images_dict.values())[image_index]
+            except (AttributeError, IndexError):
+                pass
+        
+        return None
+    
     def _add_node_to_ui(self, node, parent_owner):
         """Internal method to add a node to the Tkinter widget."""
         parent_id = ''
         if isinstance(parent_owner, TreeNode):
             parent_id = parent_owner._id
-            
-        # Insert into Tkinter
-        node._id = self._tk_widget.insert(parent_id, 'end', text=node.Text, open=False)
+        
+        # Get image from ImageList if available
+        image = self._get_node_image(node, selected=False)
+        
+        # Insert into Tkinter with image
+        node._id = self._tk_widget.insert(parent_id, 'end', text=node.Text, open=False,
+                                         image=image if image else '')
         self._node_map[node._id] = node
         
         # Recursively add children
@@ -20515,9 +20851,13 @@ class TreeView(ControlBase):
         parent_id = ''
         if isinstance(parent_owner, TreeNode):
             parent_id = parent_owner._id
-            
-        # Insert into Tkinter at specific index
-        node._id = self._tk_widget.insert(parent_id, index, text=node.Text, open=False)
+        
+        # Get image from ImageList if available
+        image = self._get_node_image(node, selected=False)
+        
+        # Insert into Tkinter at specific index with image
+        node._id = self._tk_widget.insert(parent_id, index, text=node.Text, open=False,
+                                         image=image if image else '')
         self._node_map[node._id] = node
         
         # Recursively add children
@@ -21457,12 +21797,13 @@ class ToolStripSeparator(ToolStripItem):
 
 
 class ToolStripStatusLabel(ToolStripItem):
-    """Represents a label in a StatusStrip."""
+    """Represents a label in a StatusStrip (.NET 2.0 style)."""
     def __init__(self, text=""):
         super().__init__()
         self.Text = text
         self._border_sides = "None"  # 'None', 'All', 'Bottom', 'Top', 'Left', 'Right'
-        self._border_style = "Flat"  # 'Flat', 'Raised', 'Sunken', 'Etched', 'Bump', 'Adjust'
+        self._border_style = "None"  # 'None', 'Raised', 'Sunken', 'Link'
+        self._spring = False
         
     @property
     def BorderSides(self): return self._border_sides
@@ -21477,20 +21818,36 @@ class ToolStripStatusLabel(ToolStripItem):
     def BorderStyle(self, value):
         self._border_style = value
         self._update_widget()
+    
+    @property
+    def Spring(self): return self._spring
+    @Spring.setter
+    def Spring(self, value):
+        self._spring = value
+        # Spring property affects layout - parent StatusStrip needs to re-layout
 
     def _create_widget(self, parent):
         relief = 'flat'
-        if self.BorderStyle == 'Sunken': relief = 'sunken'
-        elif self.BorderStyle == 'Raised': relief = 'raised'
+        bd = 0
         
-        bd = 1 if self.BorderStyle != 'Flat' else 0
+        if self.BorderStyle == 'Sunken':
+            relief = 'sunken'
+            bd = 1
+        elif self.BorderStyle == 'Raised':
+            relief = 'raised'
+            bd = 1
         
+        # .NET 2.0 standard font and appearance
         self._widget = tk.Label(
             parent,
             text=self.Text,
             relief=relief,
             borderwidth=bd,
-            bg=parent.cget('bg')
+            bg=parent.cget('bg'),
+            font=('Segoe UI', 9),
+            anchor='w',
+            padx=2,
+            pady=1
         )
         if self.Image:
             self._widget.config(image=self.Image, compound='left')
@@ -21825,7 +22182,7 @@ class MenuStrip(ToolStrip):
 
 class StatusStrip(ControlBase):
     """
-    Represents a Windows Status Strip control.
+    Represents a Windows Status Strip control (.NET 2.0 style).
     """
     def __init__(self, master_form, props=None):
         defaults = {
@@ -21833,7 +22190,7 @@ class StatusStrip(ControlBase):
             'Left': 0,
             'Top': 0,
             'Width': 300,
-            'Height': 22,
+            'Height': 26,  # .NET 2.0 standard height
             'Dock': 'Bottom',
             'SizingGrip': True,
             'ShowItemToolTips': True,
@@ -21855,33 +22212,43 @@ class StatusStrip(ControlBase):
         self.SizingGrip = defaults['SizingGrip']
         self.ShowItemToolTips = defaults['ShowItemToolTips']
         self.TabStop = defaults['TabStop']
-        self.BackColor = 'SystemButtonFace'
+        self.BackColor = '#F0F0F0'  # .NET 2.0 standard background
         
         self.Items = ToolStripItemCollection(self)
         
+        # Main container with sunken border (top only) for .NET 2.0 look
         self._tk_widget = tk.Frame(
             self.master,
             bg=self.BackColor,
             height=self.Height,
-            relief='flat'
+            relief='flat',
+            highlightthickness=0
         )
         
-        # Left and Right frames for alignment
-        self._left_frame = tk.Frame(self._tk_widget, bg=self.BackColor)
-        self._left_frame.pack(side='left', fill='both', expand=True)
+        # Top border line for .NET 2.0 3D effect
+        self._top_border = tk.Frame(self._tk_widget, bg='#ACACAC', height=1)
+        self._top_border.pack(side='top', fill='x')
         
-        self._right_frame = tk.Frame(self._tk_widget, bg=self.BackColor)
-        self._right_frame.pack(side='right', fill='y')
+        # Content frame
+        self._content_frame = tk.Frame(self._tk_widget, bg=self.BackColor)
+        self._content_frame.pack(side='top', fill='both', expand=True)
+        
+        # Left and Right frames for alignment
+        self._left_frame = tk.Frame(self._content_frame, bg=self.BackColor)
+        self._left_frame.pack(side='left', fill='both', expand=True, padx=4, pady=2)
+        
+        self._right_frame = tk.Frame(self._content_frame, bg=self.BackColor)
+        self._right_frame.pack(side='right', fill='y', pady=2)
         
         if self.SizingGrip:
             self._grip_canvas = tk.Canvas(
-                self._tk_widget,
-                width=12,
-                height=self.Height,
+                self._content_frame,
+                width=16,
+                height=self.Height - 3,
                 bg=self.BackColor,
                 highlightthickness=0
             )
-            self._grip_canvas.pack(side='right', fill='y')
+            self._grip_canvas.pack(side='right', fill='y', padx=2)
             self._draw_sizing_grip()
 
         self._update_layout()
@@ -21908,8 +22275,8 @@ class StatusStrip(ControlBase):
         for item in left_items:
             if not item.Visible: continue
             w = item._create_widget(self._left_frame)
-            pack_opts = {'side': 'left', 'padx': 2, 'fill': 'y'}
-            if item.Spring:
+            pack_opts = {'side': 'left', 'padx': 3, 'fill': 'y'}
+            if hasattr(item, 'Spring') and item.Spring:
                 pack_opts['expand'] = True
                 pack_opts['fill'] = 'both'
             w.pack(**pack_opts)
@@ -21918,15 +22285,25 @@ class StatusStrip(ControlBase):
         for item in right_items:
             if not item.Visible: continue
             w = item._create_widget(self._right_frame)
-            w.pack(side='left', padx=2, fill='y')
+            w.pack(side='left', padx=3, fill='y')
 
     def _draw_sizing_grip(self):
+        """Draw .NET 2.0 style sizing grip (diagonal dots pattern)."""
         canvas = self._grip_canvas
-        h = self.Height
-        for i in range(3):
-            x = 9 - i * 4
-            canvas.create_line(x, h-3, x+3, h-6, fill='gray', width=1)
-            canvas.create_line(x+1, h-3, x+4, h-6, fill='white', width=1)
+        h = self.Height - 3
+        # Draw diagonal pattern of dots like .NET 2.0
+        dot_color = '#6B6B6B'
+        highlight_color = '#FFFFFF'
+        
+        # Three rows of dots
+        for row in range(3):
+            for col in range(row + 1):
+                x = 12 - (row * 4) + (col * 4)
+                y = h - 4 - (col * 4)
+                # Shadow dot
+                canvas.create_rectangle(x, y, x+2, y+2, fill=dot_color, outline='')
+                # Highlight dot
+                canvas.create_rectangle(x+1, y+1, x+2, y+2, fill=highlight_color, outline='')
 
 
 class TrackBar(ControlBase):
@@ -22063,7 +22440,48 @@ class ToolStripTextBox(ToolStripItem):
         super().__init__()
         self.Name = name
         self.Text = ""
-        # Not fully implemented for ContextMenu yet
+        self.Width = 100
+        self._placeholder_text = ""
+        
+    @property
+    def PlaceholderText(self): return self._placeholder_text
+    @PlaceholderText.setter
+    def PlaceholderText(self, value):
+        self._placeholder_text = value
+        if self._widget and not self.Text:
+            self._widget.delete(0, 'end')
+            self._widget.insert(0, value)
+            self._widget.config(fg='gray')
+    
+    def _create_widget(self, parent):
+        self._widget = tk.Entry(
+            parent,
+            width=self.Width // 8,  # Approximate character width
+            relief='sunken',
+            bd=1
+        )
+        
+        if self._placeholder_text and not self.Text:
+            self._widget.insert(0, self._placeholder_text)
+            self._widget.config(fg='gray')
+        elif self.Text:
+            self._widget.insert(0, self.Text)
+            
+        # Placeholder behavior
+        def on_focus_in(e):
+            if self._widget.get() == self._placeholder_text:
+                self._widget.delete(0, 'end')
+                self._widget.config(fg='black')
+                
+        def on_focus_out(e):
+            if not self._widget.get():
+                self._widget.insert(0, self._placeholder_text)
+                self._widget.config(fg='gray')
+        
+        self._widget.bind('<FocusIn>', on_focus_in)
+        self._widget.bind('<FocusOut>', on_focus_out)
+        
+        return self._widget
 
 class ToolStripComboBox(ToolStripItem):
     """Represents a combo box in a ToolStrip or ContextMenuStrip."""
@@ -22071,7 +22489,48 @@ class ToolStripComboBox(ToolStripItem):
         super().__init__()
         self.Name = name
         self.Items = []
-        # Not fully implemented for ContextMenu yet
+        self.Width = 100
+        self._selected_index = -1
+        self._selected_index_changed = lambda s, e: None
+        
+    @property
+    def SelectedIndex(self): return self._selected_index
+    @SelectedIndex.setter
+    def SelectedIndex(self, value):
+        self._selected_index = value
+        if self._widget and 0 <= value < len(self.Items):
+            self._widget.current(value)
+            
+    @property
+    def SelectedItem(self):
+        if 0 <= self._selected_index < len(self.Items):
+            return self.Items[self._selected_index]
+        return None
+        
+    @property
+    def SelectedIndexChanged(self): return self._selected_index_changed
+    @SelectedIndexChanged.setter
+    def SelectedIndexChanged(self, value): self._selected_index_changed = value
+    
+    def _create_widget(self, parent):
+        import tkinter.ttk as ttk
+        self._widget = ttk.Combobox(
+            parent,
+            values=self.Items,
+            state='readonly',
+            width=self.Width // 8  # Approximate character width
+        )
+        
+        if 0 <= self._selected_index < len(self.Items):
+            self._widget.current(self._selected_index)
+            
+        def on_select(e):
+            self._selected_index = self._widget.current()
+            self._selected_index_changed(self, e)
+            
+        self._widget.bind('<<ComboboxSelected>>', on_select)
+        
+        return self._widget
 
 class ContextMenuStrip:
     """Represents a shortcut menu."""
