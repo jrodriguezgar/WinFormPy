@@ -24,12 +24,12 @@ from winformpy import (
 )
 
 from winformpy.winui3 import (
-    WinUIToggleSwitch, WinUIExpander, WinUITextBox, WinUIProgressBar,
-    WinUIColors, WinUIFonts, WinUIButton, WinUILabel, WinUIPanel
+    ToggleSwitch, Expander, TextBox as winuiTextBox, ProgressBar as winuiProgressBar,
+    Colors as winuiColors, Fonts as winuiFonts, Button as winuiButton, TextBlock, Panel as winuiPanel
 )
 from winformpy.winformpy_extended import ExtendedLabel
 # Import WinUI 3 controls from the new winui3 module
-from winformpy.winui3 import WinUIToggleSwitch, WinUIExpander, WinUITextBox, WinUIProgressBar
+from winformpy.winui3 import ToggleSwitch, Expander, TextBox as winuiTextBox, ProgressBar as winuiProgressBar
 
 # --- Design System (WinUI 3 Theme - Light Mode) ---
 # Template-specific color palette (customized from default WinUI 3)
@@ -195,7 +195,7 @@ class WinUI3Gallery(Form):
         self.search_panel.Height = 45
         apply_bg_color(self.search_panel, WinUIColors.SidebarBg)
         
-        self.search_box = WinUITextBox(self.search_panel, {'BackColor': WinUIColors.ControlFill})
+        self.search_box = winuiTextBox(self.search_panel, {'BackColor': WinUIColors.ControlFill})
         self.search_box.Location = (10, 5)
         self.search_box.Size = (250, 30)
         self.search_box.Text = "Search..."
@@ -420,8 +420,8 @@ class WinUI3Gallery(Form):
         rb2.BackColor = WinUIColors.CardBg
         rb2.ForeColor = WinUIColors.TextPrimary
         
-        # WinUIToggleSwitch from winformpy_extended (inherits BackColor from parent)
-        toggle = WinUIToggleSwitch(card2, text="WiFi Connection")
+        # ToggleSwitch from winformpy_extended (inherits BackColor from parent)
+        toggle = ToggleSwitch(card2, text="WiFi Connection")
         toggle.Location = (20, 125)
 
         # Section 3: Expanders (winformpy_extended)
@@ -436,8 +436,8 @@ class WinUI3Gallery(Form):
         lbl3.BackColor = WinUIColors.CardBg
         lbl3.ForeColor = WinUIColors.TextPrimary
 
-        # WinUIExpander inherits BackColor from parent automatically
-        exp = WinUIExpander(card3, title="Click to see more details", height_expanded=120)
+        # Expander inherits BackColor from parent automatically
+        exp = Expander(card3, title="Click to see more details", height_expanded=120)
         exp.Location = (20, 55)
         exp.Width = 450
         
@@ -492,7 +492,7 @@ class WinUI3Gallery(Form):
         lbl_prog.BackColor = WinUIColors.CardBg
         lbl_prog.ForeColor = WinUIColors.TextPrimary
         
-        pb = WinUIProgressBar(card_prog)
+        pb = winuiProgressBar(card_prog)
         pb.Location = (20, 55)
         pb.Size = (400, 25)
         pb.Value = 60

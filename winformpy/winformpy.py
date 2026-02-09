@@ -105,6 +105,43 @@ except ImportError:
 
 import warnings
 
+# Import winformpy theme constants
+try:
+    from .themes.winforms_theme import winforms_colors as Colors, winforms_fonts as Fonts
+except ImportError:
+    try:
+        from themes.winforms_theme import winforms_colors as Colors, winforms_fonts as Fonts
+    except ImportError:
+        # Fallback if theme module is not available
+        class Colors:
+            Control = "#F0F0F0"
+            ControlText = "#000000"
+            Window = "#FFFFFF"
+            WindowText = "#000000"
+            Highlight = "#0078D7"
+            HighlightText = "#FFFFFF"
+            GrayText = "#6D6D6D"
+            ButtonFace = "#F0F0F0"
+            ButtonText = "#000000"
+            ActiveCaption = "#0078D7"
+            ActiveCaptionText = "#FFFFFF"
+            InactiveCaption = "#BFBFBF"
+            ActiveBorder = "#B4B4B4"
+            InactiveBorder = "#F4F4F4"
+            AppWorkspace = "#ABABAB"
+            Desktop = "#000000"
+            MenuBar = "#F0F0F0"
+            Menu = "#F0F0F0"
+            MenuText = "#000000"
+            Info = "#FFFFE1"
+            InfoText = "#000000"
+        
+        class Fonts:
+            Default = ("Segoe UI", 9, "normal")
+            Caption = ("Segoe UI", 9, "bold")
+            Menu = ("Segoe UI", 9, "normal")
+            Status = ("Segoe UI", 9, "normal")
+
 
 # =============================================================
 # Lazy Library Import Management
@@ -252,40 +289,40 @@ class ButtonGroup:
         return self._var
 
 class SystemColors:
-    """Windows Forms system colors."""
-    Control = "#F0F0F0"  # Control background color
-    ControlText = "#000000"  # Control text color
-    Window = "#FFFFFF"  # Window background color
-    WindowText = "#000000"  # Window text color
-    Highlight = "#0078D7"  # Highlight/selection color
-    HighlightText = "#FFFFFF"  # Highlighted text color
-    GrayText = "#6D6D6D"  # Disabled text color
-    ButtonFace = "#F0F0F0"  # Button background color
-    ButtonText = "#000000"  # Button text color
-    ActiveCaption = "#0078D7"  # Active title bar color
-    ActiveCaptionText = "#FFFFFF" # Active title bar text color
-    InactiveCaption = "#BFBFBF"  # Inactive title bar color
-    ActiveBorder = "#B4B4B4"  # Active border color
-    InactiveBorder = "#F4F4F4"  # Inactive border color
-    AppWorkspace = "#ABABAB"  # MDI workspace background color
-    Desktop = "#000000"  # Desktop background color
-    MenuBar = "#F0F0F0"  # Menu bar background color
-    Menu = "#F0F0F0"  # Menu background color
-    MenuText = "#000000"  # Menu text color
-    Info = "#FFFFE1"  # Tooltip background color
-    InfoText = "#000000"  # Tooltip text color
+    """Windows Forms system colors mapping to current theme."""
+    Control = Colors.Control  # Control background color
+    ControlText = Colors.ControlText  # Control text color
+    Window = Colors.Window  # Window background color
+    WindowText = Colors.WindowText  # Window text color
+    Highlight = Colors.Highlight  # Highlight/selection color
+    HighlightText = Colors.HighlightText  # Highlighted text color
+    GrayText = Colors.GrayText  # Disabled text color
+    ButtonFace = Colors.ButtonFace  # Button background color
+    ButtonText = Colors.ButtonText  # Button text color
+    ActiveCaption = Colors.ActiveCaption # Active title bar color
+    ActiveCaptionText = Colors.ActiveCaptionText # Active title bar text color
+    InactiveCaption = Colors.InactiveCaption # Inactive title bar color
+    ActiveBorder = Colors.ActiveBorder # Active border color
+    InactiveBorder = Colors.InactiveBorder # Inactive border color
+    AppWorkspace = Colors.AppWorkspace # MDI workspace background color
+    Desktop = Colors.Desktop # Desktop background color
+    MenuBar = Colors.MenuBar # Menu bar background color
+    Menu = Colors.Menu # Menu background color
+    MenuText = Colors.MenuText # Menu text color
+    Info = Colors.Info # Tooltip background color
+    InfoText = Colors.InfoText # Tooltip text color
 
 
 class SystemFonts:
-    """Windows Forms system fonts."""
-    DefaultFont = ("Segoe UI", 9)  # Default system font
-    MessageBoxFont = ("Segoe UI", 9)  # MessageBox font
-    CaptionFont = ("Segoe UI", 9)  # Title bar font
-    SmallCaptionFont = ("Segoe UI", 8)  # Small title bar font
-    MenuFont = ("Segoe UI", 9)  # Menu font
-    StatusFont = ("Segoe UI", 9)  # Status bar font
-    IconTitleFont = ("Segoe UI", 9)  # Icon title font
-    DialogFont = ("Segoe UI", 9)  # Dialog font
+    """Windows Forms system fonts mapping to current theme."""
+    DefaultFont = Fonts.DefaultFont  # Default system font
+    MessageBoxFont = Fonts.DefaultFont  # MessageBox font
+    CaptionFont = Fonts.CaptionFont  # Title bar font
+    SmallCaptionFont = Fonts.SmallCaptionFont  # Small title bar font
+    MenuFont = Fonts.MenuFont  # Menu font
+    StatusFont = Fonts.StatusFont  # Status bar font
+    IconTitleFont = Fonts.DefaultFont  # Icon title font
+    DialogFont = Fonts.DefaultFont  # Dialog font
 
 
 class SystemStyles:
@@ -1523,16 +1560,18 @@ class ScrollableControlMixin:
                 pass
         
         # Update vertical scrollbar visibility
-        if v_needed and not self._v_scrollbar_visible:
-            self._v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        if v_needed:
+            # Always ensure it is packed BEFORE the canvas to stay at the outermost edge
+            self._v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, before=self._canvas)
             self._v_scrollbar_visible = True
         elif not v_needed and self._v_scrollbar_visible:
             self._v_scrollbar.pack_forget()
             self._v_scrollbar_visible = False
         
         # Update horizontal scrollbar visibility
-        if h_needed and not self._h_scrollbar_visible:
-            self._h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        if h_needed:
+            # Always ensure it is packed BEFORE the canvas to stay at the outermost edge
+            self._h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X, before=self._canvas)
             self._h_scrollbar_visible = True
         elif not h_needed and self._h_scrollbar_visible:
             self._h_scrollbar.pack_forget()
@@ -3779,8 +3818,18 @@ class ControlBase:
 
     def _on_paint(self, event):
         """Handler for Paint, Resize and Move events."""
+        # Refresh docked children if this is a container and it has controls
+        if hasattr(self, 'Controls') and len(self.Controls) > 0:
+            ControlBase._layout_docked_children(self._tk_widget)
+            
+        # Update scroll region if AutoScroll is enabled
+        if getattr(self, 'AutoScroll', False) and hasattr(self, 'UpdateScroll'):
+            self.UpdateScroll()
+            
+        # Trigger Paint event
         self.Paint(self, PaintEventArgs())
-        # Trigger SizeChanged/LocationChanged if size/position changed
+        
+        # Trigger SizeChanged/LocationChanged/Resize if size/position changed
         self.Resize(self, EventArgs(event))
         self.Move(self, EventArgs(event))
         
@@ -5087,7 +5136,7 @@ class UserControl(ControlBase, ScrollableControlMixin):
             'Text': '',
             'Enabled': True,
             'Visible': True,
-            'BackColor': 'SystemButtonFace',
+            'BackColor': None,
             'ForeColor': None,
             'BackgroundImage': None,
             'BorderStyle': BorderStyle.None_,
@@ -5301,11 +5350,6 @@ class UserControl(ControlBase, ScrollableControlMixin):
                 
             self.ControlRemoved(control)
             
-    def _on_paint(self, event):
-        """Handles the paint/resize event."""
-        self.Paint()
-        self.Resize()
-    
     def _apply_autosize(self):
         """Applies AutoSize logic to the UserControl.
 
@@ -5459,14 +5503,26 @@ class Form(ScrollableControlMixin):
             'AutoScroll': False,
             'AutoScrollMinSize': None,
             'AutoScrollPosition': (0, 0),
-            'AutoScrollMargin': (0, 0)
+            'AutoScrollMargin': (0, 0),
+            'BackColor': None,
+            'ForeColor': None,
+            'Font': None
         }
         
         if props:
+            # Extract UseSystemStyles before updating defaults
+            use_system_styles = props.pop('UseSystemStyles', None)
             defaults.update(props)
             # Alias: Text is equivalent to Title
             if 'Text' in props:
                 defaults['Title'] = props['Text']
+            
+            # Apply system styles if enabled
+            if use_system_styles:
+                SystemStyles.ApplyToDefaults(defaults, control_type="Window", use_system_styles=True)
+        else:
+            # Apply system styles according to global configuration
+            SystemStyles.ApplyToDefaults(defaults, control_type="Window")
         
         if parent:
             self._root = tk.Toplevel(parent)
@@ -5503,7 +5559,7 @@ class Form(ScrollableControlMixin):
         self.ControlBox = True
         self.ShowIcon = True
         self.Icon = None
-        self.BackColor = None
+        self.BackColor = defaults['BackColor']
         self.Opacity = 1.0
         self.WindowState = FormWindowState.Normal
         self.Enabled = True
@@ -5528,8 +5584,9 @@ class Form(ScrollableControlMixin):
         
         # Additional properties
         self.BackgroundImage = None
-        self.Font = None
-        self.FontColor = None
+        self.Font = defaults['Font']
+        self.FontColor = defaults['ForeColor']
+        self.ForeColor = defaults['ForeColor']
         
         # Configure scroll infrastructure using the Mixin (only if AutoScroll is enabled)
         if self.AutoScroll:
@@ -6015,8 +6072,14 @@ class Form(ScrollableControlMixin):
         # Only trigger if the size or position of the ROOT changed, 
         # not just any widget inside it.
         if event.widget == self._root:
+            # Re-evaluate docked children layout when form resizes
+            ControlBase._layout_docked_children(self._root)
+            
+            # Update scroll region if AutoScroll is enabled
+            if getattr(self, 'AutoScroll', False) and hasattr(self, 'UpdateScroll'):
+                self.UpdateScroll()
+            
             self.Resize(self, EventArgs(event))
-            # In WinForms, Move event also triggers
             if hasattr(self, 'Move'):
                 self.Move(self, EventArgs(event))
 
@@ -7006,6 +7069,7 @@ class Label(ControlBase):
             'ToolTipText': '',
             'AutoEllipsis': False,
             'FlatStyle': FlatStyle.Standard,
+            'WrapLength': 0,
             'Image': None,
             'ImageAlign': ContentAlignment.MiddleCenter,
             'ImageIndex': -1,
@@ -7062,6 +7126,7 @@ class Label(ControlBase):
         
         self._auto_ellipsis = defaults['AutoEllipsis']
         self._flat_style = defaults['FlatStyle']
+        self._wraplength = defaults['WrapLength']
         self._image = defaults['Image']
         self._image_align = defaults['ImageAlign']
         self._image_index = defaults['ImageIndex']
@@ -7084,6 +7149,8 @@ class Label(ControlBase):
         self._tk_widget = tk.Label(self.master, text=display_text, underline=underline)
         
         # Apply properties
+        if self._wraplength > 0:
+            self._tk_widget.config(wraplength=self._wraplength)
         if self.ForeColor:
             self._tk_widget.config(fg=self.ForeColor)
         if self.BackColor:
@@ -7198,6 +7265,20 @@ class Label(ControlBase):
         if self.AutoSize:
             self._apply_autosize()
             # _apply_autosize() already calls _place_control()
+
+    @property
+    def WrapLength(self):
+        """Gets or sets the maximum line length, in pixels, after which the text wraps."""
+        return getattr(self, '_wraplength', 0)
+
+    @WrapLength.setter
+    def WrapLength(self, value):
+        self._wraplength = value
+        if hasattr(self, '_tk_widget') and self._tk_widget:
+            self._tk_widget.config(wraplength=value)
+            if self.AutoSize:
+                self._apply_autosize()
+
     @property
     def Text(self):
         """Property getter for Text in Label."""
@@ -9125,7 +9206,10 @@ class CheckBox(ControlBase):
             if old_checked != new_checked:
                 self.OnCheckedChanged(EventArgs.Empty)
                 
-        self.Click()
+        # Fire Click event if not already handled by Button-1 (common for accessibility)
+        # Note: ControlBase already binds Button-1 to self._on_click
+        # self.Click(self, EventArgs.Empty)  # Potential double-trigger if we enable this
+        pass
 
     def OnCheckedChanged(self, e):
         """Raises the CheckedChanged event."""
@@ -13671,10 +13755,6 @@ class GroupBox(ControlBase):
         if self._tk_widget and isinstance(self._tk_widget, tk.LabelFrame):
             self._tk_widget.config(fg=value if value else 'black')
     
-    def _on_paint(self, event):
-        """Handler for Paint event."""
-        self.Paint()
-    
     def _on_enter(self, event):
         """Handler for Enter event."""
         self.Enter()
@@ -13718,7 +13798,7 @@ class Panel(ControlBase, ScrollableControlMixin):
             'Text': '',
             'Enabled': True,
             'Visible': True,
-            'BackColor': 'lightgray',
+            'BackColor': None,
             'ForeColor': None,
             'BackgroundImage': None,
             'BorderStyle': BorderStyle.None_,
@@ -14209,11 +14289,6 @@ class Panel(ControlBase, ScrollableControlMixin):
         """
         self._text = value
 
-    def _on_paint(self, event):
-        """Handler for Paint and Resize events."""
-        self.Paint()
-        self.Resize()
-
 
 class Line:
     """
@@ -14320,7 +14395,7 @@ class FlowLayoutPanel(Panel):
             'Padding': (0, 0, 0, 0),  # left, top, right, bottom
             'AutoScroll': False,
             'BorderStyle': BorderStyle.FixedSingle,
-            'BackColor': 'SystemButtonFace',
+            'BackColor': None,
             'Enabled': True,
             'Visible': True
         }
@@ -14570,7 +14645,7 @@ class TableLayoutPanel(Panel):
             'CellBorderStyle': TableLayoutPanelCellBorderStyle.Single,
             'Padding': (0, 0, 0, 0),
             'BorderStyle': BorderStyle.FixedSingle,
-            'BackColor': 'SystemButtonFace',
+            'BackColor': None,
             'GrowStyle': TableLayoutPanelGrowStyle.AddRows,
             'Enabled': True,
             'Visible': True
@@ -15133,7 +15208,6 @@ class TabPage(ControlBase, ScrollableControlMixin):
         self.Disposed = lambda sender, e: None
 
         # Bind events
-        self._tk_widget.bind('<Configure>', self._on_configure)
         self._tk_widget.bind('<FocusIn>', lambda e: self.ChangeUICues(self, EventArgs(e)), add='+')
         self._tk_widget.bind('<FocusOut>', lambda e: self.ChangeUICues(self, EventArgs(e)), add='+')
         
@@ -15371,11 +15445,6 @@ class TabPage(ControlBase, ScrollableControlMixin):
             self._update_scroll_region()
             
         self.ControlAdded(control)
-
-    def _on_configure(self, event):
-        """Handler for Paint and Resize events."""
-        self.Paint()
-        self.Resize()
 
     def RemoveControl(self, control):
         """Removes a control from the TabPage."""

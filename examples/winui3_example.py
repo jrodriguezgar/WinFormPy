@@ -18,30 +18,30 @@ WinUI 3 controls follow Windows 11 design guidelines with:
 - Consistent spacing (using 4px grid)
 
 Controls demonstrated:
-- WinUIButton: Button with multiple styles (Accent, Success, Warning, Danger, Standard)
-- WinUILabel: Label with typography support
-- WinUITextBox: TextBox with accent underline that responds to focus
-- WinUIProgressBar: ProgressBar with accent colors
-- WinUIToggleSwitch: Toggle switch control
-- WinUIExpander: Collapsible container
-- WinUICheckBox: CheckBox with accent color
-- WinUIRadioButton: RadioButton with accent color
-- WinUIComboBox: ComboBox with WinUI styling
-- WinUIPanel: Panel with card background
-- WinUISlider: Slider with Windows 11 aesthetics
-- WinUIHyperlinkButton: Button styled as hyperlink
+- Button: Button with multiple styles (Accent, Success, Warning, Danger, Standard)
+- TextBlock: Label with typography support
+- TextBox: TextBox with accent underline that responds to focus
+- ProgressBar: ProgressBar with accent colors
+- ToggleSwitch: Toggle switch control
+- Expander: Collapsible container
+- CheckBox: CheckBox with accent color
+- RadioButton: RadioButton with accent color
+- ComboBox: ComboBox with WinUI styling
+- Panel: Panel with card background
+- Slider: Slider with Windows 11 aesthetics
+- HyperlinkButton: Button styled as hyperlink
 """
 
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from winformpy.winformpy import Form, Panel, DockStyle, AnchorStyles, ScrollBars
+from winformpy.winformpy import Form, Panel as BasePanel, DockStyle, AnchorStyles, ScrollBars
 from winformpy.winui3 import (
-    WinUIButton, WinUILabel, WinUITextBox, WinUIProgressBar,
-    WinUIToggleSwitch, WinUIExpander, WinUICheckBox, WinUIRadioButton,
-    WinUIComboBox, WinUIPanel, WinUISlider, WinUIHyperlinkButton,
-    WinUIColors, WinUIFonts
+    Button, TextBlock, TextBox, ProgressBar,
+    ToggleSwitch, Expander, CheckBox, RadioButton,
+    ComboBox, Panel, Slider, HyperlinkButton,
+    Colors, Fonts
 )
 
 
@@ -64,9 +64,9 @@ class WinUI3ExampleForm(Form):
     def __init__(self):
         super().__init__()
         self.Text = "WinUI 3 Controls Gallery"
-        self.Width = 1100
+        self.Width = 1170
         self.Height = 750
-        self.BackColor = WinUIColors.WindowBg
+        self.BackColor = Colors.WindowBg
         self.StartPosition = 'CenterScreen'
         
         # Apply layout before adding controls (CRITICAL for Dock)
@@ -76,9 +76,9 @@ class WinUI3ExampleForm(Form):
         self.create_header()
         
         # Scrollable main content area (Dock.Fill - fills remaining space)
-        self.content_panel = Panel(self, {
+        self.content_panel = BasePanel(self, {
             'Dock': DockStyle.Fill,
-            'BackColor': WinUIColors.WindowBg,
+            'BackColor': Colors.WindowBg,
             'AutoScroll': True
         })
         
@@ -86,30 +86,31 @@ class WinUI3ExampleForm(Form):
         y_position = self.CARD_SPACING
         
         # Card 1: Buttons (left column)
-        card1 = self.create_card("Buttons", y_position, 500, 160)
+        card1 = self.create_card("Buttons", y_position, 550, 160)
         self.add_buttons_content(card1)
         
         # Card 2: Selection Controls (right column, aligned with Card 1)
-        card2 = self.create_card("Selection Controls", y_position, 540, 360, x_position=530)
+        card2 = self.create_card("Selection Controls", y_position, 560, 360, x_position=590)
         self.add_selection_content(card2)
         
         y_position += 180
         
         # Card 3: Input Controls (left column)
-        card3 = self.create_card("Text Input", y_position, 500, 160)
+        card3 = self.create_card("Text Input", y_position, 550, 160)
         self.add_input_content(card3)
         
         y_position += 180
         
         # Card 4: Progress & Feedback (left column)
-        card4 = self.create_card("Progress & Feedback", y_position, 500, 220)
+        card4 = self.create_card("Progress & Feedback", y_position, 550, 320)
         self.add_progress_content(card4)
         
-        # Ensure we're below the right column to prevent overlap
-        y_position = max(y_position + 240, 400)
+        # Ensure we're below both columns to prevent overlap
+        # Card Progress ends at y_position (380) + height (320) = 700
+        y_position = 720
         
         # Card 5: Advanced Controls (full width - no overlap)
-        card5 = self.create_card("Advanced Controls", y_position, 1040, 250)
+        card5 = self.create_card("Advanced Controls", y_position, 1130, 250)
         self.add_advanced_content(card5)
     
     def create_header(self):
@@ -117,31 +118,62 @@ class WinUI3ExampleForm(Form):
         Create header section with proper Dock positioning.
         Uses Dock.Top to prevent overlap with content area.
         """
-        header_panel = Panel(self, {
+        header_panel = BasePanel(self, {
             'Dock': DockStyle.Top,
-            'Height': 100,
-            'BackColor': WinUIColors.WindowBg
+            'Height': 120,
+            'BackColor': Colors.WindowBg
         })
         
         # Title label with consistent spacing
-        title = WinUILabel(header_panel, {
+        title = TextBlock(header_panel, {
             'Text': 'WinUI 3 Controls Gallery',
-            'Typography': WinUIFonts.TitleLarge,
+            'Typography': Fonts.TitleLarge,
             'Left': self.CARD_SPACING,
             'Top': self.CARD_SPACING,
             'AutoSize': True
         })
         
-        # Subtitle with proper vertical spacing
-        subtitle = WinUILabel(header_panel, {
+        # Subtitle with proper vertical spacing (Title size ~48px height + spacing)
+        subtitle = TextBlock(header_panel, {
             'Text': 'Modern Windows 11 styled controls with professional UX/UI design',
-            'Typography': WinUIFonts.Body,
-            'ForeColor': WinUIColors.TextSecondary,
+            'Typography': Fonts.Body,
+            'ForeColor': Colors.TextSecondary,
             'Left': self.CARD_SPACING,
-            'Top': self.CARD_SPACING + 40,
+            'Top': self.CARD_SPACING + 55,
             'Width': 1000,
             'AutoSize': False
         })
+        
+        # Debug Button (Right side of header)
+        debug_btn = Button(header_panel, {
+            'Text': 'Toggle Layout Traces',
+            'Left': self.Width - 200,
+            'Top': self.CARD_SPACING,
+            'Width': 160,
+            'Height': 32,
+            'ButtonStyle': 'Standard'
+        })
+        debug_btn.Click = lambda s, e: self.toggle_debug_visuals()
+
+    def toggle_debug_visuals(self):
+        """Visual debug helper: highlights backgrounds of containers to see boundaries."""
+        debug_color = "#FFE0E0"  # Light red for debugging
+        self._debug_active = getattr(self, '_debug_active', False)
+        
+        target_color = debug_color if not self._debug_active else Colors.CardBg
+        content_target_color = "#F0F0F0" if not self._debug_active else Colors.WindowBg
+        
+        # Update content panel
+        self.content_panel.BackColor = content_target_color
+        
+        # Update all panels inside content (Cards)
+        for ctrl in self.content_panel.Controls:
+            if isinstance(ctrl, BasePanel):
+                ctrl.BackColor = target_color
+        
+        self._debug_active = not self._debug_active
+        status = "Active" if self._debug_active else "Inactive"
+        self.show_notification(f"Visual Debug: {status}")
     
     def create_card(self, title, y_pos, width, height, x_position=None):
         """
@@ -159,34 +191,34 @@ class WinUI3ExampleForm(Form):
             x_position = self.CARD_SPACING
         
         # Card container with proper positioning
-        card = WinUIPanel(self.content_panel, {
+        card = Panel(self.content_panel, {
             'Left': x_position,
             'Top': y_pos,
             'Width': width,
             'Height': height,
-            'BackColor': WinUIColors.CardBg
+            'BackColor': Colors.CardBg
         })
         
         # Card title with consistent padding
-        title_label = WinUILabel(card, {
+        title_label = TextBlock(card, {
             'Text': title,
-            'Typography': WinUIFonts.Subtitle,
+            'Typography': Fonts.Subtitle,
             'Left': self.CARD_PADDING,
             'Top': self.SECTION_SPACING,
             'AutoSize': True
         })
         
         # Divider line with proper spacing
-        divider = Panel(card, {
+        divider = BasePanel(card, {
             'Left': self.CARD_PADDING,
-            'Top': 48,
+            'Top': 50,
             'Width': width - (self.CARD_PADDING * 2),
             'Height': 1,
-            'BackColor': WinUIColors.Border
+            'BackColor': Colors.Border
         })
         
         # Content area properties (used by add_* methods)
-        card._content_top = 64
+        card._content_top = 68
         card._content_left = self.CARD_PADDING
         return card
     
@@ -210,7 +242,7 @@ class WinUI3ExampleForm(Form):
         
         for i, (text, style, message) in enumerate(buttons):
             x_pos = card._content_left + (i * (button_width + button_spacing))
-            btn = WinUIButton(card, {
+            btn = Button(card, {
                 'Text': text,
                 'Left': x_pos,
                 'Top': card._content_top,
@@ -221,14 +253,15 @@ class WinUI3ExampleForm(Form):
             btn.Click = lambda s, e, msg=message: self.show_notification(msg)
         
         # Description with proper spacing
-        desc = WinUILabel(card, {
+        desc = TextBlock(card, {
             'Text': 'WinUI buttons with multiple styles: Accent (blue), Success (green), Warning (orange), Danger (red), and Standard (white with border).',
-            'Typography': WinUIFonts.Caption,
-            'ForeColor': WinUIColors.TextSecondary,
+            'Typography': Fonts.Caption,
+            'ForeColor': Colors.TextSecondary,
             'Left': card._content_left,
             'Top': card._content_top + button_height + self.SECTION_SPACING,
-            'Width': 460,
-            'Height': 40
+            'Width': 520,
+            'WrapLength': 520,
+            'AutoSize': True
         })
     
     def add_input_content(self, card):
@@ -242,7 +275,7 @@ class WinUI3ExampleForm(Form):
         textbox_spacing = 20
         
         # Standard TextBox (String input)
-        txt1 = WinUITextBox(card, {
+        txt1 = TextBox(card, {
             'Left': card._content_left,
             'Top': card._content_top,
             'Width': textbox_width,
@@ -257,24 +290,25 @@ class WinUI3ExampleForm(Form):
         txt1.TextChanged = validate_text1
         
         # TextBox with custom underline (positioned to prevent overlap)
-        txt2 = WinUITextBox(card, {
+        txt2 = TextBox(card, {
             'Left': card._content_left + textbox_width + textbox_spacing,
             'Top': card._content_top,
             'Width': textbox_width,
             'Height': textbox_height,
-            'UnderlineColor': WinUIColors.SuccessText
+            'UnderlineColor': Colors.SuccessText
         })
         txt2.Text = "Custom accent color"
         
         # Description with proper vertical spacing
-        desc = WinUILabel(card, {
+        desc = TextBlock(card, {
             'Text': 'WinUI TextBox with thin accent underline and no borders.\nFocuses on content with minimal visual chrome. Max 50 characters.',
-            'Typography': WinUIFonts.Caption,
-            'ForeColor': WinUIColors.TextSecondary,
+            'Typography': Fonts.Caption,
+            'ForeColor': Colors.TextSecondary,
             'Left': card._content_left,
             'Top': card._content_top + textbox_height + self.SECTION_SPACING,
-            'Width': 460,
-            'Height': 40
+            'Width': 520,
+            'WrapLength': 520,
+            'AutoSize': True
         })
     
     def add_selection_content(self, card):
@@ -286,14 +320,14 @@ class WinUI3ExampleForm(Form):
         - ComboBox for Enum (dropdown selection)
         """
         # Constants for layout
-        checkbox_spacing = 30
-        column_spacing = 250
-        section_gap = 140
+        checkbox_spacing = 32
+        column_spacing = 270
+        section_gap = 160
         
         # CheckBoxes section (Boolean type - multiple selections allowed)
-        chk_label = WinUILabel(card, {
+        chk_label = TextBlock(card, {
             'Text': 'CheckBoxes (Boolean):',
-            'Typography': WinUIFonts.BodyStrong,
+            'Typography': Fonts.BodyStrong,
             'Left': card._content_left,
             'Top': card._content_top,
             'AutoSize': True
@@ -303,7 +337,7 @@ class WinUI3ExampleForm(Form):
         checkbox_options = ['Enable feature A', 'Enable feature B', 'Enable feature C']
         self.checkboxes = []
         for i, text in enumerate(checkbox_options):
-            chk = WinUICheckBox(card, {
+            chk = CheckBox(card, {
                 'Text': text,
                 'Left': card._content_left,
                 'Top': card._content_top + checkbox_spacing + (i * checkbox_spacing),
@@ -315,9 +349,9 @@ class WinUI3ExampleForm(Form):
             self.checkboxes.append(chk)
         
         # RadioButtons section (Enum type - single selection from group)
-        rb_label = WinUILabel(card, {
+        rb_label = TextBlock(card, {
             'Text': 'RadioButtons (Enum):',
-            'Typography': WinUIFonts.BodyStrong,
+            'Typography': Fonts.BodyStrong,
             'Left': card._content_left + column_spacing,
             'Top': card._content_top,
             'AutoSize': True
@@ -327,25 +361,27 @@ class WinUI3ExampleForm(Form):
         radio_options = ['Option 1', 'Option 2', 'Option 3']
         self.radiobuttons = []
         for i, text in enumerate(radio_options):
-            rb = WinUIRadioButton(card, {
+            rb = RadioButton(card, {
                 'Text': text,
                 'Left': card._content_left + column_spacing,
                 'Top': card._content_top + checkbox_spacing + (i * checkbox_spacing),
                 'AutoSize': True,
                 'Checked': i == 0  # First one checked by default
             })
+            # Add change handler for validation
+            rb.CheckedChanged = lambda s, e, option=text: self.on_radio_changed(option, s.Checked)
             self.radiobuttons.append(rb)
         
         # ComboBox section (Enum type - dropdown selection)
-        combo_label = WinUILabel(card, {
+        combo_label = TextBlock(card, {
             'Text': 'ComboBox (Enum):',
-            'Typography': WinUIFonts.BodyStrong,
+            'Typography': Fonts.BodyStrong,
             'Left': card._content_left,
             'Top': card._content_top + section_gap,
             'AutoSize': True
         })
         
-        self.combo_os = WinUIComboBox(card, {
+        self.combo_os = ComboBox(card, {
             'Left': card._content_left,
             'Top': card._content_top + section_gap + checkbox_spacing,
             'Width': 220,
@@ -361,20 +397,26 @@ class WinUI3ExampleForm(Form):
         self.combo_os.SelectedIndexChanged = on_combo_changed
         
         # Description with proper spacing
-        desc = WinUILabel(card, {
+        desc = TextBlock(card, {
             'Text': 'Selection controls with accent color when selected.\nUse appropriate control type for data type.',
-            'Typography': WinUIFonts.Caption,
-            'ForeColor': WinUIColors.TextSecondary,
+            'Typography': Fonts.Caption,
+            'ForeColor': Colors.TextSecondary,
             'Left': card._content_left + column_spacing,
             'Top': card._content_top + section_gap + checkbox_spacing,
             'Width': 260,
-            'Height': 40
+            'WrapLength': 260,
+            'AutoSize': True
         })
     
     def on_checkbox_changed(self, option, checked):
         """Handle checkbox state changes with validation."""
-        state = "enabled" if checked else "disabled"
-        self.show_notification(f"{option}: {state}")
+        state = "selected" if checked else "unselected"
+        self.show_notification(f"CheckBox {option}: {state}")
+        
+    def on_radio_changed(self, option, checked):
+        """Handle radio button selection changes."""
+        if checked: # Only notify when selected
+            self.show_notification(f"RadioButton {option}: selected")
     
     def add_progress_content(self, card):
         """
@@ -389,15 +431,15 @@ class WinUI3ExampleForm(Form):
         column_offset = 250
         
         # ProgressBar section (Integer: 0-100)
-        pb_label = WinUILabel(card, {
+        pb_label = TextBlock(card, {
             'Text': 'ProgressBar (Integer 0-100):',
-            'Typography': WinUIFonts.BodyStrong,
+            'Typography': Fonts.BodyStrong,
             'Left': card._content_left,
             'Top': card._content_top,
             'AutoSize': True
         })
         
-        self.progress = WinUIProgressBar(card, {
+        self.progress = ProgressBar(card, {
             'Left': card._content_left,
             'Top': card._content_top + 30,
             'Width': 360,
@@ -406,32 +448,32 @@ class WinUI3ExampleForm(Form):
         })
         
         # Percentage label (validates range: 0-100)
-        self.progress_label = WinUILabel(card, {
+        self.progress_label = TextBlock(card, {
             'Text': '65%',
             'Left': card._content_left + 370,
             'Top': card._content_top + 25,
             'AutoSize': True,
-            'Typography': WinUIFonts.Caption
+            'Typography': Fonts.Caption
         })
         
         # ToggleSwitches section (Boolean: True/False)
-        switch_label = WinUILabel(card, {
+        switch_label = TextBlock(card, {
             'Text': 'Toggle Switches (Boolean):',
-            'Typography': WinUIFonts.BodyStrong,
+            'Typography': Fonts.BodyStrong,
             'Left': card._content_left,
             'Top': card._content_top + row_spacing,
             'AutoSize': True
         })
         
         # Create toggle switches with proper spacing
-        switch1 = WinUIToggleSwitch(
+        switch1 = ToggleSwitch(
             card,
             text="Enable dark mode",
             on_toggle=lambda state: self.on_switch_toggle("Dark mode", state)
         )
         switch1.Location = (card._content_left, card._content_top + row_spacing + 30)
         
-        switch2 = WinUIToggleSwitch(
+        switch2 = ToggleSwitch(
             card,
             text="Enable notifications",
             on_toggle=lambda state: self.on_switch_toggle("Notifications", state)
@@ -439,7 +481,7 @@ class WinUI3ExampleForm(Form):
         switch2.Location = (card._content_left + column_offset, card._content_top + row_spacing + 30)
         
         # Animate progress button (positioned to avoid overlap)
-        btn_animate = WinUIButton(card, {
+        btn_animate = Button(card, {
             'Text': 'Animate Progress',
             'Left': card._content_left,
             'Top': card._content_top + row_spacing * 2 + 10,
@@ -449,35 +491,36 @@ class WinUI3ExampleForm(Form):
         btn_animate.Click = lambda s, e: self.animate_progress()
         
         # Slider section (Decimal: range value)
-        slider_label = WinUILabel(card, {
+        slider_label = TextBlock(card, {
             'Text': 'Slider (Decimal 0-100):',
-            'Typography': WinUIFonts.BodyStrong,
+            'Typography': Fonts.BodyStrong,
             'Left': card._content_left + column_offset,
             'Top': card._content_top + row_spacing * 2 + 10,
             'AutoSize': True
         })
         
-        self.slider = WinUISlider(card, {
+        self.slider = Slider(card, {
             'Width': 200,
             'Left': card._content_left + column_offset,
-            'Top': card._content_top + row_spacing * 2 + 35
+            'Top': card._content_top + row_spacing * 2 + 50
         })
         
         # Slider value label
-        self.slider_label = WinUILabel(card, {
+        self.slider_label = TextBlock(card, {
             'Text': '50',
             'Left': card._content_left + column_offset + 210,
-            'Top': card._content_top + row_spacing * 2 + 35,
+            'Top': card._content_top + row_spacing * 2 + 50,
             'Width': 30,
+            'Height': 20,
             'AutoSize': False,
-            'Typography': WinUIFonts.Caption
+            'Typography': Fonts.Caption
         })
         
         # Hyperlink Button (positioned below other controls)
-        link = WinUIHyperlinkButton(card, {
+        link = HyperlinkButton(card, {
             'Text': 'Learn more about WinUI 3',
             'Left': card._content_left,
-            'Top': card._content_top + row_spacing * 2 + 55,
+            'Top': card._content_top + row_spacing * 2 + 90,
             'Width': 200,
             'Height': 32
         })
@@ -489,11 +532,11 @@ class WinUI3ExampleForm(Form):
         Demonstrates collapsible containers with validation.
         """
         # Constants for layout
-        expander_spacing = 520
+        expander_spacing = 565
         inner_padding = 16
         
         # Expander 1 - Basic Settings
-        expander1 = WinUIExpander(
+        expander1 = Expander(
             card,
             title="Basic Settings (String Input with Validation)",
             height_expanded=160
@@ -502,7 +545,7 @@ class WinUI3ExampleForm(Form):
         expander1.Width = 500
         
         # Content for expander 1 with validation
-        exp1_txt = WinUITextBox(expander1.content, {
+        exp1_txt = TextBox(expander1.content, {
             'Left': inner_padding,
             'Top': inner_padding,
             'Width': 300,
@@ -511,7 +554,7 @@ class WinUI3ExampleForm(Form):
         exp1_txt.Text = "Enter your name"
         
         # Save button with validation
-        exp1_btn = WinUIButton(expander1.content, {
+        exp1_btn = Button(expander1.content, {
             'Text': 'Save',
             'Left': 326,
             'Top': inner_padding,
@@ -537,51 +580,53 @@ class WinUI3ExampleForm(Form):
         exp1_btn.Click = save_with_validation
         
         # Help text
-        exp1_label = WinUILabel(expander1.content, {
+        exp1_label = TextBlock(expander1.content, {
             'Text': 'Enter your name (2-50 letters). Click Save to validate.\nClick the header above to collapse this section.',
-            'Typography': WinUIFonts.Caption,
-            'ForeColor': WinUIColors.TextSecondary,
+            'Typography': Fonts.Caption,
+            'ForeColor': Colors.TextSecondary,
             'Left': inner_padding,
             'Top': 60,
             'Width': 460,
-            'Height': 50
+            'WrapLength': 460,
+            'AutoSize': True
         })
         
         # Expander 2 - Info Card (positioned to prevent overlap)
-        expander2 = WinUIExpander(
+        expander2 = Expander(
             card,
             title="Information Panel",
-            height_expanded=160
+            height_expanded=200
         )
         expander2.Location = (card._content_left + expander_spacing, card._content_top)
         expander2.Width = 500
         
         # Info panel inside expander with proper spacing
-        info_panel = WinUIPanel(expander2.content, {
+        info_panel = Panel(expander2.content, {
             'Left': inner_padding,
             'Top': inner_padding,
             'Width': 468,
-            'Height': 100,
-            'BackColor': WinUIColors.InfoBg
+            'Height': 140,
+            'BackColor': Colors.InfoBg
         })
         
-        info_title = WinUILabel(info_panel, {
+        info_title = TextBlock(info_panel, {
             'Text': 'ℹ️  Design Principles',
-            'Typography': WinUIFonts.BodyStrong,
-            'ForeColor': WinUIColors.InfoText,
+            'Typography': Fonts.BodyStrong,
+            'ForeColor': Colors.InfoText,
             'Left': inner_padding,
             'Top': 12,
             'AutoSize': True
         })
         
-        info_text = WinUILabel(info_panel, {
+        info_text = TextBlock(info_panel, {
             'Text': 'This example demonstrates professional UX/UI:\n• Zero overlap with strict layout system\n• Consistent spacing using defined constants\n• Type-appropriate controls with validation',
-            'Typography': WinUIFonts.Caption,
-            'ForeColor': WinUIColors.InfoText,
+            'Typography': Fonts.Caption,
+            'ForeColor': Colors.InfoText,
             'Left': inner_padding,
             'Top': 36,
             'Width': 436,
-            'Height': 56
+            'WrapLength': 436,
+            'AutoSize': True
         })
     
     def show_notification(self, message):

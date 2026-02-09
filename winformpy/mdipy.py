@@ -1,5 +1,34 @@
 import tkinter as tk
-from .winformpy import Form, ControlBase, FormWindowState, Size, MenuItem, FormStartPosition, ToolStripMenuItem
+import os
+import sys
+from datetime import datetime
+
+# Import WinFormPy base controls
+try:
+    # Try relative import first (when part of a package)
+    from .winformpy import (
+        Form, ControlBase, FormWindowState, Size, MenuItem, 
+        FormStartPosition, ToolStripMenuItem, Application, MenuStrip, Label,
+        Button, Panel, MessageBox, DockStyle
+    )
+except (ImportError, ValueError):
+    try:
+        # Try absolute import from the module file
+        from winformpy import (
+            Form, ControlBase, FormWindowState, Size, MenuItem, 
+            FormStartPosition, ToolStripMenuItem, Application, MenuStrip, Label,
+            Button, Panel, MessageBox, DockStyle
+        )
+    except ImportError:
+        # Fallback for direct execution or unusual path setups
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        if current_dir not in sys.path:
+            sys.path.append(current_dir)
+        from winformpy import (
+            Form, ControlBase, FormWindowState, Size, MenuItem, 
+            FormStartPosition, ToolStripMenuItem, Application, MenuStrip, Label,
+            Button, Panel, MessageBox, DockStyle
+        )
 
 class MDIParent(Form):
     """
@@ -18,16 +47,26 @@ class MDIParent(Form):
         bg_color = MDIChild.MDI_CLIENT_COLOR
 
         self._mdi_client = tk.Frame(self._root, bg=bg_color, relief="sunken", bd=2)
-        self._mdi_client.pack(fill="both", expand=True, padx=2, pady=2)
+        
+        # To truly follow the "Fill" behavior, the MDI client must be the LAST thing packed.
+        # This allows other controls (MenuStrip, StatusBars) to take their space first.
+        # We'll use a safer packing strategy here.
+        self._mdi_client.pack(side="top", fill="both", expand=True, padx=2, pady=2)
         
         # Bind resize to update children constraints
         self._mdi_client.bind('<Configure>', self._on_client_resize, add='+')
         
     def _on_client_resize(self, event):
         """Update children when MDI client area resizes."""
+        # Ensure latest sizes are known
+        self._root.update_idletasks()
+        
         for child in self.MdiChildren:
             if hasattr(child, '_constrain_to_parent'):
                 child._constrain_to_parent()
+        
+        # Automatically re-arrange icons to keep them visible at the bottom on resize
+        self.LayoutMdi(3)
         
     @property
     def Menu(self):
@@ -231,12 +270,8 @@ class MDIParent(Form):
                    0 = Cascade
                    1 = TileHorizontal
                    2 = TileVertical
-                   3 = ArrangeIcons (Not implemented)
+                   3 = ArrangeIcons
         """
-        children = [c for c in self.MdiChildren if c.WindowState == FormWindowState.Normal]
-        if not children:
-            return
-            
         # Get MDI client area dimensions
         try:
             self._mdi_client.update_idletasks()
@@ -244,7 +279,44 @@ class MDIParent(Form):
             client_h = self._mdi_client.winfo_height()
         except tk.TclError:
             return
-        
+
+        if value == 3: # ArrangeIcons
+            minimized_children = [c for c in self.MdiChildren if c.WindowState == FormWindowState.Minimized]
+            if not minimized_children: return
+            
+            icon_w = 160
+            icon_h = 30
+            spacing = 5
+            
+            # Windows Standard: Icons at the bottom.
+            # We add a 40px margin to ensure they aren't covered by a potential Status Bar 
+            # or the bottom border of the MDI client itself.
+            margin_bottom = 45 
+            
+            x = spacing
+            y = client_h - icon_h - margin_bottom
+            
+            # Fail-safe: if Y becomes negative (too many rows), reset to bottom row
+            if y < 0: y = spacing
+            
+            for child in minimized_children:
+                child._left = x
+                child._top = y
+                child._update_geometry()
+                
+                if child._outer_frame:
+                    child._outer_frame.lift()
+                
+                x += icon_w + spacing
+                if x + icon_w > client_w:
+                    x = spacing
+                    y -= (icon_h + spacing)
+            return
+
+        children = [c for c in self.MdiChildren if c.WindowState == FormWindowState.Normal]
+        if not children:
+            return
+            
         if value == 0: # Cascade
             x = 10
             y = 10
@@ -322,7 +394,7 @@ class MDIChild:
     # MDI Client area color (matching Windows style)
     MDI_CLIENT_COLOR = "#5A5A5A"
     
-    def __init__(self, props=None, mdi_parent=None):
+    def __init__(self, mdi_parent=None, props=None):
         self._mdi_parent = None
         self._window_state = FormWindowState.Normal
         self._text = "MDI Child"
@@ -622,16 +694,31 @@ class MDIChild:
         
     def _update_geometry(self):
         """Update the window geometry."""
-        if not self._outer_frame:
+        if not self._outer_frame or not self._visible:
             return
-        self._outer_frame.place(x=self._left, y=self._top, width=self._width, height=self._height)
+            
+        if self._window_state == FormWindowState.Minimized:
+            display_w = 160
+            display_h = self.TITLE_BAR_HEIGHT + (2 * self.BORDER_WIDTH)
+            if self._content_frame:
+                self._content_frame.pack_forget()
+        else:
+            display_w = self._width
+            display_h = self._height
+            if self._content_frame and not self._content_frame.winfo_ismapped():
+                self._content_frame.pack(fill="both", expand=True)
+
+        # Force a lift to ensure it's on top of MDI client background
+        self._outer_frame.lift()
+        self._outer_frame.place(x=self._left, y=self._top, width=display_w, height=display_h)
         
         # Update inner frame
         inner = self._outer_frame.winfo_children()[0] if self._outer_frame.winfo_children() else None
         if inner:
             inner.place(x=self.BORDER_WIDTH, y=self.BORDER_WIDTH,
-                       width=self._width - 2*self.BORDER_WIDTH,
-                       height=self._height - 2*self.BORDER_WIDTH)
+                       width=display_w - (2 * self.BORDER_WIDTH),
+                       height=display_h - (2 * self.BORDER_WIDTH))
+            inner.lift()
     
     def _set_position(self, x, y):
         """Set position within parent."""
@@ -674,13 +761,19 @@ class MDIChild:
             self._top = client_h - self.TITLE_BAR_HEIGHT
             
     def _minimize(self):
-        """Minimize the window."""
+        """Minimize the window to an icon bar at the bottom."""
         if self._window_state != FormWindowState.Minimized:
-            self._saved_bounds = (self._left, self._top, self._width, self._height)
+            # Only save bounds if we're in Normal state
+            if self._window_state == FormWindowState.Normal:
+                self._saved_bounds = (self._left, self._top, self._width, self._height)
+            
             self._window_state = FormWindowState.Minimized
-            # Hide the window (in a real implementation, show as icon in bottom)
-            if self._outer_frame:
-                self._outer_frame.place_forget()
+            
+            # Arrange icons automatically to find a spot at the bottom
+            if self._mdi_parent:
+                self._mdi_parent.LayoutMdi(3)
+            else:
+                self._update_geometry()
                 
     def _toggle_maximize(self):
         """Toggle between maximized and normal."""
@@ -692,7 +785,10 @@ class MDIChild:
     def _maximize(self):
         """Maximize the window to fill MDI client area."""
         if self._window_state != FormWindowState.Maximized:
-            self._saved_bounds = (self._left, self._top, self._width, self._height)
+            # Only save current bounds if we're in Normal state
+            if self._window_state == FormWindowState.Normal:
+                self._saved_bounds = (self._left, self._top, self._width, self._height)
+            
             self._window_state = FormWindowState.Maximized
             
             try:
@@ -923,3 +1019,135 @@ class MDIChild:
         """Force redraw."""
         if self._outer_frame:
             self._outer_frame.update_idletasks()
+
+class MdiDemoApp(MDIParent):
+    def __init__(self):
+        super().__init__()
+        self.Text = "WinFormPy - Multi-Document Interface (MDI) Dashboard"
+        self.Width = 1024
+        self.Height = 768
+        self.StartPosition = FormStartPosition.CenterScreen
+        
+        # 1. Setup Main Menu
+        self._setup_menus()
+        
+        # 2. Add Status Bar (using Label for now)
+        self.status_bar = Label(self, {
+            'Dock': 'Bottom', 
+            'Height': 25, 
+            'Text': " Ready", 
+            'BackColor': '#f0f0f0'
+        })
+        
+        # 3. Create initial windows
+        self._child_count = 0
+        self._create_welcome_window()
+
+    def _setup_menus(self):
+        ms = MenuStrip(self)
+        
+        # File Menu
+        file_menu = ToolStripMenuItem("File")
+        
+        new_item = ToolStripMenuItem("New Child Window")
+        new_item.ShortcutKeys = "Ctrl+N"
+        new_item.Click = self._on_new_child
+        
+        exit_item = ToolStripMenuItem("Exit")
+        exit_item.Click = lambda s, e: self.Close()
+        
+        file_menu.DropDownItems.Add(new_item)
+        file_menu.DropDownItems.Add(ToolStripMenuItem("-"))
+        file_menu.DropDownItems.Add(exit_item)
+        
+        # Window Menu (For MDI Management)
+        window_menu = ToolStripMenuItem("Window")
+        
+        cascade = ToolStripMenuItem("Cascade")
+        cascade.Click = lambda s, e: self.LayoutMdi(0) # MdiLayout.Cascade
+        
+        tile_h = ToolStripMenuItem("Tile Horizontal")
+        tile_h.Click = lambda s, e: self.LayoutMdi(1) # MdiLayout.TileHorizontal
+        
+        tile_v = ToolStripMenuItem("Tile Vertical")
+        tile_v.Click = lambda s, e: self.LayoutMdi(2) # MdiLayout.TileVertical
+        
+        arrange = ToolStripMenuItem("Arrange Icons")
+        arrange.Click = lambda s, e: self.LayoutMdi(3) # MdiLayout.ArrangeIcons
+        
+        window_menu.DropDownItems.Add(cascade)
+        window_menu.DropDownItems.Add(tile_h)
+        window_menu.DropDownItems.Add(tile_v)
+        window_menu.DropDownItems.Add(arrange)
+        window_menu.DropDownItems.Add(ToolStripMenuItem("-"))
+        
+        # Help Menu
+        help_menu = ToolStripMenuItem("Help")
+        about_item = ToolStripMenuItem("About...")
+        about_item.Click = lambda s, e: MessageBox.Show(
+            "WinFormPy MDI Engine\nVersion 1.0\n\nExperience .NET style MDI in Python!", 
+            "About MDI"
+        )
+        help_menu.DropDownItems.Add(about_item)
+        
+        ms.Items.Add(file_menu)
+        ms.Items.Add(window_menu)
+        ms.Items.Add(help_menu)
+        
+        self.MainMenuStrip = ms
+        self.Menu = ms
+        
+        # CRITICAL: Set this so child windows appear in the Window menu list
+        self.MdiWindowListItem = window_menu
+
+    def _on_new_child(self, sender, e):
+        self._child_count += 1
+        child = MDIChild(self)
+        child.Text = f"Document {self._child_count}"
+        
+        # Add some content to child
+        container = Panel(child._content_frame, {'Dock': 'Fill', 'Padding': 20})
+        
+        Label(container, {
+            'Text': f"This is child window #{self._child_count}",
+            'Top': 20, 'Left': 20, 'Width': 300
+        })
+        
+        btn = Button(container, {
+            'Text': "Click Me",
+            'Top': 60, 'Left': 20, 'Width': 100
+        })
+        btn.Click = lambda s, ev: MessageBox.Show(f"Hello from {child.Text}")
+        
+        child.Show()
+        self.status_bar.Text = f" Created {child.Text} at {datetime.now().strftime('%H:%M:%S')}"
+
+    def _create_welcome_window(self):
+        welcome = MDIChild(self)
+        welcome.Text = "Welcome"
+        welcome.Width = 400
+        welcome.Height = 300
+        
+        pnl = Panel(welcome._content_frame, {'Dock': 'Fill', 'BackColor': 'white'})
+        
+        lbl = Label(pnl, {
+            'Text': "Welcome to WinFormPy MDI",
+            'Font': ('Segoe UI', 14, 'bold'),
+            'Top': 40, 'Left': 20, 'Width': 350
+        })
+        
+        desc = Label(pnl, {
+            'Text': "This dashboard demonstrates the power of Multi-Document Interface.\n\n"
+                    "1. Use 'File > New' to create windows\n"
+                    "2. Use 'Window' menu to organize them\n"
+                    "3. Drag and resize windows freely",
+            'Top': 80, 'Left': 20, 'Width': 350, 'Height': 150
+        })
+        
+        welcome.Show()
+
+if __name__ == "__main__":
+    app = MdiDemoApp()
+    Application.Run(app)
+
+

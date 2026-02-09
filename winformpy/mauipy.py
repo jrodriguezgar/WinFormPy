@@ -33,7 +33,39 @@ from tkinter import ttk
 from datetime import datetime, date, time
 import calendar
 import sys
+import os
 import subprocess
+
+# Import WinFormPy base controls
+try:
+    # Try relative import first (when part of a package)
+    from .winformpy import (
+        Application, Form, ControlBase, DockStyle, Size, Color, Font, 
+        MessageBox, Panel, Label as WinFormLabel, Button as WinFormButton,
+        FormStartPosition
+    )
+except (ImportError, ValueError):
+    try:
+        # Try absolute import from the module file
+        from winformpy import (
+            Application, Form, ControlBase, DockStyle, Size, Color, Font, 
+            MessageBox, Panel, Label as WinFormLabel, Button as WinFormButton,
+            FormStartPosition
+        )
+    except ImportError:
+        # Fallback for direct execution or unusual path setups
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        if current_dir not in sys.path:
+            sys.path.append(current_dir)
+        try:
+            from winformpy import (
+                Application, Form, ControlBase, DockStyle, Size, Color, Font, 
+                MessageBox, Panel, Label as WinFormLabel, Button as WinFormButton,
+                FormStartPosition
+            )
+        except ImportError:
+            # winformpy not available
+            pass
 
 
 # =============================================================
@@ -106,9 +138,47 @@ def install_library(library_name: str, import_name: str = None) -> bool:
 
 class EventArgs:
     """Base class for event data."""
-    def __init__(self, **kwargs):
+    def __init__(self, event=None, **kwargs):
+        # Default properties
+        self.X = 0
+        self.Y = 0
+        self.Width = 0
+        self.Height = 0
+        self.Button = 0
+        self.KeyChar = ''
+        self.KeyCode = ''
+        self.Delta = 0
+        self.Shift = False
+        self.Control = False
+        self.Alt = False
+        self.Data = None
+
+        if event is not None:
+            if hasattr(event, 'x'):
+                # Map Tkinter event properties to WinForms-friendly names
+                self.X = getattr(event, 'x', 0)
+                self.Y = getattr(event, 'y', 0)
+                self.Width = getattr(event, 'width', 0)
+                self.Height = getattr(event, 'height', 0)
+                self.Button = getattr(event, 'num', 0)
+                self.KeyChar = getattr(event, 'char', '')
+                self.KeyCode = getattr(event, 'keysym', '')
+                self.Delta = getattr(event, 'delta', 0)
+                
+                # State masks for modifiers
+                state = getattr(event, 'state', 0)
+                if isinstance(state, int):
+                    self.Shift = bool(state & 0x0001)
+                    self.Control = bool(state & 0x0004)
+                    self.Alt = bool(state & 0x20000) or bool(state & 0x0020) or bool(state & 8)
+            else:
+                self.Data = event
+        
+        # Apply additional custom data/overrides
         for key, value in kwargs.items():
             setattr(self, key, value)
+            if key.lower() == 'data':
+                self.Data = value
     
     @property
     def Empty(self):
@@ -121,7 +191,7 @@ EventArgs.Empty = EventArgs()
 # SHELL - Main Application Container
 # =============================================================================
 
-class Shell:
+class Shell(Form):
     """
     Main application container with integrated navigation and flyout menu.
     
@@ -171,17 +241,20 @@ class Shell:
         if props:
             defaults.update(props)
         
-        self._root = tk.Tk()
-        self._root.title(defaults['Text'])
-        self._root.geometry(f"{defaults['Width']}x{defaults['Height']}")
-        self._root.configure(bg=defaults['BackColor'])
+        # Convert MAUI props to WinFormPy props where they overlap
+        wf_props = {
+            'Text': defaults['Text'],
+            'Width': defaults['Width'],
+            'Height': defaults['Height'],
+            'BackColor': defaults['BackColor']
+        }
         
-        # Center on screen if enabled
         if defaults['CenterOnScreen']:
-            self._root.update_idletasks()
-            x = (self._root.winfo_screenwidth() - defaults['Width']) // 2
-            y = (self._root.winfo_screenheight() - defaults['Height']) // 2
-            self._root.geometry(f"{defaults['Width']}x{defaults['Height']}+{x}+{y}")
+            # StartPosition is how winformpy handles centering
+            wf_props['StartPosition'] = FormStartPosition.CenterScreen
+
+        # Initialize base Form
+        super().__init__(wf_props)
         
         # Internal state
         self._flyout_width = defaults['FlyoutWidth']
@@ -363,11 +436,17 @@ class Shell:
             
         # Show new page
         page._frame.pack(fill=tk.BOTH, expand=True)
+        page._frame.lift()
+        page._frame.focus_set()
         
         # Update stack and title
         self._page_stack.append(page)
         self._current_page = page
         self.HeaderTitle = getattr(page, 'Title', '')
+        
+        # Force update to ensure layout is calculated and visible
+        self._root.update_idletasks()
+        self._root.update()
         
         return page
         
@@ -393,6 +472,13 @@ class Shell:
         """Gets the currently displayed page."""
         return self._current_page
         
+    def Show(self):
+        """Displays the shell window (winformpy Application.Run compatibility)."""
+        if self._root:
+            self._root.deiconify()
+            self._root.lift()
+            self._root.focus_force()
+
     def Run(self):
         """Starts the application main loop."""
         self._root.mainloop()
@@ -460,13 +546,32 @@ class ContentPage:
         self._frame.bind("<Enter>", lambda e: self._bind_mousewheel())
         self._frame.bind("<Leave>", lambda e: self._unbind_mousewheel())
         
+    @property
+    def BackColor(self):
+        """Gets or sets the background color."""
+        return self._back_color
+        
+    @BackColor.setter
+    def BackColor(self, value):
+        self._back_color = value
+        if hasattr(self, '_frame'):
+            self._frame.configure(bg=value)
+        if hasattr(self, '_canvas'):
+            self._canvas.configure(bg=value)
+        if hasattr(self, '_content'):
+            self._content.configure(bg=value)
+
     def _on_canvas_configure(self, event):
         """Adjusts content width to canvas width."""
-        self._canvas.itemconfig(self._canvas_window, width=event.width)
+        # Ensure minimum width to avoid being invisible
+        width = max(event.width, 10)
+        self._canvas.itemconfig(self._canvas_window, width=width)
         
     def _bind_mousewheel(self):
         """Binds mouse wheel to scrolling."""
         self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        # Force a configured event to ensure components are sized correctly
+        self._frame.after(10, lambda: self._on_canvas_configure(EventArgs(width=self._canvas.winfo_width())))
         
     def _unbind_mousewheel(self):
         """Unbinds mouse wheel scrolling."""
@@ -957,7 +1062,7 @@ class Grid:
     def AddChild(self, widget_class, row, column, rowspan=1, columnspan=1, **kwargs):
         """Adds a widget at the specified grid position."""
         widget = widget_class(self._frame, use_grid=True, **kwargs)
-        widget._widget.grid(
+        widget._tk_widget.grid(
             row=row, column=column,
             rowspan=rowspan, columnspan=columnspan,
             padx=self.ColumnSpacing // 2,
@@ -1042,7 +1147,7 @@ class Label:
         bg_color = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
             
         # Create label
-        self._widget = tk.Label(
+        self._tk_widget = tk.Label(
             parent,
             text=defaults['Text'],
             font=defaults['Font'],
@@ -1053,40 +1158,40 @@ class Label:
         )
         
         if not use_grid:
-            self._widget.pack(side=side, anchor="w", fill=tk.X)
+            self._tk_widget.pack(side=side, anchor="w", fill=tk.X)
         
         # Bind events
-        self._widget.bind("<Button-1>", lambda e: self.Click(self, e))
-        self._widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
-        self._widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, e))
-        self._widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, e))
-        self._widget.bind("<Motion>", lambda e: self.MouseMove(self, e))
-        self._widget.bind("<Enter>", lambda e: self.MouseEnter(self, e))
-        self._widget.bind("<Leave>", lambda e: self.MouseLeave(self, e))
+        self._tk_widget.bind("<Button-1>", lambda e: self.Click(self, EventArgs(e)))
+        self._tk_widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
+        self._tk_widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
+        self._tk_widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
+        self._tk_widget.bind("<Motion>", lambda e: self.MouseMove(self, EventArgs(e)))
+        self._tk_widget.bind("<Enter>", lambda e: self.MouseEnter(self, EventArgs(e)))
+        self._tk_widget.bind("<Leave>", lambda e: self.MouseLeave(self, EventArgs(e)))
         
     @property
     def Text(self):
-        return self._widget.cget("text")
+        return self._tk_widget.cget("text")
         
     @Text.setter
     def Text(self, value):
-        self._widget.configure(text=value)
+        self._tk_widget.configure(text=value)
         
     @property
     def Font(self):
-        return self._widget.cget("font")
+        return self._tk_widget.cget("font")
         
     @Font.setter
     def Font(self, value):
-        self._widget.configure(font=value)
+        self._tk_widget.configure(font=value)
         
     @property
     def ForeColor(self):
-        return self._widget.cget("fg")
+        return self._tk_widget.cget("fg")
         
     @ForeColor.setter
     def ForeColor(self, value):
-        self._widget.configure(fg=value)
+        self._tk_widget.configure(fg=value)
 
 
 class Button:
@@ -1172,7 +1277,7 @@ class Button:
         else:
             parent = master
         
-        self._widget = tk.Button(
+        self._tk_widget = tk.Button(
             parent,
             text=defaults['Text'],
             font=defaults['Font'],
@@ -1188,42 +1293,42 @@ class Button:
         
         if not use_grid:
             if defaults['Width']:
-                self._widget.configure(width=defaults['Width'] // 10)  # Approximate char width
-            self._widget.pack(side=side, anchor=defaults['Anchor'])
+                self._tk_widget.configure(width=defaults['Width'] // 10)  # Approximate char width
+            self._tk_widget.pack(side=side, anchor=defaults['Anchor'])
         
         # Hover effects
         self._bg = defaults['BackColor']
         self._hover_bg = defaults['HoverColor']
         
         # Bind events
-        self._widget.bind("<Button-1>", self._on_click)
-        self._widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
-        self._widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, e))
-        self._widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, e))
-        self._widget.bind("<Motion>", lambda e: self.MouseMove(self, e))
-        self._widget.bind("<Enter>", self._on_mouse_enter)
-        self._widget.bind("<Leave>", self._on_mouse_leave)
-        self._widget.bind("<FocusIn>", lambda e: self.GotFocus(self, e))
-        self._widget.bind("<FocusOut>", lambda e: self.LostFocus(self, e))
+        self._tk_widget.bind("<Button-1>", self._on_click)
+        self._tk_widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
+        self._tk_widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
+        self._tk_widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
+        self._tk_widget.bind("<Motion>", lambda e: self.MouseMove(self, EventArgs(e)))
+        self._tk_widget.bind("<Enter>", self._on_mouse_enter)
+        self._tk_widget.bind("<Leave>", self._on_mouse_leave)
+        self._tk_widget.bind("<FocusIn>", lambda e: self.GotFocus(self, EventArgs(e)))
+        self._tk_widget.bind("<FocusOut>", lambda e: self.LostFocus(self, EventArgs(e)))
         
     def _on_click(self, event):
-        self.Click(self, event)
+        self.Click(self, EventArgs(event))
 
     def _on_mouse_enter(self, event):
-        self._widget.configure(bg=self._hover_bg)
-        self.MouseEnter(self, event)
+        self._tk_widget.configure(bg=self._hover_bg)
+        self.MouseEnter(self, EventArgs(event))
 
     def _on_mouse_leave(self, event):
-        self._widget.configure(bg=self._bg)
-        self.MouseLeave(self, event)
+        self._tk_widget.configure(bg=self._bg)
+        self.MouseLeave(self, EventArgs(event))
 
     @property
     def Text(self):
-        return self._widget.cget("text")
+        return self._tk_widget.cget("text")
         
     @Text.setter
     def Text(self, value):
-        self._widget.configure(text=value)
+        self._tk_widget.configure(text=value)
 
 
 class Entry:
@@ -1299,7 +1404,7 @@ class Entry:
             parent = master
             
         # Create entry
-        self._widget = tk.Entry(
+        self._tk_widget = tk.Entry(
             parent,
             font=defaults['Font'],
             fg=defaults['ForeColor'],
@@ -1309,61 +1414,68 @@ class Entry:
         )
         
         if not use_grid:
-            self._widget.configure(width=defaults['Width'] // 8)  # Approximate char width
-            self._widget.pack(side=side, anchor="w", fill=tk.X if defaults['Fill'] else None)
+            self._tk_widget.configure(width=defaults['Width'] // 8)  # Approximate char width
+            self._tk_widget.pack(side=side, anchor="w", fill=tk.X if defaults['Fill'] else None)
         
         # Bind events
-        self._widget.bind("<KeyRelease>", self._on_text_changed)
-        self._widget.bind("<Button-1>", lambda e: self.Click(self, e))
-        self._widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, e))
-        self._widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, e))
-        self._widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, e))
-        self._widget.bind("<Enter>", lambda e: self.MouseEnter(self, e))
-        self._widget.bind("<Leave>", lambda e: self.MouseLeave(self, e))
-        self._widget.bind("<KeyDown>", lambda e: self.KeyDown(self, e))
-        self._widget.bind("<KeyUp>", lambda e: self.KeyUp(self, e))
+        self._tk_widget.bind("<KeyRelease>", self._on_text_changed)
+        self._tk_widget.bind("<Button-1>", lambda e: self.Click(self, EventArgs(e)))
+        self._tk_widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
+        self._tk_widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
+        self._tk_widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
+        self._tk_widget.bind("<Enter>", lambda e: self.MouseEnter(self, EventArgs(e)))
+        self._tk_widget.bind("<Leave>", lambda e: self.MouseLeave(self, EventArgs(e)))
+        self._tk_widget.bind("<KeyPress>", lambda e: self.KeyDown(self, EventArgs(e)))
+        self._tk_widget.bind("<KeyRelease>", lambda e: self.KeyUp(self, EventArgs(e)), add='+')
         
         # Placeholder handling
         if placeholder:
             self._show_placeholder()
-            self._widget.bind("<FocusIn>", self._on_focus_in)
-            self._widget.bind("<FocusOut>", self._on_focus_out)
+            self._tk_widget.bind("<FocusIn>", self._on_focus_in)
+            self._tk_widget.bind("<FocusOut>", self._on_focus_out)
         else:
-            self._widget.bind("<FocusIn>", lambda e: self.GotFocus(self, e))
-            self._widget.bind("<FocusOut>", lambda e: self.LostFocus(self, e))
+            self._tk_widget.bind("<FocusIn>", lambda e: self.GotFocus(self, EventArgs(e)))
+            self._tk_widget.bind("<FocusOut>", lambda e: self.LostFocus(self, EventArgs(e)))
             
     def _on_focus_in(self, event):
-        if self._widget.get() == self._placeholder:
-            self._widget.delete(0, tk.END)
-            self._widget.configure(fg="#333333")
-        self.GotFocus(self, event)
+        if self._tk_widget.get() == self._placeholder:
+            self._tk_widget.delete(0, tk.END)
+            self._tk_widget.configure(fg="#333333")
+        self.GotFocus(self, EventArgs(event))
             
     def _on_focus_out(self, event):
-        if not self._widget.get():
+        if not self._tk_widget.get():
             self._show_placeholder()
-        self.LostFocus(self, event)
+        self.LostFocus(self, EventArgs(event))
             
     def _on_text_changed(self, event):
         """Handles text change events."""
-        text = self._widget.get()
+        text = self._tk_widget.get()
         if text != self._placeholder:
-            self.TextChanged(self, event)
+            self.TextChanged(self, EventArgs(event))
             
     @property
     def Text(self):
-        text = self._widget.get()
+        """Gets or sets the current text."""
+        text = self._tk_widget.get()
         if text == self._placeholder:
             return ""
         return text
         
     @Text.setter
     def Text(self, value):
-        self._widget.delete(0, tk.END)
+        self._tk_widget.delete(0, tk.END)
         if value:
-            self._widget.configure(fg="#333333")
-            self._widget.insert(0, value)
+            self._tk_widget.configure(fg="#333333")
+            self._tk_widget.insert(0, value)
         else:
             self._show_placeholder()
+
+    def _show_placeholder(self):
+        """Shows the placeholder text."""
+        self._tk_widget.delete(0, tk.END)
+        self._tk_widget.insert(0, self._placeholder)
+        self._tk_widget.configure(fg="#999999")
 
 
 class Image:
@@ -1410,10 +1522,10 @@ class Image:
             parent = master
         
         bg_color = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
-        self._widget = tk.Label(parent, bg=bg_color)
+        self._tk_widget = tk.Label(parent, bg=bg_color)
         
         if not use_grid:
-            self._widget.pack(side=side)
+            self._tk_widget.pack(side=side)
         
         # Standard events
         self.Click = lambda sender, e: None
@@ -1425,13 +1537,13 @@ class Image:
         self.MouseLeave = lambda sender, e: None
         
         # Bind events
-        self._widget.bind("<Button-1>", lambda e: self.Click(self, EventArgs(e)))
-        self._widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
-        self._widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
-        self._widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
-        self._widget.bind("<Motion>", lambda e: self.MouseMove(self, EventArgs(e)))
-        self._widget.bind("<Enter>", lambda e: self.MouseEnter(self, EventArgs(e)))
-        self._widget.bind("<Leave>", lambda e: self.MouseLeave(self, EventArgs(e)))
+        self._tk_widget.bind("<Button-1>", lambda e: self.Click(self, EventArgs(e)))
+        self._tk_widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
+        self._tk_widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
+        self._tk_widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
+        self._tk_widget.bind("<Motion>", lambda e: self.MouseMove(self, EventArgs(e)))
+        self._tk_widget.bind("<Enter>", lambda e: self.MouseEnter(self, EventArgs(e)))
+        self._tk_widget.bind("<Leave>", lambda e: self.MouseLeave(self, EventArgs(e)))
 
         if defaults['Source']:
             self.Load(defaults['Source'])
@@ -1444,7 +1556,7 @@ class Image:
                 from PIL import Image as PILImage, ImageTk
                 img = PILImage.open(source)
                 self._image = ImageTk.PhotoImage(img)
-                self._widget.configure(image=self._image)
+                self._tk_widget.configure(image=self._image)
                 return
             except Exception:
                 pass
@@ -1452,9 +1564,9 @@ class Image:
         # Fallback for GIF/PGM/PPM without Pillow
         try:
             self._image = tk.PhotoImage(file=source)
-            self._widget.configure(image=self._image)
+            self._tk_widget.configure(image=self._image)
         except:
-            self._widget.configure(text=f"[Image: {source}]")
+            self._tk_widget.configure(text=f"[Image: {source}]")
 
 # =============================================================================
 # ADDITIONAL MAUI COMPONENTS
@@ -1555,7 +1667,7 @@ class CarouselView:
         >>> carousel = CarouselView(container)
         >>> carousel.SetItems(['Slide 1', 'Slide 2', 'Slide 3'])
     """
-    def __init__(self, master, props=None):
+    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'BackColor': None,
@@ -1583,8 +1695,11 @@ class CarouselView:
         
         bg_color = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
         
-        self._frame = tk.Frame(parent, bg=bg_color)
-        self._frame.pack(fill=tk.BOTH, expand=True)
+        self._frame = tk.Frame(parent, bg=bg_color, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, fill=tk.BOTH, expand=True)
         
         # Content area
         self._content = tk.Frame(self._frame, bg=bg_color)
@@ -1733,7 +1848,7 @@ class SearchBar:
         >>> search = SearchBar(header, placeholder='Search products...')
         >>> search.SearchCommand = lambda query: filter_results(query)
     """
-    def __init__(self, master, placeholder="Search...", props=None):
+    def __init__(self, master, placeholder="Search...", side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Placeholder': placeholder,
@@ -1763,8 +1878,11 @@ class SearchBar:
         else:
             parent = master
             
-        self._frame = tk.Frame(parent, bg=parent.cget("bg"))
-        self._frame.pack(fill=tk.X, padx=defaults['PaddingX'], pady=defaults['PaddingY'])
+        self._frame = tk.Frame(parent, bg=parent.cget("bg"), **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+
+        if not use_grid:
+            self._frame.pack(side=side, fill=tk.X, padx=defaults['PaddingX'], pady=defaults['PaddingY'])
         
         # Search entry
         self._entry = tk.Entry(
@@ -1844,7 +1962,7 @@ class ChipTag:
         >>> chip = ChipTag(container, text='Python', closable=True)
         >>> chip.CloseCommand = lambda: remove_filter('Python')
     """
-    def __init__(self, master, text="Tag", closable=False, props=None):
+    def __init__(self, master, text="Tag", closable=False, side=tk.LEFT, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Text': text,
@@ -1873,8 +1991,11 @@ class ChipTag:
             parent = master
             
         self._frame = tk.Frame(parent, bg=self._back_color, 
-                              padx=defaults['PaddingX'], pady=defaults['PaddingY'])
-        self._frame.pack(side=tk.LEFT, padx=2, pady=2)
+                              padx=defaults['PaddingX'], pady=defaults['PaddingY'], **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, padx=2, pady=2)
         
         # Text
         self._label = tk.Label(
@@ -1937,7 +2058,7 @@ class Stepper:
         >>> qty = Stepper(cart, min_val=1, max_val=10, value=1)
         >>> qty.ValueChanged = lambda v: update_total(v)
     """
-    def __init__(self, master, min_val=0, max_val=100, step=1, value=0, props=None):
+    def __init__(self, master, min_val=0, max_val=100, step=1, value=0, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Minimum': min_val,
@@ -1969,8 +2090,11 @@ class Stepper:
         
         bg_color = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
         
-        self._frame = tk.Frame(parent, bg=bg_color)
-        self._frame.pack(pady=5)
+        self._frame = tk.Frame(parent, bg=bg_color, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, pady=5)
         
         # Minus button
         self._minus_btn = tk.Button(
@@ -2143,7 +2267,7 @@ class Switch:
         >>> dark_mode = Switch(settings, is_toggled=False)
         >>> dark_mode.Toggled = lambda state: toggle_theme(state)
     """
-    def __init__(self, master, is_toggled=False, props=None):
+    def __init__(self, master, is_toggled=False, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'IsToggled': is_toggled,
@@ -2196,9 +2320,13 @@ class Switch:
             height=self._height,
             bg=parent.cget("bg"),
             highlightthickness=0,
-            cursor="hand2"
+            cursor="hand2",
+            **kwargs
         )
-        self._canvas.pack(pady=5)
+        self._tk_widget = self._canvas # Alias for consistency
+        
+        if not use_grid:
+            self._canvas.pack(side=side, pady=5)
         
         # Draw initial state
         self._draw()
@@ -2242,8 +2370,8 @@ class Switch:
         self._is_toggled = not self._is_toggled
         self._draw()
         
-        self.Toggled(self, event)
-        self.Click(self, event)
+        self.Toggled(self, EventArgs(event))
+        self.Click(self, EventArgs(event))
             
     @property
     def IsToggled(self):
@@ -2291,7 +2419,7 @@ class CheckBox:
         >>> agree = CheckBox(form, text='I agree to the terms', is_checked=False)
         >>> agree.CheckedChanged = lambda checked: enable_submit(checked)
     """
-    def __init__(self, master, text="", is_checked=False, props=None):
+    def __init__(self, master, text="", is_checked=False, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Text': text,
@@ -2336,8 +2464,11 @@ class CheckBox:
         self._bg = parent.cget("bg")
             
         # Container frame
-        self._frame = tk.Frame(parent, bg=self._bg)
-        self._frame.pack(anchor="w", pady=3)
+        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, anchor="w", pady=3)
         
         # Canvas for checkbox
         self._canvas = tk.Canvas(
@@ -2409,8 +2540,8 @@ class CheckBox:
         self._is_checked = not self._is_checked
         self._draw()
         
-        self.CheckedChanged(self, event)
-        self.Click(self, event)
+        self.CheckedChanged(self, EventArgs(event))
+        self.Click(self, EventArgs(event))
             
     @property
     def IsChecked(self):
@@ -2461,7 +2592,7 @@ class RadioButton:
         >>> opt1 = RadioButton(form, text='Option A', value='A', group=group)
         >>> opt2 = RadioButton(form, text='Option B', value='B', group=group)
     """
-    def __init__(self, master, text="", value=None, group=None, props=None):
+    def __init__(self, master, text="", value=None, group=None, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Text': text,
@@ -2501,8 +2632,11 @@ class RadioButton:
         self._bg = parent.cget("bg")
             
         # Container frame
-        self._frame = tk.Frame(parent, bg=self._bg)
-        self._frame.pack(anchor="w", pady=3)
+        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, anchor="w", pady=3)
         
         # Canvas for radio button
         self._canvas = tk.Canvas(
@@ -2682,7 +2816,7 @@ class Picker:
         >>> colors = Picker(form, items=['Red', 'Green', 'Blue'], title='Choose color')
         >>> colors.SelectedIndexChanged = lambda idx: apply_color(colors.SelectedItem)
     """
-    def __init__(self, master, items=None, title="Select", props=None):
+    def __init__(self, master, items=None, title="Select", side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Items': items or [],
@@ -2709,8 +2843,11 @@ class Picker:
         self._bg = parent.cget("bg")
             
         # Frame
-        self._frame = tk.Frame(parent, bg=self._bg)
-        self._frame.pack(fill=tk.X, pady=5)
+        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, fill=tk.X, pady=5)
         
         # Combobox using ttk
         style = ttk.Style()
@@ -2798,7 +2935,7 @@ class Slider:
         >>> volume = Slider(settings, minimum=0, maximum=100, value=50)
         >>> volume.ValueChanged = lambda v: set_volume(int(v))
     """
-    def __init__(self, master, minimum=0, maximum=100, value=0, props=None):
+    def __init__(self, master, minimum=0, maximum=100, value=0, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Minimum': minimum,
@@ -2859,7 +2996,10 @@ class Slider:
             highlightthickness=0,
             cursor="hand2"
         )
-        self._canvas.pack(pady=5)
+        self._tk_widget = self._canvas # Alias for consistency
+        
+        if not use_grid:
+            self._canvas.pack(side=side, pady=5)
         
         # Draw initial state
         self._draw()
@@ -2924,7 +3064,7 @@ class Slider:
         """Handles click to set value."""
         new_value = self._get_value_from_x(event.x)
         self._set_value(new_value, event)
-        self.Click(self, event)
+        self.Click(self, EventArgs(event))
         
     def _on_drag(self, event):
         """Handles drag to change value."""
@@ -2938,7 +3078,7 @@ class Slider:
         self._draw()
         
         if old_value != self._value:
-            self.ValueChanged(self, event)
+            self.ValueChanged(self, EventArgs(event) if event else EventArgs(data=self._value))
             
     @property
     def Value(self):
@@ -2993,7 +3133,7 @@ class Editor:
         >>> notes = Editor(form, placeholder='Enter your notes here...')
         >>> notes.TextChanged = lambda text: auto_save(text)
     """
-    def __init__(self, master, placeholder="", props=None):
+    def __init__(self, master, placeholder="", side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Placeholder': placeholder,
@@ -3026,8 +3166,11 @@ class Editor:
         self._bg = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
             
         # Frame
-        self._frame = tk.Frame(parent, bg=self._bg)
-        self._frame.pack(fill=tk.X, pady=5)
+        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, fill=tk.X, pady=5)
         
         # Text widget with scrollbar
         self._scrollbar = ttk.Scrollbar(self._frame)
@@ -3137,7 +3280,7 @@ class DatePicker:
         >>> birth_date.MaximumDate = date.today()
         >>> birth_date.DateSelected = lambda d: validate_age(d)
     """
-    def __init__(self, master, props=None):
+    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Date': datetime.now().date(),
@@ -3166,8 +3309,11 @@ class DatePicker:
         self._bg = parent.cget("bg")
             
         # Main frame
-        self._frame = tk.Frame(parent, bg=self._bg)
-        self._frame.pack(fill=tk.X, pady=5)
+        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, fill=tk.X, pady=5)
         
         # Entry for date display
         self._entry = ttk.Entry(self._frame, width=15)
@@ -3374,7 +3520,7 @@ class TimePicker:
         >>> alarm_time.Time = time(7, 30, 0)
         >>> alarm_time.TimeSelected = lambda t: set_alarm(t)
     """
-    def __init__(self, master, props=None):
+    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Time': datetime.now().time(),
@@ -3399,8 +3545,11 @@ class TimePicker:
         self._bg = parent.cget("bg")
             
         # Main frame
-        self._frame = tk.Frame(parent, bg=self._bg)
-        self._frame.pack(fill=tk.X, pady=5)
+        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, fill=tk.X, pady=5)
         
         # Hour spinbox
         self._hour_var = tk.StringVar(value=f"{self._time.hour:02d}")
@@ -3527,7 +3676,7 @@ class ActivityIndicator:
         >>> # ... perform async operation ...
         >>> loader.Stop()   # Hide loading
     """
-    def __init__(self, master, props=None):
+    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Color': '#0078D4',
@@ -3555,8 +3704,11 @@ class ActivityIndicator:
         self._bg = parent.cget("bg")
             
         # Frame container
-        self._frame = tk.Frame(parent, bg=self._bg)
-        self._frame.pack(pady=5)
+        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, pady=5)
         
         # Canvas for drawing
         self._canvas = tk.Canvas(
@@ -3660,7 +3812,7 @@ class ProgressBar:
         >>> # Indeterminate progress
         >>> loading = ProgressBar(container, props={'IsIndeterminate': True})
     """
-    def __init__(self, master, props=None):
+    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Progress': 0.0,
@@ -3692,8 +3844,11 @@ class ProgressBar:
         self._bg = parent.cget("bg")
             
         # Frame
-        self._frame = tk.Frame(parent, bg=self._bg)
-        self._frame.pack(fill=tk.X, pady=5)
+        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._tk_widget = self._frame # Alias for consistency
+        
+        if not use_grid:
+            self._frame.pack(side=side, fill=tk.X, pady=5)
         
         # Canvas for progress
         self._canvas = tk.Canvas(
@@ -5021,7 +5176,7 @@ class RefreshView:
         >>> # When data loading completes:
         >>> refresh.EndRefresh()
     """
-    def __init__(self, master, props=None):
+    def __init__(self, master, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'RefreshColor': '#0078D4',
@@ -5049,7 +5204,7 @@ class RefreshView:
         self._bg = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
         
         # Main frame
-        self._frame = tk.Frame(parent, bg=self._bg)
+        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
         self._frame.pack(fill=tk.BOTH, expand=True)
         
         # Refresh indicator (hidden initially)
@@ -5650,3 +5805,240 @@ class BottomNavigationBar:
     def SelectedIndex(self, value):
         if 0 <= value < len(self._items):
             self._on_item_click(value)
+
+
+# =============================================================================
+# MAUI DEMO APPLICATION (Example usage)
+# =============================================================================
+
+class HomePage(ContentPage):
+    """Main home page with welcome message and features."""
+    
+    def __init__(self, master):
+        super().__init__(master)
+        self.Title = "Home"
+        
+        # Main vertical layout
+        layout = VerticalStackLayout(self, props={'Spacing': 15, 'Padding': (40, 40, 40, 40)})
+        
+        # Welcome title
+        layout.AddChild(Label, text="Welcome to MAUI in Python!", 
+                       font=("Segoe UI", 28, "bold"), fg="#512BD4")
+        
+        # Description
+        layout.AddChild(Label, 
+                       text="This example demonstrates how to build modern, cross-platform-style applications using the MAUI design pattern with WinFormPy.",
+                       font=("Segoe UI", 12), fg="#666666", wraplength=600)
+        
+        # Feature list
+        layout.AddChild(Label, text="✨ Features", font=("Segoe UI", 16, "bold"), fg="#333333")
+        
+        features = [
+            "• Shell with flyout navigation menu",
+            "• Multiple pages with easy navigation",
+            "• Modern MAUI-style controls",
+            "• Responsive layouts (Vertical, Horizontal, Grid)",
+            "• Toast notifications",
+            "• Search functionality",
+            "• Carousel views",
+            "• And much more!"
+        ]
+        
+        for feature in features:
+            layout.AddChild(Label, text=feature, font=("Segoe UI", 11), fg="#555555")
+        
+        # Call to action button
+        btn = layout.AddChild(Button, text="Get Started →", width=200)
+        btn.Click = lambda sender, e: ToastNotification.Show(self._master, "Let's explore the app!", 2000)
+
+
+class ProfilePage(ContentPage):
+    """User profile page with form inputs."""
+    
+    def __init__(self, master):
+        super().__init__(master)
+        self.Title = "Profile"
+        self.BackColor = "#F5F5F5"
+        
+        layout = VerticalStackLayout(self, props={'Spacing': 12, 'Padding': (40, 30, 40, 30)})
+        
+        # Header
+        layout.AddChild(Label, text="👤 User Profile", font=("Segoe UI", 22, "bold"), fg="#333333")
+        layout.AddChild(Label, text="Manage your personal information", font=("Segoe UI", 11), fg="#666666")
+        
+        # Form fields
+        layout.AddChild(Label, text="Full Name", font=("Segoe UI", 10, "bold"), fg="#444444")
+        self.name_entry = layout.AddChild(Entry, placeholder="Enter your full name")
+        
+        layout.AddChild(Label, text="Email Address", font=("Segoe UI", 10, "bold"), fg="#444444")
+        self.email_entry = layout.AddChild(Entry, placeholder="Enter your email")
+        
+        layout.AddChild(Label, text="Phone Number", font=("Segoe UI", 10, "bold"), fg="#444444")
+        self.phone_entry = layout.AddChild(Entry, placeholder="Enter your phone number")
+        
+        layout.AddChild(Label, text="Location", font=("Segoe UI", 10, "bold"), fg="#444444")
+        self.location_entry = layout.AddChild(Entry, placeholder="City, Country")
+        
+        # Save button
+        save_btn = layout.AddChild(Button, text="Save Profile", width=150)
+        save_btn.Click = self._save_profile
+        
+    def _save_profile(self, sender, e):
+        """Handles save button click."""
+        name = self.name_entry.Text
+        email = self.email_entry.Text
+        
+        if name and email:
+            ToastNotification.Show(self._master, f"Profile saved for {name}!", 2500)
+        else:
+            ToastNotification.Show(self._master, "Please fill in required fields", 2000)
+
+
+class ComponentsPage(ContentPage):
+    """Page showcasing various MAUI components."""
+    
+    def __init__(self, master):
+        super().__init__(master)
+        self.Title = "Components"
+        
+        layout = VerticalStackLayout(self, props={'Spacing': 20, 'Padding': (40, 30, 40, 30)})
+        
+        # Header
+        layout.AddChild(Label, text="🎨 Component Showcase", font=("Segoe UI", 22, "bold"), fg="#333333")
+        
+        # Search Bar Section
+        layout.AddChild(Label, text="Search Bar", font=("Segoe UI", 14, "bold"), fg="#512BD4")
+        search = SearchBar(self, placeholder="Type to search...")
+        search.Search = lambda sender, e: ToastNotification.Show(self._master, f"Searching: {e.Data}", 1500)
+        
+        # Carousel Section
+        layout.AddChild(Label, text="Carousel View", font=("Segoe UI", 14, "bold"), fg="#512BD4")
+        carousel = CarouselView(self)
+        carousel.SetItems([
+            "🌟 Slide 1: Welcome to MAUI",
+            "🚀 Slide 2: Fast Development",
+            "💡 Slide 3: Modern Design",
+            "🎯 Slide 4: Easy to Use",
+            "✨ Slide 5: Beautiful UI"
+        ])
+        
+        # Chip Tags Section
+        layout.AddChild(Label, text="Chip Tags", font=("Segoe UI", 14, "bold"), fg="#512BD4")
+        
+        chips_layout = HorizontalStackLayout(self, props={'Spacing': 5, 'Padding': (0, 5, 0, 5)})
+        chips_layout.AddChild(ChipTag, text="Python", closable=True)
+        chips_layout.AddChild(ChipTag, text="MAUI", closable=True)
+        chips_layout.AddChild(ChipTag, text="Tkinter", closable=True)
+        chips_layout.AddChild(ChipTag, text="WinFormPy", closable=False)
+        
+        # Stepper Section
+        layout.AddChild(Label, text="Stepper Control", font=("Segoe UI", 14, "bold"), fg="#512BD4")
+        stepper = Stepper(self, min_val=0, max_val=10, step=1, value=5)
+        stepper.ValueChanged = lambda val: ToastNotification.Show(self._master, f"Value: {val}", 800)
+
+
+class SettingsPage(ContentPage):
+    """Application settings page."""
+    
+    def __init__(self, master):
+        super().__init__(master)
+        self.Title = "Settings"
+        self.BackColor = "#FAFAFA"
+        
+        layout = VerticalStackLayout(self, props={'Spacing': 15, 'Padding': (40, 30, 40, 30)})
+        
+        # Header
+        layout.AddChild(Label, text="⚙️ Settings", font=("Segoe UI", 22, "bold"), fg="#333333")
+        
+        # Theme section
+        layout.AddChild(Label, text="Appearance", font=("Segoe UI", 14, "bold"), fg="#512BD4")
+        layout.AddChild(Label, text="Configure the look and feel of your application", 
+                       font=("Segoe UI", 11), fg="#666666")
+        
+        theme_layout = HorizontalStackLayout(self, props={'Spacing': 10})
+        
+        light_btn = theme_layout.AddChild(Button, text="☀️ Light", bg="#E0E0E0", fg="#333333", 
+                                         hover_bg="#D0D0D0")
+        light_btn.Click = lambda sender, e: ToastNotification.Show(self._master, "Light theme selected", 1500)
+        
+        dark_btn = theme_layout.AddChild(Button, text="🌙 Dark", bg="#333333", fg="white",
+                                        hover_bg="#444444")
+        dark_btn.Click = lambda sender, e: ToastNotification.Show(self._master, "Dark theme selected", 1500)
+        
+        # Notifications section
+        layout.AddChild(Label, text="Notifications", font=("Segoe UI", 14, "bold"), fg="#512BD4")
+        layout.AddChild(Label, text="Manage your notification preferences", 
+                       font=("Segoe UI", 11), fg="#666666")
+        
+        notif_btn = layout.AddChild(Button, text="🔔 Test Notification", width=180)
+        notif_btn.Click = lambda sender, e: ToastNotification.Show(self._master, "This is a test notification!", 3000)
+        
+        # About section
+        layout.AddChild(Label, text="About", font=("Segoe UI", 14, "bold"), fg="#512BD4")
+        layout.AddChild(Label, text="MAUI Example Application", font=("Segoe UI", 11), fg="#666666")
+        layout.AddChild(Label, text="Built with WinFormPy - mauipy module", font=("Segoe UI", 10), fg="#999999")
+        layout.AddChild(Label, text="© 2025 DatamanEdge", font=("Segoe UI", 10), fg="#999999")
+
+
+class HelpPage(ContentPage):
+    """Help and documentation page."""
+    
+    def __init__(self, master):
+        super().__init__(master)
+        self.Title = "Help"
+        
+        layout = VerticalStackLayout(self, props={'Spacing': 15, 'Padding': (40, 30, 40, 30)})
+        
+        # Header
+        layout.AddChild(Label, text="❓ Help & Documentation", font=("Segoe UI", 22, "bold"), fg="#333333")
+        
+        # Quick start
+        layout.AddChild(Label, text="Quick Start Guide", font=("Segoe UI", 14, "bold"), fg="#512BD4")
+        
+        guide_text = """
+1. Use the hamburger menu (☰) to navigate between pages
+2. Each page demonstrates different MAUI components
+3. Click buttons to see interactive responses
+4. Try the search bar and carousel on the Components page
+5. Customize settings on the Settings page
+        """
+        layout.AddChild(Label, text=guide_text.strip(), font=("Segoe UI", 11), fg="#555555")
+        
+        # Key concepts
+        layout.AddChild(Label, text="Key Concepts", font=("Segoe UI", 14, "bold"), fg="#512BD4")
+        
+        concepts = [
+            ("Shell", "The main application container with flyout navigation"),
+            ("ContentPage", "A page that displays scrollable content"),
+            ("VerticalStackLayout", "Stacks controls vertically with spacing"),
+            ("HorizontalStackLayout", "Stacks controls horizontally"),
+            ("ToastNotification", "Brief popup messages for feedback"),
+        ]
+        
+        for name, desc in concepts:
+            layout.AddChild(Label, text=f"• {name}: {desc}", font=("Segoe UI", 11), fg="#555555")
+
+
+class MAUIDemoApp(Shell):
+    """Main application class using MAUI Shell pattern."""
+    
+    def __init__(self):
+        super().__init__()
+        self.Text = "MAUI Example Application"
+        self.HeaderColor = "#512BD4"
+        
+        # Setup flyout menu items
+        self.AddMenuItem("Home", lambda: self.NavigateTo(HomePage), icon="🏠")
+        self.AddMenuItem("Profile", lambda: self.NavigateTo(ProfilePage), icon="👤")
+        self.AddMenuItem("Components", lambda: self.NavigateTo(ComponentsPage), icon="🎨")
+        self.AddMenuSeparator()
+        self.AddMenuItem("Settings", lambda: self.NavigateTo(SettingsPage), icon="⚙️")
+        self.AddMenuItem("Help", lambda: self.NavigateTo(HelpPage), icon="❓")
+        
+        # Navigate to initial page
+        self.NavigateTo(HomePage)
+
+
+if __name__ == "__main__":
+    app = MAUIDemoApp()
+    Application.Run(app)

@@ -71,7 +71,7 @@ class HomePage(ContentPage):
         
         # Call to action button
         btn = layout.AddChild(Button, text="Get Started →", width=200)
-        btn.Click = lambda: ToastNotification.Show(self._master, "Let's explore the app!", 2000)
+        btn.Click = lambda sender, e: ToastNotification.Show(self._master, "Let's explore the app!", 2000)
 
 
 class ProfilePage(ContentPage):
@@ -105,7 +105,7 @@ class ProfilePage(ContentPage):
         save_btn = layout.AddChild(Button, text="Save Profile", width=150)
         save_btn.Click = self._save_profile
         
-    def _save_profile(self):
+    def _save_profile(self, sender, e):
         """Handles save button click."""
         name = self.name_entry.Text
         email = self.email_entry.Text
@@ -130,12 +130,12 @@ class ComponentsPage(ContentPage):
         
         # Search Bar Section
         layout.AddChild(Label, text="Search Bar", font=("Segoe UI", 14, "bold"), fg="#512BD4")
-        search = SearchBar(self, placeholder="Type to search...")
-        search.SearchCommand = lambda text: ToastNotification.Show(self._master, f"Searching: {text}", 1500)
+        search = layout.AddChild(SearchBar, placeholder="Type to search...")
+        search.Search = lambda sender, e: ToastNotification.Show(self._master, f"Searching: {e.Data}", 1500)
         
         # Carousel Section
         layout.AddChild(Label, text="Carousel View", font=("Segoe UI", 14, "bold"), fg="#512BD4")
-        carousel = CarouselView(self)
+        carousel = layout.AddChild(CarouselView)
         carousel.SetItems([
             "🌟 Slide 1: Welcome to MAUI",
             "🚀 Slide 2: Fast Development",
@@ -147,7 +147,7 @@ class ComponentsPage(ContentPage):
         # Chip Tags Section
         layout.AddChild(Label, text="Chip Tags", font=("Segoe UI", 14, "bold"), fg="#512BD4")
         
-        chips_layout = HorizontalStackLayout(self, props={'Spacing': 5, 'Padding': (0, 5, 0, 5)})
+        chips_layout = layout.AddChild(HorizontalStackLayout, props={'Spacing': 5, 'Padding': (0, 5, 0, 5)})
         chips_layout.AddChild(ChipTag, text="Python", closable=True)
         chips_layout.AddChild(ChipTag, text="MAUI", closable=True)
         chips_layout.AddChild(ChipTag, text="Tkinter", closable=True)
@@ -155,8 +155,8 @@ class ComponentsPage(ContentPage):
         
         # Stepper Section
         layout.AddChild(Label, text="Stepper Control", font=("Segoe UI", 14, "bold"), fg="#512BD4")
-        stepper = Stepper(self, min_val=0, max_val=10, step=1, value=5)
-        stepper.ValueChanged = lambda val: ToastNotification.Show(self._master, f"Value: {val}", 800)
+        stepper = layout.AddChild(Stepper, min_val=0, max_val=10, step=1, value=5)
+        stepper.ValueChanged = lambda sender, e: ToastNotification.Show(self._master, f"Value: {e.Data}", 800)
 
 
 class SettingsPage(ContentPage):
@@ -177,15 +177,15 @@ class SettingsPage(ContentPage):
         layout.AddChild(Label, text="Configure the look and feel of your application", 
                        font=("Segoe UI", 11), fg="#666666")
         
-        theme_layout = HorizontalStackLayout(self, props={'Spacing': 10})
+        theme_layout = layout.AddChild(HorizontalStackLayout, props={'Spacing': 10})
         
         light_btn = theme_layout.AddChild(Button, text="☀️ Light", bg="#E0E0E0", fg="#333333", 
                                          hover_bg="#D0D0D0")
-        light_btn.Click = lambda: ToastNotification.Show(self._master, "Light theme selected", 1500)
+        light_btn.Click = lambda sender, e: ToastNotification.Show(self._master, "Light theme selected", 1500)
         
         dark_btn = theme_layout.AddChild(Button, text="🌙 Dark", bg="#333333", fg="white",
                                         hover_bg="#444444")
-        dark_btn.Click = lambda: ToastNotification.Show(self._master, "Dark theme selected", 1500)
+        dark_btn.Click = lambda sender, e: ToastNotification.Show(self._master, "Dark theme selected", 1500)
         
         # Notifications section
         layout.AddChild(Label, text="Notifications", font=("Segoe UI", 14, "bold"), fg="#512BD4")
@@ -193,7 +193,7 @@ class SettingsPage(ContentPage):
                        font=("Segoe UI", 11), fg="#666666")
         
         notif_btn = layout.AddChild(Button, text="🔔 Test Notification", width=180)
-        notif_btn.Click = lambda: ToastNotification.Show(self._master, "This is a test notification!", 3000)
+        notif_btn.Click = lambda sender, e: ToastNotification.Show(self._master, "This is a test notification!", 3000)
         
         # About section
         layout.AddChild(Label, text="About", font=("Segoe UI", 14, "bold"), fg="#512BD4")
