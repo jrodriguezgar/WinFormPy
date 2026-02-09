@@ -1,0 +1,303 @@
+# WinFormPy
+
+A Python library that provides a Windows Forms-style API wrapper around Tkinter, enabling developers familiar with VB.NET/VB6 to build GUI applications using familiar patterns.
+
+---
+
+## Context
+
+WinFormPy bridges the gap between Windows Forms (.NET) and Python by mapping WinForms controls, properties, and events to Tkinter. It provides:
+
+- Familiar API for VB6/VB.NET developers migrating to Python
+- Complete Windows Forms control set (Button, Label, Form, DataGridView, etc.)
+- Event-driven programming with `.NET`-style handlers (`sender`, `EventArgs`)
+- Dock/Anchor layout system for responsive UIs
+- Modern WinUI 3 Fluent Design controls for Windows 11 styling
+- Pre-built UI components (Chat, DataGrid, Email Client, Login, etc.)
+- Application templates (IDE, File Explorer, Browser, MDI)
+
+---
+
+## Tech Stack
+
+| Category | Technology | Version |
+|----------|------------|---------|
+| Language | Python | >= 3.10 |
+| GUI Engine | Tkinter | Built-in |
+| Build System | setuptools | >= 61.0 |
+| Package Manager | uv (recommended) | Latest |
+| Required Dependency | tkcalendar | >= 1.6.1 |
+| Optional | Pillow | For ImageList/image processing |
+| Optional | tkinterweb | For WebBrowser control |
+
+---
+
+## Project Structure
+
+```
+WinFormPy/
+├── winformpy/
+│   ├── winformpy.py           # Core library: controls, dialogs, enums, base classes
+│   ├── winformpy_extended.py  # Extended controls (ConsoleTextBox, ExtendedLabel)
+│   ├── winformpy_tools.py     # Utilities (FontManager, ColorManager, CSSManager)
+│   ├── winui3.py              # WinUI 3 Fluent Design controls
+│   ├── mauipy.py              # MAUI-style Shell/Pages
+│   ├── mdipy.py               # MDI Parent/Child windows
+│   ├── templates/             # Application boilerplates
+│   │   ├── studio_template.py       # IDE-style (VS Code pattern)
+│   │   ├── explorer_template.py     # Windows 11 File Explorer
+│   │   ├── browser_template.py      # Tabbed web browser
+│   │   ├── winui3_template.py       # WinUI 3 gallery
+│   │   ├── navigation_pane_template.py
+│   │   ├── navigation_rail_template.py
+│   │   ├── maui_template.py
+│   │   └── mdi_template.py
+│   ├── themes/                # Theme files (WinUI3, Dark, Light)
+│   └── ui_elements/           # Pre-built components
+│       ├── chat/              # Messenger-style chat interface
+│       ├── console/           # Terminal emulator
+│       ├── data_grid/         # Tabular data with pagination
+│       ├── db_connection/     # Database connection manager
+│       ├── document_viewer/   # PDF/Word/Image viewer
+│       ├── email_client/      # Complete email client
+│       ├── login/             # Authentication forms
+│       ├── master_detail/     # Master-detail layouts
+│       ├── record_form/       # Auto-generated edit forms
+│       ├── web_browser/       # Embedded browser
+│       └── word_processor/    # Rich text editor
+├── examples/                  # Runnable demos for all features
+├── guides/                    # Documentation (Dock, Anchor, AutoSize, etc.)
+├── pyproject.toml             # Project configuration
+└── README.md                  # Main documentation
+```
+
+---
+
+## Configuration
+
+### Installation
+
+```bash
+# Using uv (recommended)
+git clone https://github.com/DatamanEdge/WinFormPy.git
+cd WinFormPy
+uv sync
+
+# From source
+pip install -e .
+```
+
+### Optional Dependencies
+
+```bash
+pip install Pillow       # ImageList, image processing
+pip install tkinterweb   # WebBrowser control
+pip install tkcalendar   # Calendar controls (required)
+```
+
+---
+
+## CLI Interface
+
+No dedicated CLI. Run examples and templates directly:
+
+```bash
+# Run any example
+uv run examples/<example_name>.py
+
+# Run templates
+uv run winformpy/templates/studio_template.py
+uv run winformpy/templates/explorer_template.py
+
+# Run UI element demos (Panel files have interactive demos)
+uv run winformpy/ui_elements/data_grid/data_grid_panel.py
+uv run winformpy/ui_elements/chat/chat_panel.py
+```
+
+---
+
+## Functions & Public API
+
+### Core Imports
+
+```python
+from winformpy import (
+    # Application
+    Application, Form, UserControl,
+    
+    # Controls
+    Button, Label, LinkLabel, TextBox, RichTextBox,
+    CheckBox, RadioButton, ComboBox, ListBox,
+    Panel, GroupBox, TabControl, SplitContainer,
+    DataGridView, ListView, TreeView,
+    ProgressBar, TrackBar, NumericUpDown,
+    PictureBox, ImageList, WebBrowser,
+    
+    # Menus & Toolbars
+    MenuStrip, ToolStrip, StatusStrip, ContextMenuStrip,
+    
+    # Dialogs
+    MessageBox, OpenFileDialog, SaveFileDialog,
+    FolderBrowserDialog, ColorDialog, FontDialog,
+    
+    # Enums
+    DockStyle, AnchorStyles, DialogResult,
+    FormBorderStyle, FormStartPosition,
+    
+    # System
+    SystemColors, SystemFonts, Clipboard, Font, FontStyle
+)
+```
+
+### Extended Modules
+
+```python
+from winformpy.winformpy_extended import ExtendedLabel, ConsoleTextBox
+from winformpy.winformpy_tools import FontManager, ColorManager, CSSManager, LayoutManager
+from winformpy.winui3 import TextBlock, ToggleSwitch, InfoBar, NavigationView
+from winformpy.mdipy import MDIParent, MDIChild
+from winformpy.mauipy import Shell, ContentPage
+```
+
+### UI Elements (Pre-built Components)
+
+```python
+from winformpy.ui_elements.chat import ChatPanel, ChatManager, ChatBackend
+from winformpy.ui_elements.data_grid import DataGridPanel, DataGridManager, ColumnDefinition, DataType
+from winformpy.ui_elements.login import LoginPanel, LoginForm, LoginBackend
+from winformpy.ui_elements.console import ConsolePanel, LocalConsoleIO
+from winformpy.ui_elements.master_detail import MasterDetailPanel, MasterDetailBackend
+from winformpy.ui_elements.record_form import RecordFormPanel, RecordFormDialog
+from winformpy.ui_elements.web_browser import WebBrowserPanel
+from winformpy.ui_elements.word_processor import WordProcessorPanel
+from winformpy.ui_elements.document_viewer import DocumentViewerPanel
+```
+
+---
+
+## Development Workflow
+
+```bash
+# Install dependencies
+uv sync
+
+# Run an example
+uv run examples/basic_controls_example.py
+
+# Run a template
+uv run winformpy/templates/studio_template.py
+
+# Run tests (if available)
+uv run pytest tests/
+```
+
+---
+
+## Technical Rules & Conventions
+
+### Naming Conventions
+
+| Element | Convention | Example |
+|---------|------------|---------|
+| Classes | PascalCase | `Form`, `DataGridView` |
+| Properties | PascalCase | `Text`, `BackColor`, `Width` |
+| Methods | PascalCase | `Show()`, `ApplyLayout()` |
+| Events | PascalCase | `Click`, `TextChanged` |
+| Private members | _underscore_prefix | `_tk_widget`, `_apply_dock` |
+| Local variables | snake_case | `button_width`, `y_pos` |
+| Constants | UPPER_SNAKE_CASE | `PADDING`, `SPACING` |
+
+### Critical Layout Rules
+
+1. **Always call `form.ApplyLayout()` BEFORE adding child controls**
+2. **Dock order matters**: Top → Left/Right → Fill (last)
+3. **Use DockStyle enums**, not strings: `DockStyle.Fill`, not `'Fill'`
+4. **Track y_pos/x_pos** when positioning controls manually
+5. **Controls MUST NEVER overlap** - use calculated positions
+
+### Event Pattern
+
+```python
+# All event handlers receive (sender, EventArgs)
+button.Click = lambda sender, e: handle_click(sender)
+form.FormClosing = self.on_closing
+
+def on_closing(self, sender, e):
+    e.Cancel = True  # Prevent closing
+```
+
+### Control Initialization Order (Critical for Dock)
+
+In `__init__` methods:
+1. Create widget
+2. Call `_auto_register_with_parent()`
+3. THEN apply Dock/Anchor properties
+
+### Container Frame Pattern
+
+Controls with scrollbars use `_container_frame`:
+```python
+widget_to_place = ctrl._tk_widget
+if hasattr(ctrl, '_container_frame') and ctrl._container_frame:
+    widget_to_place = ctrl._container_frame
+```
+
+### UI Elements Architecture
+
+All UI Elements follow three-layer separation:
+- **UI Layer** (Panel/Form): Visual components
+- **Manager Layer**: Business logic and state
+- **Backend Layer**: External implementation (provided by user)
+
+---
+
+## Key Entry Points
+
+| File | Purpose |
+|------|---------|
+| `winformpy/winformpy.py` | Core controls, forms, dialogs, enums |
+| `winformpy/winui3.py` | WinUI 3 Fluent Design controls |
+| `winformpy/winformpy_tools.py` | Font, Color, CSS, Layout utilities |
+| `winformpy/winformpy_extended.py` | Extended controls |
+| `winformpy/templates/*.py` | Application boilerplates |
+| `winformpy/ui_elements/*/` | Pre-built embeddable components |
+| `examples/*.py` | Feature demonstrations |
+
+---
+
+## Quick Start Example
+
+```python
+from winformpy import Form, Button, Label, MessageBox, Application
+
+class MyForm(Form):
+    def __init__(self):
+        super().__init__()
+        self.Text = "My App"
+        self.Width = 400
+        self.Height = 300
+        self.StartPosition = "CenterScreen"
+        
+        self.label = Label(self)
+        self.label.Text = "Hello, WinFormPy!"
+        self.label.Left = 50
+        self.label.Top = 50
+        
+        self.button = Button(self)
+        self.button.Text = "Click Me"
+        self.button.Left = 50
+        self.button.Top = 100
+        self.button.Click = self.on_click
+    
+    def on_click(self, sender, e):
+        MessageBox.Show("Button clicked!", "Info")
+
+if __name__ == "__main__":
+    Application.Run(MyForm())
+```
+
+---
+
+## License
+
+MIT License - See [LICENSE](LICENSE) file.
