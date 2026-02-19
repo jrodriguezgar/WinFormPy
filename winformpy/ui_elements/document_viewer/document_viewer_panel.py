@@ -10,12 +10,11 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 from winformpy.winformpy import (
-    Panel, Label, Button, PictureBox, TextBox, ComboBox, TrackBar,
+    Native, Panel, Label, Button, PictureBox, TextBox, ComboBox, TrackBar,
     DockStyle, AnchorStyles, Font, FontStyle, PrinterSettings,
     PageSetupDialog, PrintDialog
 )
 from typing import Optional, Callable
-import tkinter as tk
 from io import BytesIO
 
 # Handle imports for both module and direct execution
@@ -880,12 +879,10 @@ class DocumentViewerPanel(Panel):
     
     def _show_printer_setup(self):
         """Show printer setup dialog and save settings."""
-        import tkinter as tk
-        from tkinter import ttk
-        from winformpy.winformpy import MessageBox
+        from winformpy.winformpy import Native, MessageBox
         
         # Create custom printer setup dialog
-        dialog = tk.Toplevel()
+        dialog = Native.Toplevel()
         dialog.title("Printer Setup")
         dialog.geometry("500x450")
         dialog.resizable(False, False)
@@ -895,47 +892,47 @@ class DocumentViewerPanel(Panel):
         result = {'status': 'Cancel'}
         
         # --- Printer Selection ---
-        frame_printer = tk.LabelFrame(dialog, text="Printer", padx=10, pady=10)
+        frame_printer = Native.LabelFrame(dialog, text="Printer", padx=10, pady=10)
         frame_printer.pack(fill='x', padx=10, pady=10)
         
-        tk.Label(frame_printer, text="Name:").grid(row=0, column=0, sticky='w', pady=5)
+        Native.Label(frame_printer, text="Name:").grid(row=0, column=0, sticky='w', pady=5)
         
         # Get installed printers from PrinterSettings
         printers = PrinterSettings.GetInstalledPrinters()
-        cbo_printer = ttk.Combobox(frame_printer, values=printers, state="readonly", width=40)
+        cbo_printer = Native.Combobox(frame_printer, values=printers, state="readonly", width=40)
         cbo_printer.set(self.PrinterSettings.PrinterName)
         cbo_printer.grid(row=0, column=1, sticky='ew', padx=5, pady=5)
         
         # --- Paper Settings ---
-        frame_paper = tk.LabelFrame(dialog, text="Paper", padx=10, pady=10)
+        frame_paper = Native.LabelFrame(dialog, text="Paper", padx=10, pady=10)
         frame_paper.pack(fill='x', padx=10, pady=10)
         
-        tk.Label(frame_paper, text="Size:").grid(row=0, column=0, sticky='w', pady=5)
+        Native.Label(frame_paper, text="Size:").grid(row=0, column=0, sticky='w', pady=5)
         paper_sizes = ["Letter", "A4", "A3", "Legal", "Tabloid"]
-        cbo_paper = ttk.Combobox(frame_paper, values=paper_sizes, state="readonly", width=20)
+        cbo_paper = Native.Combobox(frame_paper, values=paper_sizes, state="readonly", width=20)
         cbo_paper.set(self.PrinterSettings.PaperSize)
         cbo_paper.grid(row=0, column=1, sticky='w', padx=5, pady=5)
         
-        tk.Label(frame_paper, text="Orientation:").grid(row=1, column=0, sticky='w', pady=5)
-        orientation_var = tk.StringVar(value="Landscape" if self.PrinterSettings.Landscape else "Portrait")
-        tk.Radiobutton(frame_paper, text="Portrait", variable=orientation_var, value="Portrait").grid(row=1, column=1, sticky='w', padx=5)
-        tk.Radiobutton(frame_paper, text="Landscape", variable=orientation_var, value="Landscape").grid(row=1, column=2, sticky='w', padx=5)
+        Native.Label(frame_paper, text="Orientation:").grid(row=1, column=0, sticky='w', pady=5)
+        orientation_var = Native.StringVar(value="Landscape" if self.PrinterSettings.Landscape else "Portrait")
+        Native.Radiobutton(frame_paper, text="Portrait", variable=orientation_var, value="Portrait").grid(row=1, column=1, sticky='w', padx=5)
+        Native.Radiobutton(frame_paper, text="Landscape", variable=orientation_var, value="Landscape").grid(row=1, column=2, sticky='w', padx=5)
         
         # --- Print Quality ---
-        frame_quality = tk.LabelFrame(dialog, text="Quality and Color", padx=10, pady=10)
+        frame_quality = Native.LabelFrame(dialog, text="Quality and Color", padx=10, pady=10)
         frame_quality.pack(fill='x', padx=10, pady=10)
         
-        color_var = tk.BooleanVar(value=self.PrinterSettings.Color)
-        tk.Checkbutton(frame_quality, text="Color (uncheck for Grayscale)", variable=color_var).grid(row=0, column=0, columnspan=2, sticky='w', pady=5)
+        color_var = Native.BooleanVar(value=self.PrinterSettings.Color)
+        Native.Checkbutton(frame_quality, text="Color (uncheck for Grayscale)", variable=color_var).grid(row=0, column=0, columnspan=2, sticky='w', pady=5)
         
-        tk.Label(frame_quality, text="Duplex:").grid(row=1, column=0, sticky='w', pady=5)
+        Native.Label(frame_quality, text="Duplex:").grid(row=1, column=0, sticky='w', pady=5)
         duplex_values = ["Simplex", "Horizontal", "Vertical"]
-        cbo_duplex = ttk.Combobox(frame_quality, values=duplex_values, state="readonly", width=20)
+        cbo_duplex = Native.Combobox(frame_quality, values=duplex_values, state="readonly", width=20)
         cbo_duplex.set(self.PrinterSettings.Duplex)
         cbo_duplex.grid(row=2, column=1, sticky='w', padx=5, pady=5)
         
         # --- Buttons ---
-        btn_frame = tk.Frame(dialog)
+        btn_frame = Native.Frame(dialog)
         btn_frame.pack(fill='x', pady=10, padx=10)
         
         def on_ok():
@@ -956,8 +953,8 @@ class DocumentViewerPanel(Panel):
             result['status'] = 'Cancel'
             dialog.destroy()
         
-        tk.Button(btn_frame, text="OK", command=on_ok, width=10).pack(side='right', padx=5)
-        tk.Button(btn_frame, text="Cancel", command=on_cancel, width=10).pack(side='right')
+        Native.Button(btn_frame, text="OK", command=on_ok, width=10).pack(side='right', padx=5)
+        Native.Button(btn_frame, text="Cancel", command=on_cancel, width=10).pack(side='right')
         
         # Wait for dialog
         dialog.wait_window()

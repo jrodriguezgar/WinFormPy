@@ -33,6 +33,14 @@ import subprocess
 import importlib
 from typing import List, Tuple, Optional, Union, Literal
 
+# Windows 11 Font support
+if sys.platform == "win32":
+    DEFAULT_FONT_TEXT = "Segoe UI Variable Text"
+    DEFAULT_FONT_ICONS = "Segoe Fluent Icons"
+else:
+    DEFAULT_FONT_TEXT = "Segoe UI"
+    DEFAULT_FONT_ICONS = "Segoe UI"
+
 
 class EventArgs:
     """
@@ -81,6 +89,395 @@ class EventArgs:
 
 # Initialize static Empty instance
 EventArgs.Empty = EventArgs()
+
+# =============================================================
+# TKINTER INTERNAL HANDLING UTILITIES
+# =============================================================
+
+def get_tk_root(obj):
+    """
+    Safely retrieves the Tkinter root window (Tk or Toplevel) from a WinFormPy object 
+    or a Tkinter widget. Automatically handles cases where '_root' might be an 
+    internal method or a variable depending on the environment and widget type.
+    """
+    if obj is None:
+        return tk._default_root
+        
+    # Try to resolve winformpy objects (Form, ControlBase)
+    if hasattr(obj, '_root'):
+        res = obj._root
+        if callable(res):
+            try: return res()
+            except: pass
+        return res
+        
+    # Try navigation pages or containers with _frame (mauipy style)
+    if hasattr(obj, '_frame') and obj._frame:
+        try: return obj._frame.winfo_toplevel()
+        except: pass
+
+    # Try standard winformpy ParentForm/FindForm if available
+    if hasattr(obj, 'FindForm'):
+        form = obj.FindForm()
+        if form and hasattr(form, '_root'):
+            res = form._root
+            if callable(res):
+                try: return res()
+                except: pass
+            return res
+
+    # Try winfo_toplevel as a last resort if it looks like a widget (or has the method)
+    if hasattr(obj, 'winfo_toplevel'):
+        try: return obj.winfo_toplevel()
+        except: pass
+        
+    # Fallback to default root
+    return tk._default_root
+
+
+# =============================================================
+# TKINTER CONSTANTS AND NATIVE WRAPPERS
+# =============================================================
+
+# Layout constants
+TOP = tk.TOP
+BOTTOM = tk.BOTTOM
+LEFT = tk.LEFT
+RIGHT = tk.RIGHT
+BOTH = tk.BOTH
+X = tk.X
+Y = tk.Y
+W = tk.W
+E = tk.E
+N = tk.N
+S = tk.S
+NW = tk.NW
+NE = tk.NE
+SW = tk.SW
+SE = tk.SE
+NS = tk.NS
+EW = tk.EW
+NSEW = tk.NSEW
+CENTER = tk.CENTER
+
+# Text and Entry constants
+END = tk.END
+INSERT = tk.INSERT
+SEL = tk.SEL
+WORD = tk.WORD
+CHAR = tk.CHAR
+NONE = tk.NONE
+
+# Orientation
+VERTICAL = tk.VERTICAL
+HORIZONTAL = tk.HORIZONTAL
+
+# Border and Relief
+SOLID = tk.SOLID
+FLAT = tk.FLAT
+SUNKEN = tk.SUNKEN
+RAISED = tk.RAISED
+GROOVE = tk.GROOVE
+RIDGE = tk.RIDGE
+
+# Canvas shapes
+ARC = getattr(tk, 'ARC', 'arc')
+CHORD = getattr(tk, 'CHORD', 'chord')
+PIESLICE = getattr(tk, 'PIESLICE', 'pieslice')
+
+
+class Native:
+    """Provides safe wrappers for low-level Tkinter operations through WinFormPy."""
+    
+    Window = tk.Tk
+    TclError = tk.TclError
+    StringVar = tk.StringVar
+    IntVar = tk.IntVar
+    BooleanVar = tk.BooleanVar
+    DoubleVar = tk.DoubleVar
+    Style = ttk.Style
+    Menu = tk.Menu
+    
+    @staticmethod
+    def Frame(master, **kwargs):
+        """Creates a raw Tkinter Frame safely."""
+        return tk.Frame(master, **kwargs)
+        
+    @staticmethod
+    def Toplevel(master=None, **kwargs):
+        """Creates a raw Tkinter Toplevel safely."""
+        return tk.Toplevel(master, **kwargs)
+        
+    @staticmethod
+    def Label(master, **kwargs):
+        """Creates a raw Tkinter Label safely."""
+        return tk.Label(master, **kwargs)
+        
+    @staticmethod
+    def Button(master, **kwargs):
+        """Creates a raw Tkinter Button safely."""
+        return tk.Button(master, **kwargs)
+        
+    @staticmethod
+    def Entry(master, **kwargs):
+        """Creates a raw Tkinter Entry safely."""
+        return tk.Entry(master, **kwargs)
+        
+    @staticmethod
+    def Canvas(master, **kwargs):
+        """Creates a raw Tkinter Canvas safely."""
+        return tk.Canvas(master, **kwargs)
+        
+    @staticmethod
+    def Scrollbar(master, **kwargs):
+        """Creates a raw Tkinter Scrollbar safely."""
+        return tk.Scrollbar(master, **kwargs)
+        
+    @staticmethod
+    def Text(master, **kwargs):
+        """Creates a raw Tkinter Text safely."""
+        return tk.Text(master, **kwargs)
+        
+    @staticmethod
+    def Spinbox(master, **kwargs):
+        """Creates a raw ttk Spinbox safely."""
+        return ttk.Spinbox(master, **kwargs)
+        
+    @staticmethod
+    def Listbox(master, **kwargs):
+        """Creates a raw Tkinter Listbox safely."""
+        return tk.Listbox(master, **kwargs)
+
+    @staticmethod
+    def Combobox(master, **kwargs):
+        """Creates a raw ttk Combobox safely."""
+        return ttk.Combobox(master, **kwargs)
+
+    @staticmethod
+    def Progressbar(master, **kwargs):
+        """Creates a raw ttk Progressbar safely."""
+        return ttk.Progressbar(master, **kwargs)
+
+    @staticmethod
+    def Scale(master, **kwargs):
+        """Creates a raw ttk Scale safely."""
+        return ttk.Scale(master, **kwargs)
+
+    @staticmethod
+    def PhotoImage(file=None, data=None):
+        """Creates a Tkinter PhotoImage."""
+        return tk.PhotoImage(file=file, data=data)
+
+    @staticmethod
+    def Wait(widget, ms, callback):
+        """Safe wrapper for after()."""
+        try:
+            if widget and hasattr(widget, 'after'):
+                def _safe_cb():
+                    try:
+                        callback()
+                    except tk.TclError:
+                        pass
+                return widget.after(ms, _safe_cb)
+        except:
+            pass
+
+    @staticmethod
+    def CancelWait(widget, after_id):
+        """Safe wrapper for after_cancel()."""
+        try:
+            if widget and after_id and hasattr(widget, 'after_cancel'):
+                widget.after_cancel(after_id)
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def Update(widget):
+        """Safe wrapper for update_idletasks()."""
+        try:
+            if widget and hasattr(widget, 'update_idletasks'):
+                widget.update_idletasks()
+        except:
+            pass
+
+    @staticmethod
+    def Exists(widget):
+        """Safe wrapper for winfo_exists(). Returns False if widget is None or destroyed."""
+        try:
+            return widget is not None and hasattr(widget, 'winfo_exists') and widget.winfo_exists()
+        except (tk.TclError, RuntimeError):
+            return False
+
+    @staticmethod
+    def Destroy(widget):
+        """Safe wrapper for destroy()."""
+        try:
+            if widget and hasattr(widget, 'destroy'):
+                widget.destroy()
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def Lift(widget):
+        """Safe wrapper for lift()."""
+        try:
+            if widget and hasattr(widget, 'lift'):
+                widget.lift()
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def Focus(widget):
+        """Safe wrapper for focus_set()."""
+        try:
+            if widget and hasattr(widget, 'focus_set'):
+                widget.focus_set()
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def ForceFocus(widget):
+        """Safe wrapper for focus_force()."""
+        try:
+            if widget and hasattr(widget, 'focus_force'):
+                widget.focus_force()
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def Deiconify(widget):
+        """Safe wrapper for deiconify()."""
+        try:
+            if widget and hasattr(widget, 'deiconify'):
+                widget.deiconify()
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def Withdraw(widget):
+        """Safe wrapper for withdraw()."""
+        try:
+            if widget and hasattr(widget, 'withdraw'):
+                widget.withdraw()
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def Geometry(widget, geo=None):
+        """Safe wrapper for geometry(). Returns geometry string if geo is None."""
+        try:
+            if widget and hasattr(widget, 'geometry'):
+                if geo is None:
+                    return widget.geometry()
+                widget.geometry(geo)
+        except (tk.TclError, RuntimeError):
+            return "" if geo is None else None
+
+    @staticmethod
+    def Overrideredirect(widget, flag=True):
+        """Safe wrapper for overrideredirect() / wm_overrideredirect()."""
+        try:
+            if widget and hasattr(widget, 'overrideredirect'):
+                widget.overrideredirect(flag)
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def GetRoot(widget):
+        """Safe wrapper for winfo_toplevel()."""
+        try:
+            if widget and hasattr(widget, 'winfo_toplevel'):
+                return widget.winfo_toplevel()
+        except (tk.TclError, RuntimeError):
+            pass
+        return None
+
+    @staticmethod
+    def GetChildren(widget):
+        """Safe wrapper for winfo_children()."""
+        try:
+            if widget and hasattr(widget, 'winfo_children'):
+                return widget.winfo_children()
+        except (tk.TclError, RuntimeError):
+            pass
+        return []
+
+    @staticmethod
+    def GetPosition(widget):
+        """Safe wrapper for winfo_rootx/winfo_rooty. Returns (x, y) tuple."""
+        try:
+            if widget and hasattr(widget, 'winfo_rootx'):
+                return (widget.winfo_rootx(), widget.winfo_rooty())
+        except (tk.TclError, RuntimeError):
+            pass
+        return (0, 0)
+
+    @staticmethod
+    def GetSize(widget):
+        """Safe wrapper for winfo_width/winfo_height. Returns (width, height) tuple."""
+        try:
+            if widget and hasattr(widget, 'winfo_width'):
+                return (widget.winfo_width(), widget.winfo_height())
+        except (tk.TclError, RuntimeError):
+            pass
+        return (0, 0)
+
+    @staticmethod
+    def PackPropagate(widget, flag=False):
+        """Safe wrapper for pack_propagate()."""
+        try:
+            if widget and hasattr(widget, 'pack_propagate'):
+                widget.pack_propagate(flag)
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def Mainloop(widget):
+        """Safe wrapper for mainloop()."""
+        try:
+            if widget and hasattr(widget, 'mainloop'):
+                widget.mainloop()
+        except (tk.TclError, RuntimeError):
+            pass
+
+    @staticmethod
+    def IsViewable(widget):
+        """Safe wrapper for winfo_viewable(). Returns False if widget is None or not viewable."""
+        try:
+            return widget is not None and hasattr(widget, 'winfo_viewable') and widget.winfo_viewable()
+        except (tk.TclError, RuntimeError):
+            return False
+
+    @staticmethod
+    def DefaultRoot():
+        """Returns the current default Tk root, or None if not created yet."""
+        return tk._default_root
+
+    @staticmethod
+    def LabelFrame(master, **kwargs):
+        """Creates a raw Tkinter LabelFrame safely."""
+        return tk.LabelFrame(master, **kwargs)
+
+    @staticmethod
+    def Radiobutton(master, **kwargs):
+        """Creates a raw Tkinter Radiobutton safely."""
+        return tk.Radiobutton(master, **kwargs)
+
+    @staticmethod
+    def Checkbutton(master, **kwargs):
+        """Creates a raw Tkinter Checkbutton safely."""
+        return tk.Checkbutton(master, **kwargs)
+
+    @staticmethod
+    def FontFamilies():
+        """Returns sorted list of available font families. Requires a Tk root."""
+        return sorted(tkfont.families())
+
+    @staticmethod
+    def FontNameToFont(name):
+        """Wraps tkinter.font.nametofont(). Returns the named font object."""
+        return tkfont.nametofont(name)
+
 
 class PaintEventArgs(EventArgs):
     """Event data for the Paint event."""
@@ -264,9 +661,9 @@ def _resolve_master_widget(master_form):
     elif hasattr(master_form, '_frame'):
         # TabPage with _frame
         master_widget = master_form._frame
-    elif hasattr(master_form, '_tk_widget'):
-        # Other control with _tk_widget
-        master_widget = master_form._tk_widget
+    elif hasattr(master_form, 'GetTkWidget'):
+        # Other control with GetTkWidget API
+        master_widget = master_form.GetTkWidget()
     else:
         # Already a Tkinter widget (fallback)
         master_widget = master_form
@@ -2196,8 +2593,8 @@ class PrintDialog:
         # Handle owner for transient
         parent_window = None
         if owner:
-            if hasattr(owner, '_tk_widget'):
-                parent_window = owner._tk_widget
+            if hasattr(owner, 'GetTkWidget'):
+                parent_window = owner.GetTkWidget()
             elif hasattr(owner, 'winfo_toplevel'):
                 parent_window = owner.winfo_toplevel()
             elif isinstance(owner, tk.Widget):
@@ -2404,8 +2801,8 @@ class FontDialog:
         # Handle owner for transient
         parent_window = None
         if owner:
-            if hasattr(owner, '_tk_widget'):
-                parent_window = owner._tk_widget
+            if hasattr(owner, 'GetTkWidget'):
+                parent_window = owner.GetTkWidget()
             elif hasattr(owner, 'winfo_toplevel'):
                 parent_window = owner.winfo_toplevel()
             elif isinstance(owner, tk.Widget):
@@ -2619,8 +3016,8 @@ class PageSetupDialog:
         # Handle owner for transient
         parent_window = None
         if owner:
-            if hasattr(owner, '_tk_widget'):
-                parent_window = owner._tk_widget
+            if hasattr(owner, 'GetTkWidget'):
+                parent_window = owner.GetTkWidget()
             elif hasattr(owner, 'winfo_toplevel'):
                 parent_window = owner.winfo_toplevel()
             elif isinstance(owner, tk.Widget):
@@ -2761,8 +3158,8 @@ class PrintPreviewDialog:
         # Handle owner
         parent_window = None
         if owner:
-            if hasattr(owner, '_tk_widget'):
-                parent_window = owner._tk_widget
+            if hasattr(owner, 'GetTkWidget'):
+                parent_window = owner.GetTkWidget()
             elif hasattr(owner, 'winfo_toplevel'):
                 parent_window = owner.winfo_toplevel()
             elif isinstance(owner, tk.Widget):
@@ -3113,8 +3510,9 @@ class ControlBase:
                 # So the order is correct.
                 
                 for ctrl in sorted_controls:
-                    if hasattr(ctrl, '_tk_widget') and ctrl._tk_widget:
-                        ctrl._tk_widget.lift()
+                    ctrl_w = ctrl.GetTkWidget() if hasattr(ctrl, 'GetTkWidget') else getattr(ctrl, '_tk_widget', None)
+                    if ctrl_w:
+                        ctrl_w.lift()
             except Exception:
                 pass
 
@@ -3252,6 +3650,104 @@ class ControlBase:
         for child in self.GetChildren():
             try:
                 child.destroy()
+            except Exception:
+                pass
+
+    def Dispose(self):
+        """Releases all resources used by the control and removes it from the visual tree."""
+        if self._tk_widget:
+            try:
+                self._tk_widget.destroy()
+            except Exception:
+                pass
+            self._tk_widget = None
+
+    def InvokeDelayed(self, ms, callback):
+        """Schedules a callback to execute after the specified milliseconds.
+        
+        Args:
+            ms (int): Delay in milliseconds.
+            callback: The function to call after the delay.
+            
+        Returns:
+            An identifier that can be used to cancel the scheduled callback, or None.
+        """
+        if self._tk_widget:
+            try:
+                return self._tk_widget.after(ms, callback)
+            except Exception:
+                pass
+        return None
+
+    @property
+    def ActualWidth(self):
+        """Gets the rendered width of the control in pixels."""
+        if self._tk_widget:
+            try:
+                return self._tk_widget.winfo_width()
+            except Exception:
+                pass
+        return self._width or 0
+
+    @property
+    def ActualHeight(self):
+        """Gets the rendered height of the control in pixels."""
+        if self._tk_widget:
+            try:
+                return self._tk_widget.winfo_height()
+            except Exception:
+                pass
+        return self._height or 0
+
+    @property
+    def DesiredWidth(self):
+        """Gets the desired (requested) width of the control in pixels."""
+        if self._tk_widget:
+            try:
+                return self._tk_widget.winfo_reqwidth()
+            except Exception:
+                pass
+        return self._width or 0
+
+    @property
+    def DesiredHeight(self):
+        """Gets the desired (requested) height of the control in pixels."""
+        if self._tk_widget:
+            try:
+                return self._tk_widget.winfo_reqheight()
+            except Exception:
+                pass
+        return self._height or 0
+
+    @property
+    def ScreenLeft(self):
+        """Gets the absolute X position of the control on the screen."""
+        if self._tk_widget:
+            try:
+                return self._tk_widget.winfo_rootx()
+            except Exception:
+                pass
+        return 0
+
+    @property
+    def ScreenTop(self):
+        """Gets the absolute Y position of the control on the screen."""
+        if self._tk_widget:
+            try:
+                return self._tk_widget.winfo_rooty()
+            except Exception:
+                pass
+        return 0
+
+    def GenerateEvent(self, event_name):
+        """Generates a synthetic event on the control.
+        
+        Args:
+            event_name (str): The event to generate (e.g., '<<Copy>>', '<<Paste>>').
+        """
+        if self._tk_widget:
+            try:
+                self._tk_widget.event_generate(event_name)
             except Exception:
                 pass
 
@@ -3922,9 +4418,9 @@ class ControlBase:
         elif hasattr(new_parent, '_root'):
             # For Form with _root
             new_master = new_parent._root
-        elif hasattr(new_parent, '_tk_widget'):
-            # For other controls with _tk_widget
-            new_master = new_parent._tk_widget
+        elif hasattr(new_parent, 'GetTkWidget'):
+            # For other controls with GetTkWidget API
+            new_master = new_parent.GetTkWidget()
         else:
             new_master = new_parent
         
@@ -4100,7 +4596,7 @@ class ControlBase:
                     current_visible = getattr(control, '_visible', True)
                     control._visible = not current_visible
                     control.set_Visible(current_visible)
-                elif hasattr(control, '_tk_widget') and control._tk_widget:
+                elif hasattr(control, 'GetTkWidget') and control.GetTkWidget():
                     # Fallback for controls without set_Visible
                     child_should_be_visible = getattr(control, '_visible', True) and should_be_visible
                     
@@ -4111,7 +4607,7 @@ class ControlBase:
                                 control._place_control(control.Width, control.Height)
                     else:
                         # Hide the child
-                        control._tk_widget.place_forget()
+                        control.GetTkWidget().place_forget()
                     
                     # If the child is also a container, recursively update its children
                     if hasattr(control, 'Controls') and len(control.Controls) > 0:
@@ -4467,7 +4963,8 @@ class ControlBase:
 
             for ctrl in ordered_controls:
                 dock = getattr(ctrl, '_dock', DockStyle.None_)
-                if dock == DockStyle.None_ or not getattr(ctrl, '_tk_widget', None):
+                ctrl_widget = ctrl.GetTkWidget() if hasattr(ctrl, 'GetTkWidget') else getattr(ctrl, '_tk_widget', None)
+                if dock == DockStyle.None_ or not ctrl_widget:
                     continue
 
                 margin = getattr(ctrl, 'Margin', (0, 0, 0, 0))
@@ -4479,8 +4976,8 @@ class ControlBase:
                 available_height = max(0, bottom - top)
 
                 # Get current or required dimensions
-                desired_width = ctrl._width if getattr(ctrl, '_width', None) else ctrl._tk_widget.winfo_reqwidth()
-                desired_height = ctrl._height if getattr(ctrl, '_height', None) else ctrl._tk_widget.winfo_reqheight()
+                desired_width = ctrl._width if getattr(ctrl, '_width', None) else ctrl_widget.winfo_reqwidth()
+                desired_height = ctrl._height if getattr(ctrl, '_height', None) else ctrl_widget.winfo_reqheight()
 
                 if dock == DockStyle.Top:
                     w = max(0, available_width - (ml + mr))
@@ -4518,8 +5015,8 @@ class ControlBase:
 
                 # Determine which widget to place:
                 # - For TextBox/RichTextBox with scrollbars, use _container_frame
-                # - For other controls, use _tk_widget
-                widget_to_place = ctrl._tk_widget
+                # - For other controls, use ctrl_widget
+                widget_to_place = ctrl_widget
                 if hasattr(ctrl, '_container_frame') and ctrl._container_frame:
                     widget_to_place = ctrl._container_frame
 
@@ -4545,9 +5042,10 @@ class ControlBase:
 
             # Restore original z-order by lifting in Controls order
             for ctrl in controls:
-                if getattr(ctrl, '_tk_widget', None):
+                ctrl_widget = ctrl.GetTkWidget() if hasattr(ctrl, 'GetTkWidget') else getattr(ctrl, '_tk_widget', None)
+                if ctrl_widget:
                     try:
-                        ctrl._tk_widget.lift()
+                        ctrl_widget.lift()
                     except tk.TclError:
                         pass
         finally:
@@ -4968,6 +5466,8 @@ class ControlBase:
 
 ############# Classes for User Controls & ScrollBars #############
 
+############# ScrollBar Controls #############
+
 class ScrollBar(ControlBase):
     """Represents a ScrollBar (standalone scrollbar)."""
     
@@ -5297,9 +5797,9 @@ class UserControl(ControlBase, ScrollableControlMixin):
         # Inherit properties from the container
         if hasattr(control, 'Enabled'):
             control.Enabled = self.Enabled
-            if hasattr(control, '_tk_widget'):
+            if hasattr(control, 'GetTkWidget'):
                 try:
-                    control._tk_widget.config(state='normal' if self.Enabled else 'disabled')
+                    control.GetTkWidget().config(state='normal' if self.Enabled else 'disabled')
                 except tk.TclError:
                     pass
         
@@ -5319,8 +5819,9 @@ class UserControl(ControlBase, ScrollableControlMixin):
             if control_should_be_visible:
                 control._place_control()
             else:
-                if hasattr(control, '_tk_widget') and control._tk_widget:
-                    control._tk_widget.place_forget()
+                ctrl_w = control.GetTkWidget() if hasattr(control, 'GetTkWidget') else None
+                if ctrl_w:
+                    ctrl_w.place_forget()
         else:
             if self.get_Visible():
                 control._place_control()
@@ -5467,7 +5968,7 @@ class UserControl(ControlBase, ScrollableControlMixin):
         super().set_Visible(value)
 
 
-############# Basic Controls #############
+############# Application Framework #############
 
 class Form(ScrollableControlMixin):
     """
@@ -5524,6 +6025,13 @@ class Form(ScrollableControlMixin):
             # Apply system styles according to global configuration
             SystemStyles.ApplyToDefaults(defaults, control_type="Window")
         
+        # Add WindowState and StartPosition to defaults if present in props
+        if props:
+            if 'WindowState' in props:
+                defaults['WindowState'] = props['WindowState']
+            if 'StartPosition' in props:
+                defaults['StartPosition'] = props['StartPosition']
+
         if parent:
             self._root = tk.Toplevel(parent)
         elif tk._default_root:
@@ -5548,11 +6056,28 @@ class Form(ScrollableControlMixin):
         # Main VB properties
         self.Name = defaults['Name'] or "Form1"
         self._text_value = defaults['Title']
+        
+        # Apply title immediately to window
+        if hasattr(self, '_root') and self._root:
+            self._root.title(self._text_value)
+            
         self.Width = defaults['Width']
         self.Height = defaults['Height']
         self.Size = Size(self.Width, self.Height)
         self.Location = Point(0, 0)
-        self.StartPosition = FormStartPosition.WindowsDefaultLocation
+        
+        # Support for StartPosition from defaults
+        start_pos = defaults.get('StartPosition', FormWindowState.Normal) # Normal is used as fallback for type check
+        if isinstance(start_pos, str):
+             try:
+                 self.StartPosition = FormStartPosition[start_pos]
+             except KeyError:
+                 self.StartPosition = FormStartPosition.WindowsDefaultLocation
+        elif isinstance(start_pos, FormStartPosition):
+             self.StartPosition = start_pos
+        else:
+             self.StartPosition = FormStartPosition.WindowsDefaultLocation
+
         self.FormBorderStyle = FormBorderStyle.Sizable
         self.MaximizeBox = True
         self.MinimizeBox = True
@@ -5561,7 +6086,19 @@ class Form(ScrollableControlMixin):
         self.Icon = None
         self.BackColor = defaults['BackColor']
         self.Opacity = 1.0
-        self.WindowState = FormWindowState.Normal
+        
+        # Support for WindowState from defaults
+        window_state = defaults.get('WindowState', FormWindowState.Normal)
+        if isinstance(window_state, str):
+            try:
+                self.WindowState = FormWindowState[window_state]
+            except KeyError:
+                self.WindowState = FormWindowState.Normal
+        elif isinstance(window_state, FormWindowState):
+            self.WindowState = window_state
+        else:
+            self.WindowState = FormWindowState.Normal
+
         self.Enabled = True
         self.Visible = True
         self._cursor = Cursors.Default
@@ -5645,8 +6182,8 @@ class Form(ScrollableControlMixin):
                     if hasattr(control, '_place_control'):
                         control._place_control()
                 else:
-                    if hasattr(control, '_tk_widget') and control._tk_widget:
-                        control._tk_widget.place_forget()
+                    if hasattr(control, 'GetTkWidget') and control.GetTkWidget():
+                        control.GetTkWidget().place_forget()
             else:
                 if hasattr(control, '_place_control'):
                     control._place_control()
@@ -6024,9 +6561,9 @@ class Form(ScrollableControlMixin):
         
         # Bind CancelButton and AcceptButton
         if self.CancelButton:
-            self._root.bind('<Escape>', lambda e: self.CancelButton._tk_widget.invoke())
+            self._root.bind('<Escape>', lambda e: self.CancelButton.GetTkWidget().invoke())
         if self.AcceptButton:
-            self._root.bind('<Return>', lambda e: self.AcceptButton._tk_widget.invoke())
+            self._root.bind('<Return>', lambda e: self.AcceptButton.GetTkWidget().invoke())
         
         # Bind form events
         self._root.protocol("WM_DELETE_WINDOW", self._close)
@@ -6402,9 +6939,9 @@ class Form(ScrollableControlMixin):
         # Inherit container properties
         if hasattr(control, 'Enabled') and hasattr(self, 'Enabled'):
             control.Enabled = self.Enabled
-            if hasattr(control, '_tk_widget'):
+            if hasattr(control, 'GetTkWidget'):
                 try:
-                    control._tk_widget.config(state='normal' if self.Enabled else 'disabled')
+                    control.GetTkWidget().config(state='normal' if self.Enabled else 'disabled')
                 except tk.TclError:
                     pass
         
@@ -6511,10 +7048,10 @@ class Timer:
             self._job = self._root.after(self.Interval, self._schedule)
 
 
+############# Basic Input Controls #############
+
 class ProgressBar(ControlBase):
     """
-    Represents a ProgressBar control that visually indicates the progress of a long operation.
-    
     The Style property determines the style of ProgressBar displayed.
     The Maximum and Minimum properties define the range of values to represent the progress of a task.
     The Value property represents the progress that the application has made toward completing the operation.
@@ -7838,7 +8375,7 @@ class TextBox(ControlBase):
             if max_height > 0:
                 self.Height = min(self.Height, max_height)
         
-        # Reposicionar con nuevo tamaño
+        # Reposicionar con nuevo tamaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±o
         if self.Visible:
             self._place_control(self.Width, self.Height)
     
@@ -9271,7 +9808,7 @@ class CheckBox(ControlBase):
         if self._checkstate_value != value:
             self._checkstate_value = value
             self._state_var.set(value)
-            # Forzar actualización visual del widget de Tkinter
+            # Forzar actualizaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n visual del widget de Tkinter
             if hasattr(self, '_tk_widget') and self._tk_widget:
                 if value == CheckState.Checked:
                     self._tk_widget.select()
@@ -9353,8 +9890,8 @@ class ToolTip:
                    Use {'UseSystemStyles': True} to automatically apply system styles
         """
         # Extract the underlying tk widget if this is a WinFormPy control
-        if hasattr(control, '_tk_widget') and control._tk_widget:
-            widget = control._tk_widget
+        if hasattr(control, 'GetTkWidget') and control.GetTkWidget():
+            widget = control.GetTkWidget()
         else:
             widget = control  # Assume it's already a tkinter widget
         
@@ -10370,10 +10907,10 @@ class NumericUpDown(ControlBase):
         self.ValidateEditText()
 
 
+############# Rich Text & Masked Input Controls #############
+
 class RichTextBox(TextBox):
     """
-    Represents a RichTextBox control for displaying and editing formatted text.
-    
     This control provides a multi-line text editor with support for:
     - Formatted text (bold, italic, underline, colors)
     - Selection properties (SelectionColor, SelectionFont, SelectionBold, etc.)
@@ -12580,10 +13117,10 @@ class MaskedTextBox(TextBox):
         return f"MaskedTextBox, Text: {self.Text}"
 
 
+############# Display Controls #############
+
 class PictureBox(ControlBase):
     """
-    Represents a PictureBox to display images with VB.NET-like properties.
-    
     Use the PictureBox control to display graphics from a bitmap, metafile, icon, JPEG, GIF, or PNG file.
     Set the Image property to the Image you want to display, either at design time or at run time.
     You can also specify the image by setting the ImageLocation property and loading the image
@@ -12905,13 +13442,17 @@ class CanvasLine:
         # Resolve the canvas or master widget
         if hasattr(master_form, '_canvas'):
             self._canvas = master_form._canvas
-        elif hasattr(master_form, '_tk_widget') and isinstance(master_form._tk_widget, tk.Canvas):
-            self._canvas = master_form._tk_widget
+        elif hasattr(master_form, 'GetTkWidget') and isinstance(master_form.GetTkWidget(), tk.Canvas):
+            self._canvas = master_form.GetTkWidget()
         elif isinstance(master_form, tk.Canvas):
             self._canvas = master_form
         else:
             # If there is no canvas, create one
-            master_widget = getattr(master_form, '_root', getattr(master_form, '_tk_widget', getattr(master_form, '_frame', master_form)))
+            master_widget = getattr(master_form, '_root', None)
+            if not master_widget and hasattr(master_form, 'GetTkWidget'):
+                master_widget = master_form.GetTkWidget()
+            if not master_widget:
+                master_widget = getattr(master_form, '_frame', master_form)
             self._canvas = tk.Canvas(master_widget, bg='white')
             self._canvas.pack(fill='both', expand=True)
         
@@ -13430,7 +13971,7 @@ class GroupBox(ControlBase):
             # For Button, unbind Button-1 because it uses command
             if widget_class_name == 'Button':
                 try:
-                    control._tk_widget.unbind('<Button-1>')
+                    control.GetTkWidget().unbind('<Button-1>')
                 except Exception:
                     pass
         else:
@@ -13451,9 +13992,9 @@ class GroupBox(ControlBase):
             # We do not change the child's logical Enabled property if possible,
             # but for now we ensure visual consistency.
             if not self.Enabled:
-                if hasattr(control, '_tk_widget'):
+                if hasattr(control, 'GetTkWidget'):
                     try:
-                        control._tk_widget.config(state='disabled')
+                        control.GetTkWidget().config(state='disabled')
                     except tk.TclError:
                         pass  # Some widgets do not support 'state'
         
@@ -13476,8 +14017,8 @@ class GroupBox(ControlBase):
                 control._place_control()
             else:
                 # Hide the control
-                if hasattr(control, '_tk_widget') and control._tk_widget:
-                    control._tk_widget.place_forget()
+                if hasattr(control, 'GetTkWidget') and control.GetTkWidget():
+                    control.GetTkWidget().place_forget()
         else:
             # If the control does not have _visible, use default behavior
             if self.get_Visible():
@@ -13494,8 +14035,8 @@ class GroupBox(ControlBase):
         """Removes a control from the GroupBox."""
         if control in self.Controls:
             self.Controls.remove(control)
-            if hasattr(control, '_tk_widget') and control._tk_widget:
-                control._tk_widget.place_forget()
+            if hasattr(control, 'GetTkWidget') and control.GetTkWidget():
+                control.GetTkWidget().place_forget()
             # Invoke ControlRemoved event
             self.ControlRemoved(control)
             # Apply AutoSize if enabled
@@ -13649,13 +14190,13 @@ class GroupBox(ControlBase):
         # Propagate to children
         if hasattr(self, 'Controls'):
             for control in self.Controls:
-                if hasattr(control, '_tk_widget'):
+                if hasattr(control, 'GetTkWidget'):
                     try:
                         # If GroupBox is disabled, child is disabled.
                         # If GroupBox is enabled, child state depends on its own Enabled property.
                         child_enabled = value and getattr(control, 'Enabled', True)
                         state = 'normal' if child_enabled else 'disabled'
-                        control._tk_widget.config(state=state)
+                        control.GetTkWidget().config(state=state)
                     except tk.TclError:
                         pass
 
@@ -13994,9 +14535,9 @@ class Panel(ControlBase, ScrollableControlMixin):
             # We do not change the child's logical Enabled property if possible,
             # but for now we ensure visual consistency.
             if not self.Enabled:
-                if hasattr(control, '_tk_widget'):
+                if hasattr(control, 'GetTkWidget'):
                     try:
-                        control._tk_widget.config(state='disabled')
+                        control.GetTkWidget().config(state='disabled')
                     except tk.TclError:
                         pass
         
@@ -14019,8 +14560,8 @@ class Panel(ControlBase, ScrollableControlMixin):
                 control._place_control()
             else:
                 # Hide the control
-                if hasattr(control, '_tk_widget') and control._tk_widget:
-                    control._tk_widget.place_forget()
+                if hasattr(control, 'GetTkWidget') and control.GetTkWidget():
+                    control.GetTkWidget().place_forget()
         else:
             # If the control has no _visible, use default behavior
             if self.get_Visible():
@@ -14054,13 +14595,13 @@ class Panel(ControlBase, ScrollableControlMixin):
             for control in self.Controls:
                 # We update the visual state of children to match parent
                 # In a full implementation, we would check both parent and child enabled state
-                if hasattr(control, '_tk_widget'):
+                if hasattr(control, 'GetTkWidget'):
                     try:
                         # If Panel is disabled, child is disabled.
                         # If Panel is enabled, child state depends on its own Enabled property.
                         child_enabled = value and getattr(control, 'Enabled', True)
                         state = 'normal' if child_enabled else 'disabled'
-                        control._tk_widget.config(state=state)
+                        control.GetTkWidget().config(state=state)
                         
                         # If child is also a container (has Controls), we might need to propagate further
                         # But if we rely on the child's Enabled property not changing, 
@@ -14088,8 +14629,8 @@ class Panel(ControlBase, ScrollableControlMixin):
             self.Controls.remove(control)
             
             # Hide the widget visually
-            if hasattr(control, '_tk_widget') and control._tk_widget:
-                control._tk_widget.place_forget()
+            if hasattr(control, 'GetTkWidget') and control.GetTkWidget():
+                control.GetTkWidget().place_forget()
             
             # Update scroll region if AutoScroll is enabled
             if self.AutoScroll:
@@ -14290,6 +14831,287 @@ class Panel(ControlBase, ScrollableControlMixin):
         self._text = value
 
 
+# =============================================================================
+# BreadcrumbBar - Navigation Path Control
+# =============================================================================
+
+class BreadcrumbBar:
+    """
+    BreadcrumbBar for displaying the navigation path.
+    
+    Properties:
+        ItemsSource (list): List of strings or items representing the path.
+        ItemClicked (callable): Event handler called when an item is clicked.
+    
+    Example:
+        >>> bc = BreadcrumbBar(container, items_source=["Home", "Documents", "Finance"])
+        >>> bc.ItemClicked = lambda sender, e: print(f"Clicked index {e.data}")
+    """
+    def __init__(self, master, items_source=None, props=None):
+        defaults = {
+            'Separator': "  ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âº  ",
+            'FontSize': 10,
+            'TextColor': '#5E5E5E',
+            'ActiveColor': '#1A1A1A',
+            'Padding': (0, 5, 0, 15)
+        }
+        if props: defaults.update(props)
+        
+        self._master = master
+        self._items_source = items_source or []
+        self._separator = defaults['Separator']
+        self._font_size = defaults['FontSize']
+        self._text_color = defaults['TextColor']
+        self._active_color = defaults['ActiveColor']
+        
+        self.ItemClicked = lambda sender, e: None
+        
+        # Determine parent
+        if hasattr(master, '_frame'):
+            parent = master._frame
+        else:
+            parent = master
+            
+        self._bg = parent.cget("bg")
+        
+        # Main container
+        self._frame = Native.Frame(parent, bg=self._bg)
+        self._frame.pack(fill=X, padx=defaults['Padding'][0], pady=defaults['Padding'][1])
+        self._tk_widget = self._frame
+        
+        self._render()
+        
+    def _render(self):
+        # Clear existing
+        for child in self._frame.winfo_children():
+            child.destroy()
+            
+        for i, item in enumerate(self._items_source):
+            is_last = (i == len(self._items_source) - 1)
+            
+            # Item Label
+            fg = self._active_color if is_last else self._text_color
+            cursor = "" if is_last else "hand2"
+            weight = "bold" if is_last else "normal"
+            
+            lbl = Native.Label(
+                self._frame,
+                text=str(item),
+                font=(DEFAULT_FONT_TEXT, self._font_size, weight),
+                bg=self._bg,
+                fg=fg,
+                cursor=cursor
+            )
+            lbl.pack(side=LEFT)
+            
+            if not is_last:
+                def _on_click(e, idx=i):
+                    args = EventArgs()
+                    args.Data = idx
+                    self.ItemClicked(self, args)
+                lbl.bind("<Button-1>", _on_click)
+                
+                # Separator
+                sep = Native.Label(
+                    self._frame,
+                    text=self._separator,
+                    font=(DEFAULT_FONT_TEXT, self._font_size),
+                    bg=self._bg,
+                    fg=self._text_color
+                )
+                sep.pack(side=LEFT)
+
+    @property
+    def ItemsSource(self):
+        return self._items_source
+    
+    @ItemsSource.setter
+    def ItemsSource(self, value):
+        self._items_source = value
+        self._render()
+
+
+# =============================================================================
+# SettingsCard - WinUI3-style Settings Control
+# =============================================================================
+
+class SettingsCard:
+    """
+    Settings card with icon, header, description, and action content.
+    
+    SettingsCard provides a consistent way to display settings options with
+    an optional icon, title, description, and interactive content on the right.
+    
+    Properties:
+        Header (str): Primary setting title.
+        Description (str): Explanatory text under the title.
+        HeaderIcon (str): Emoji or icon text displayed on the left.
+        Content (Frame): Container for right-side action (Switch, Button, etc.).
+    
+    Example:
+        >>> card = SettingsCard(container, header="Notifications", description="Enable push alerts", icon="ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â")
+        >>> switch = Switch(card.Content)  # Add action control
+    """
+    def __init__(self, master, header="", description="", icon=None, props=None):
+        defaults = {
+            'Header': header,
+            'Description': description,
+            'HeaderIcon': icon,
+            'BackgroundColor': 'white',
+            'BorderColor': '#E5E5E5',
+            'Padding': (12, 12),
+            'IsClickEnabled': False,
+            'HoverColor': '#F9F9F9'
+        }
+        
+        if props:
+            defaults.update(props)
+            
+        self._master = master
+        self._header_text = defaults['Header']
+        self._description_text = defaults['Description']
+        self._icon_text = defaults['HeaderIcon']
+        self._is_click_enabled = defaults['IsClickEnabled']
+        self._hover_color = defaults['HoverColor']
+        self._bg_color = defaults['BackgroundColor']
+        
+        self.Click = lambda sender, e: None
+        
+        # Determine parent
+        if hasattr(master, '_frame'):
+            parent = master._frame
+        else:
+            parent = master
+            
+        # Main border frame
+        self._frame = Native.Frame(
+            parent,
+            bg=defaults['BorderColor'],
+            padx=1, pady=1
+        )
+        self._frame.pack(fill=X, pady=2, padx=2)
+        
+        # Inner content frame
+        self._inner = Native.Frame(
+            self._frame,
+            bg=self._bg_color,
+            cursor="hand2" if self._is_click_enabled else ""
+        )
+        self._inner.pack(fill=BOTH, expand=True)
+        
+        # Grid layout for internal structure
+        self._inner.columnconfigure(1, weight=1)
+        
+        # Icon (Column 0)
+        self._icon_label = None
+        if self._icon_text:
+            self._icon_label = Native.Label(
+                self._inner,
+                text=self._icon_text,
+                font=(DEFAULT_FONT_ICONS, 14),
+                bg=self._bg_color,
+                fg="#333333",
+                padx=15
+            )
+            self._icon_label.grid(row=0, column=0, rowspan=2, sticky="nsew")
+            
+        # Text container (Column 1)
+        self._text_container = Native.Frame(self._inner, bg=self._bg_color, padx=10, pady=10)
+        self._text_container.grid(row=0, column=1, rowspan=2, sticky="w")
+        
+        self._header_label = Native.Label(
+            self._text_container,
+            text=self._header_text,
+            font=(DEFAULT_FONT_TEXT, 10, "bold"),
+            bg=self._bg_color,
+            fg="#1A1A1A",
+            anchor="w"
+        )
+        self._header_label.pack(fill=X)
+        
+        self._desc_label = None
+        if self._description_text:
+            self._desc_label = Native.Label(
+                self._text_container,
+                text=self._description_text,
+                font=(DEFAULT_FONT_TEXT, 9),
+                bg=self._bg_color,
+                fg="#5E5E5E",
+                anchor="w",
+                justify=LEFT
+            )
+            self._desc_label.pack(fill=X)
+            
+        # Action content (Column 2)
+        self._action_frame = Native.Frame(self._inner, bg=self._bg_color, padx=15)
+        self._action_frame.grid(row=0, column=2, rowspan=2, sticky="e")
+        
+        # Interactions
+        if self._is_click_enabled:
+            for widget in [self._inner, self._text_container, self._header_label]:
+                widget.bind("<Button-1>", self._on_click)
+                widget.bind("<Enter>", self._on_enter)
+                widget.bind("<Leave>", self._on_leave)
+            if self._icon_label:
+                self._icon_label.bind("<Button-1>", self._on_click)
+                self._icon_label.bind("<Enter>", self._on_enter)
+                self._icon_label.bind("<Leave>", self._on_leave)
+            if self._desc_label:
+                self._desc_label.bind("<Button-1>", self._on_click)
+                self._desc_label.bind("<Enter>", self._on_enter)
+                self._desc_label.bind("<Leave>", self._on_leave)
+            self._action_frame.bind("<Button-1>", self._on_click)
+            self._action_frame.bind("<Enter>", self._on_enter)
+            self._action_frame.bind("<Leave>", self._on_leave)
+
+    def _on_enter(self, e):
+        bg = self._hover_color
+        self._inner.config(bg=bg)
+        self._text_container.config(bg=bg)
+        self._header_label.config(bg=bg)
+        if self._icon_label: self._icon_label.config(bg=bg)
+        if self._desc_label: self._desc_label.config(bg=bg)
+        self._action_frame.config(bg=bg)
+
+    def _on_leave(self, e):
+        bg = self._bg_color
+        self._inner.config(bg=bg)
+        self._text_container.config(bg=bg)
+        self._header_label.config(bg=bg)
+        if self._icon_label: self._icon_label.config(bg=bg)
+        if self._desc_label: self._desc_label.config(bg=bg)
+        self._action_frame.config(bg=bg)
+
+    def _on_click(self, e):
+        self.Click(self, EventArgs(e))
+
+    @property
+    def Content(self):
+        """Returns the frame for adding right-side action controls."""
+        return self._action_frame
+
+    @property
+    def Header(self):
+        return self._header_text
+
+    @Header.setter
+    def Header(self, value):
+        self._header_text = value
+        self._header_label.config(text=value)
+
+    @property
+    def Description(self):
+        return self._description_text
+
+    @Description.setter
+    def Description(self, value):
+        self._description_text = value
+        if self._desc_label:
+            self._desc_label.config(text=value)
+
+
+############# Visual Elements #############
+
 class Line:
     """
     Represents a horizontal or vertical line separator.
@@ -14358,21 +15180,22 @@ class Line:
             self._tk_widget.place(x=self.Left, y=self.Top, width=self.Width, height=self.Height)
 
 
+############# Layout Panels #############
+
 class FlowLayoutPanel(Panel):
     """
-    El control FlowLayoutPanel organiza su contenido en una dirección de flujo horizontal o vertical.
     Su contenido puede ajustarse desde una fila a la siguiente o desde una columna a la siguiente.
     Como alternativa, su contenido se puede recortar en lugar de encapsularse.
 
-    Puede especificar la dirección de flujo estableciendo el valor de la propiedad FlowDirection.
-    El FlowLayoutPanel control invierte correctamente su dirección de flujo en diseños de derecha a izquierda (RTL).
-    También puede especificar si el contenido del FlowLayoutPanel control se ajusta o recorta estableciendo el valor de la WrapContents propiedad.
+    Puede especificar la direcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de flujo estableciendo el valor de la propiedad FlowDirection.
+    El FlowLayoutPanel control invierte correctamente su direcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de flujo en diseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±os de derecha a izquierda (RTL).
+    TambiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©n puede especificar si el contenido del FlowLayoutPanel control se ajusta o recorta estableciendo el valor de la WrapContents propiedad.
 
     Cualquier control Windows Forms, incluidas otras instancias de FlowLayoutPanel, puede ser un elemento secundario del FlowLayoutPanel control.
-    Con esta funcionalidad, puede construir diseños sofisticados que se adapten a las dimensiones del formulario en tiempo de ejecución.
+    Con esta funcionalidad, puede construir diseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±os sofisticados que se adapten a las dimensiones del formulario en tiempo de ejecuciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.
 
-    Los comportamientos de acoplamiento y delimitación de los controles secundarios difieren de los comportamientos de otros controles contenedor.
-    El acoplamiento y la delimitación están relacionados con el control mayor en la dirección del flujo.
+    Los comportamientos de acoplamiento y delimitaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de los controles secundarios difieren de los comportamientos de otros controles contenedor.
+    El acoplamiento y la delimitaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡n relacionados con el control mayor en la direcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n del flujo.
     """
     
     def __init__(self, master_form, props=None):
@@ -14382,7 +15205,7 @@ class FlowLayoutPanel(Panel):
             master_form: El formulario o contenedor padre
             props: Diccionario opcional con propiedades iniciales
         """
-        # Valores por defecto específicos de FlowLayoutPanel
+        # Valores por defecto especÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ficos de FlowLayoutPanel
         defaults = {
             'Left': 10,
             'Top': 10,
@@ -14406,11 +15229,11 @@ class FlowLayoutPanel(Panel):
         # Inicializar como Panel
         super().__init__(master_form, defaults)
         
-        # Propiedades específicas de FlowLayoutPanel
+        # Propiedades especÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ficas de FlowLayoutPanel
         self.FlowDirection = defaults['FlowDirection']
         self.WrapContents = defaults['WrapContents']
         
-        # Override AddControl para aplicar el layout automático
+        # Override AddControl para aplicar el layout automÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡tico
         self._original_add_control = super().AddControl
 
         # Override Resize event to update layout
@@ -14421,15 +15244,15 @@ class FlowLayoutPanel(Panel):
         self._apply_flow_layout()
 
     def AddControl(self, control):
-        """Añade un control al FlowLayoutPanel y aplica el layout automático.
+        """AÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±ade un control al FlowLayoutPanel y aplica el layout automÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡tico.
         
         Args:
-            control: Control a añadir
+            control: Control a aÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±adir
         """
-        # Añadir usando el método del padre
+        # AÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±adir usando el mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©todo del padre
         self._original_add_control(control)
         
-        # Aplicar layout automático
+        # Aplicar layout automÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡tico
         self._apply_flow_layout()
     
     def RemoveControl(self, control):
@@ -14442,7 +15265,7 @@ class FlowLayoutPanel(Panel):
         self._apply_flow_layout()
     
     def _apply_flow_layout(self):
-        """Aplica el layout automático según FlowDirection y WrapContents."""
+        """Aplica el layout automÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡tico segÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn FlowDirection y WrapContents."""
         if not self.Controls:
             return
         
@@ -14456,11 +15279,11 @@ class FlowLayoutPanel(Panel):
         else:
             pad_left = pad_right = pad_top = pad_bottom = 0
         
-        # Área disponible
+        # ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Ârea disponible
         available_width = self.Width - pad_left - pad_right
         available_height = self.Height - pad_top - pad_bottom
         
-        # Posición inicial
+        # PosiciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n inicial
         current_x = pad_left
         current_y = pad_top
         if self.FlowDirection == 'RightToLeft':
@@ -14573,7 +15396,7 @@ class FlowLayoutPanel(Panel):
             self._update_scroll_region()
     
     def set_FlowDirection(self, direction):
-        """Establece la dirección del flujo y reorganiza los controles.
+        """Establece la direcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n del flujo y reorganiza los controles.
         
         Args:
             direction: 'LeftToRight', 'RightToLeft', 'TopDown', o 'BottomUp'
@@ -14582,7 +15405,7 @@ class FlowLayoutPanel(Panel):
         self._apply_flow_layout()
     
     def set_WrapContents(self, wrap):
-        """Establece si los controles deben ajustarse a nuevas líneas/columnas.
+        """Establece si los controles deben ajustarse a nuevas lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­neas/columnas.
         
         Args:
             wrap: True para ajustar, False para recortar
@@ -14602,13 +15425,13 @@ class FlowLayoutPanel(Panel):
 
 class TableLayoutPanel(Panel):
     """
-    El control TableLayoutPanel organiza su contenido en una cuadrícula. Como el diseño se realiza en tiempo de diseño y en tiempo de ejecución, puede cambiar dinámicamente cuando cambie el entorno de la aplicación. Esto proporciona a los controles del panel la capacidad de ajustar el tamaño proporcionalmente para poder responder a cambios como el ajuste de tamaño del control primario o el cambio de longitud del texto debido a la localización.
+    El control TableLayoutPanel organiza su contenido en una cuadrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cula. Como el diseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±o se realiza en tiempo de diseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±o y en tiempo de ejecuciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n, puede cambiar dinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡micamente cuando cambie el entorno de la aplicaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n. Esto proporciona a los controles del panel la capacidad de ajustar el tamaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±o proporcionalmente para poder responder a cambios como el ajuste de tamaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±o del control primario o el cambio de longitud del texto debido a la localizaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.
 
-    Cualquier control de Windows Forms puede ser un control secundario del control TableLayoutPanel, incluidas otras instancias de TableLayoutPanel. Esto le permite construir diseños sofisticados que se adapten a los cambios en tiempo de ejecución.
+    Cualquier control de Windows Forms puede ser un control secundario del control TableLayoutPanel, incluidas otras instancias de TableLayoutPanel. Esto le permite construir diseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±os sofisticados que se adapten a los cambios en tiempo de ejecuciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.
 
-    El control TableLayoutPanel puede expandirse para acomodar nuevos controles cuando se agreguen, dependiendo del valor de las propiedades RowCount, ColumnCount y GrowStyle. Establecer las propiedades RowCount o ColumnCount en un valor de 0 especifica que el TableLayoutPanel se desenlazará en la dirección correspondiente.
+    El control TableLayoutPanel puede expandirse para acomodar nuevos controles cuando se agreguen, dependiendo del valor de las propiedades RowCount, ColumnCount y GrowStyle. Establecer las propiedades RowCount o ColumnCount en un valor de 0 especifica que el TableLayoutPanel se desenlazarÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ en la direcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n correspondiente.
 
-    También puede controlar la dirección de expansión (horizontal o vertical) cuando el control TableLayoutPanel se llene de controles secundarios. De forma predeterminada, el control TableLayoutPanel se expande hacia abajo agregando filas.
+    TambiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©n puede controlar la direcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de expansiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (horizontal o vertical) cuando el control TableLayoutPanel se llene de controles secundarios. De forma predeterminada, el control TableLayoutPanel se expande hacia abajo agregando filas.
 
     Si quiere que el comportamiento de las filas y columnas sea diferente del predeterminado, puede controlar las propiedades de las filas y columnas mediante las propiedades RowStyles y ColumnStyles. Puede establecer las propiedades de las filas o columnas individualmente.
 
@@ -14617,10 +15440,10 @@ class TableLayoutPanel(Panel):
     Puede combinar las celdas del control TableLayoutPanel estableciendo las propiedades ColumnSpan o RowSpan de un control secundario.
 
     Nota:
-    Para establecer las Cellpropiedades , Column, Row, ColumnSpany RowSpan en tiempo de ejecución, use los SetCellPositionmétodos , SetColumnSetRow, , SetColumnSpany SetRowSpan .
-    Para leer las Cellpropiedades , Column, Row, ColumnSpany RowSpan en tiempo de ejecución, use los GetCellPositionmétodos , GetColumnGetRow, , GetColumnSpany GetRowSpan .
+    Para establecer las Cellpropiedades , Column, Row, ColumnSpany RowSpan en tiempo de ejecuciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n, use los SetCellPositionmÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©todos , SetColumnSetRow, , SetColumnSpany SetRowSpan .
+    Para leer las Cellpropiedades , Column, Row, ColumnSpany RowSpan en tiempo de ejecuciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n, use los GetCellPositionmÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©todos , GetColumnGetRow, , GetColumnSpany GetRowSpan .
 
-    El comportamiento de anclaje de los controles secundarios de TableLayoutPanel difiere del de otros controles de contenedor. Si el valor de la propiedad del Anchor control secundario se establece Left en o Right, el control se colocará en el borde izquierdo o derecho de la celda, a una distancia que sea la suma de la propiedad del Margin control y la propiedad del Padding panel.
+    El comportamiento de anclaje de los controles secundarios de TableLayoutPanel difiere del de otros controles de contenedor. Si el valor de la propiedad del Anchor control secundario se establece Left en o Right, el control se colocarÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ en el borde izquierdo o derecho de la celda, a una distancia que sea la suma de la propiedad del Margin control y la propiedad del Padding panel.
     """
     
     def __init__(self, master_form, props=None):
@@ -14630,7 +15453,7 @@ class TableLayoutPanel(Panel):
             master_form: El formulario o contenedor padre
             props: Diccionario opcional con propiedades iniciales
         """
-        # Valores por defecto específicos de TableLayoutPanel
+        # Valores por defecto especÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ficos de TableLayoutPanel
         defaults = {
             'Left': 10,
             'Top': 10,
@@ -14657,7 +15480,7 @@ class TableLayoutPanel(Panel):
         # Inicializar como Panel
         super().__init__(master_form, defaults)
         
-        # Propiedades específicas de TableLayoutPanel
+        # Propiedades especÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ficas de TableLayoutPanel
         self.RowCount = defaults['RowCount']
         self.ColumnCount = defaults['ColumnCount']
         self.GrowStyle = defaults['GrowStyle']
@@ -14681,7 +15504,7 @@ class TableLayoutPanel(Panel):
         
         # Override AddControl para posicionar en celdas
         self._original_add_control = super().AddControl
-        self._next_cell = (0, 0)  # Próxima celda disponible
+        self._next_cell = (0, 0)  # PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³xima celda disponible
 
         # Override Resize event to update layout
         self.Resize = self._on_resize_internal
@@ -14691,10 +15514,10 @@ class TableLayoutPanel(Panel):
         self._apply_table_layout()
     
     def AddControl(self, control, column=None, row=None):
-        """Añade un control al TableLayoutPanel en la celda especificada.
+        """AÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±ade un control al TableLayoutPanel en la celda especificada.
         
         Args:
-            control: Control a añadir
+            control: Control a aÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±adir
             column: Columna donde colocar el control (None para siguiente disponible)
             row: Fila donde colocar el control (None para siguiente disponible)
         """
@@ -14731,13 +15554,13 @@ class TableLayoutPanel(Panel):
                 del self._cell_controls[cell]
                 break
 
-        # Añadir usando el método del padre
+        # AÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±adir usando el mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©todo del padre
         self._original_add_control(control)
         
         # Guardar en la matriz de celdas
         self._cell_controls[(row, column)] = control
         
-        # Aplicar layout automático
+        # Aplicar layout automÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡tico
         self._apply_table_layout()
     
     def RemoveControl(self, control):
@@ -14756,7 +15579,7 @@ class TableLayoutPanel(Panel):
         self._apply_table_layout()
     
     def SetCellPosition(self, control, column, row):
-        """Establece la posición de un control en una celda específica.
+        """Establece la posiciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de un control en una celda especÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­fica.
         
         Args:
             control: Control a posicionar
@@ -14769,12 +15592,12 @@ class TableLayoutPanel(Panel):
                 del self._cell_controls[cell]
                 break
         
-        # Añadir a nueva celda
+        # AÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±adir a nueva celda
         self._cell_controls[(row, column)] = control
         self._apply_table_layout()
     
     def GetCellPosition(self, control):
-        """Obtiene la posición de celda de un control.
+        """Obtiene la posiciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de celda de un control.
         
         Args:
             control: Control a buscar
@@ -14832,7 +15655,7 @@ class TableLayoutPanel(Panel):
         return getattr(control, '_column_span', 1)
     
     def _advance_next_cell(self):
-        """Avanza la próxima celda disponible."""
+        """Avanza la prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³xima celda disponible."""
         row, col = self._next_cell
         col += 1
         if col >= self.ColumnCount:
@@ -14841,7 +15664,7 @@ class TableLayoutPanel(Panel):
         self._next_cell = (row, col)
     
     def _apply_table_layout(self):
-        """Aplica el layout automático según las filas y columnas definidas."""
+        """Aplica el layout automÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡tico segÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn las filas y columnas definidas."""
         if not self._cell_controls:
             return
         
@@ -14855,14 +15678,14 @@ class TableLayoutPanel(Panel):
         else:
             pad_left = pad_right = pad_top = pad_bottom = 0
         
-        # Área disponible
+        # ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Ârea disponible
         available_width = self.Width - pad_left - pad_right
         available_height = self.Height - pad_top - pad_bottom
         
-        # Calcular tamaños de columnas
+        # Calcular tamaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±os de columnas
         column_widths = self._calculate_sizes(self.ColumnStyles, available_width, 'width')
         
-        # Calcular tamaños de filas
+        # Calcular tamaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±os de filas
         row_heights = self._calculate_sizes(self.RowStyles, available_height, 'height')
         
         # Calcular posiciones de inicio de cada columna y fila
@@ -14900,7 +15723,7 @@ class TableLayoutPanel(Panel):
                 if row + i < len(row_heights):
                     cell_height += row_heights[row + i]
             
-            # Aplicar márgenes de celda usando control.Margin
+            # Aplicar mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rgenes de celda usando control.Margin
             margin = getattr(control, 'Margin', (3, 3, 3, 3))
             if isinstance(margin, int): margin = (margin, margin, margin, margin)
             m_left, m_top, m_right, m_bottom = margin
@@ -14964,7 +15787,7 @@ class TableLayoutPanel(Panel):
             control._height = int(max(0, final_h))
             
             # Position the widget directly
-            widget_to_place = control._tk_widget
+            widget_to_place = control.GetTkWidget() if hasattr(control, 'GetTkWidget') else control._tk_widget
             if hasattr(control, '_container_frame') and control._container_frame:
                 widget_to_place = control._container_frame
             
@@ -14974,7 +15797,7 @@ class TableLayoutPanel(Panel):
                 pass
     
     def _calculate_sizes(self, styles, available_space, dimension):
-        """Calcula los tamaños según los estilos definidos.
+        """Calcula los tamaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±os segÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn los estilos definidos.
         
         Args:
             styles: Lista de tuplas (SizeType, Value)
@@ -14982,7 +15805,7 @@ class TableLayoutPanel(Panel):
             dimension: 'width' o 'height'
             
         Returns:
-            Lista de tamaños calculados
+            Lista de tamaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±os calculados
         """
         count = len(styles)
         sizes = [0] * count
@@ -14990,18 +15813,18 @@ class TableLayoutPanel(Panel):
         remaining_percent = 100.0
         autosize_indices = []
         
-        # Primera pasada: tamaños absolutos y porcentajes
+        # Primera pasada: tamaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±os absolutos y porcentajes
         for i, (size_type, value) in enumerate(styles):
             if size_type == 'Absolute':
                 sizes[i] = value
                 remaining_space -= value
             elif size_type == 'Percent':
-                # Calculamos después
+                # Calculamos despuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s
                 pass
             elif size_type == 'AutoSize':
                 autosize_indices.append(i)
         
-        # Segunda pasada: AutoSize (buscar contenido más grande)
+        # Segunda pasada: AutoSize (buscar contenido mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s grande)
         for i in autosize_indices:
             max_size = 0
             for (row, col), control in self._cell_controls.items():
@@ -15043,10 +15866,10 @@ class TableLayoutPanel(Panel):
         return sizes
     
     def set_RowCount(self, count):
-        """Establece el número de filas y reorganiza el layout.
+        """Establece el nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºmero de filas y reorganiza el layout.
         
         Args:
-            count: Número de filas
+            count: NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºmero de filas
         """
         self.RowCount = count
         percent = 100.0 / max(1, count)
@@ -15054,10 +15877,10 @@ class TableLayoutPanel(Panel):
         self._apply_table_layout()
     
     def set_ColumnCount(self, count):
-        """Establece el número de columnas y reorganiza el layout.
+        """Establece el nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºmero de columnas y reorganiza el layout.
         
         Args:
-            count: Número de columnas
+            count: NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºmero de columnas
         """
         self.ColumnCount = count
         percent = 100.0 / max(1, count)
@@ -15074,10 +15897,10 @@ class TableLayoutPanel(Panel):
         self._apply_table_layout()
     
 
+############# Tab Controls #############
+
 class TabPage(ControlBase, ScrollableControlMixin):
     """
-    Represents a tab page for TabControl with VB.NET-like properties and AUTO-REGISTRATION.
-
     Now inherits from ControlBase, providing full control functionality including:
     - Width/Height/Size properties with proper placement
     - Dock/Anchor support
@@ -15143,8 +15966,8 @@ class TabPage(ControlBase, ScrollableControlMixin):
         
         # Determine master widget for ControlBase initialization
         # If there is a parent (TabControl), use its internal widget (Notebook) as master
-        if parent and hasattr(parent, '_tk_widget'):
-            master_for_frame = parent._tk_widget
+        if parent and hasattr(parent, 'GetTkWidget'):
+            master_for_frame = parent.GetTkWidget()
         elif parent and hasattr(parent, 'master_form'):
             master_for_frame = parent.master_form._root
         else:
@@ -15246,14 +16069,14 @@ class TabPage(ControlBase, ScrollableControlMixin):
         # Update children
         if hasattr(self, 'Controls'):
             for control in self.Controls:
-                if hasattr(control, '_tk_widget') and control._tk_widget:
+                if hasattr(control, 'GetTkWidget') and control.GetTkWidget():
                     child_should_be_visible = getattr(control, '_visible', True) and should_be_visible
                     
                     if child_should_be_visible:
                         if hasattr(control, '_place_control'):
                             control._place_control(control.Width, control.Height)
                     else:
-                        control._tk_widget.place_forget()
+                        control.GetTkWidget().place_forget()
                     
                     # Recurse
                     if hasattr(control, 'Controls') and len(control.Controls) > 0:
@@ -15289,9 +16112,9 @@ class TabPage(ControlBase, ScrollableControlMixin):
     def Text(self, value):
         self._text_value = value
         # Update the tab text in the parent TabControl if it exists
-        if self.Parent and hasattr(self.Parent, '_tk_widget'):
+        if self.Parent and hasattr(self.Parent, 'GetTkWidget'):
             try:
-                self.Parent._tk_widget.tab(self._frame, text=value)
+                self.Parent.GetTkWidget().tab(self._frame, text=value)
             except tk.TclError:
                 pass
 
@@ -15401,9 +16224,9 @@ class TabPage(ControlBase, ScrollableControlMixin):
         # Inherit properties from the container
         if hasattr(control, 'Enabled'):
             control.Enabled = self.Enabled
-            if hasattr(control, '_tk_widget'):
+            if hasattr(control, 'GetTkWidget'):
                 try:
-                    control._tk_widget.config(state='normal' if self.Enabled else 'disabled')
+                    control.GetTkWidget().config(state='normal' if self.Enabled else 'disabled')
                 except tk.TclError:
                     pass
         
@@ -15427,8 +16250,8 @@ class TabPage(ControlBase, ScrollableControlMixin):
                 control._place_control()
             else:
                 # Hide the control
-                if hasattr(control, '_tk_widget') and control._tk_widget:
-                    control._tk_widget.place_forget()
+                if hasattr(control, 'GetTkWidget') and control.GetTkWidget():
+                    control.GetTkWidget().place_forget()
         else:
             # If the control does not have _visible, use default behavior
             control._place_control()
@@ -15905,38 +16728,37 @@ class TabControl(ControlBase):
     SelectedIndex = property(get_SelectedIndex, set_SelectedIndex)
 
 
+############# List Controls #############
+
 class ListBoxObjectCollection:
-    """
-    Collection of items for ListBox.
-    Represents the collection of items in a ListBox.
-    """
+    """Represents the collection of items in a ListBox."""
     def __init__(self, owner):
         self.owner = owner
         self._items = []
 
     @property
     def Count(self):
-        """Obtiene el número de elementos de la colección."""
+        """Obtiene el nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºmero de elementos de la colecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n."""
         return len(self._items)
 
     @property
     def IsReadOnly(self):
-        """Obtiene un valor que indica si la colección es de solo lectura."""
+        """Obtiene un valor que indica si la colecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n es de solo lectura."""
         return False
 
     def __getitem__(self, index):
-        """Obtiene el elemento en el índice especificado."""
+        """Obtiene el elemento en el ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ndice especificado."""
         return self._items[index]
 
     def __setitem__(self, index, value):
-        """Establece el elemento en el índice especificado."""
+        """Establece el elemento en el ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ndice especificado."""
         if self.owner.DataSource:
             raise RuntimeError("Cannot modify Items collection when DataSource is set.")
         
         self._items[index] = value
-        if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
-            self.owner._tk_widget.delete(index)
-            self.owner._tk_widget.insert(index, value)
+        if self.owner.GetTkWidget():
+            self.owner.GetTkWidget().delete(index)
+            self.owner.GetTkWidget().insert(index, value)
 
     def Add(self, item):
         """Agrega un elemento a la lista de elementos de un control ListBox."""
@@ -15944,8 +16766,8 @@ class ListBoxObjectCollection:
             raise RuntimeError("Cannot modify Items collection when DataSource is set.")
             
         self._items.append(item)
-        if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
-            self.owner._tk_widget.insert(tk.END, item)
+        if self.owner.GetTkWidget():
+            self.owner.GetTkWidget().insert(tk.END, item)
         return len(self._items) - 1
 
     def AddRange(self, items):
@@ -15957,20 +16779,20 @@ class ListBoxObjectCollection:
             self.Add(item)
 
     def Clear(self):
-        """Quita todos los elementos de la colección."""
+        """Quita todos los elementos de la colecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n."""
         if self.owner.DataSource:
             raise RuntimeError("Cannot modify Items collection when DataSource is set.")
             
         self._items.clear()
-        if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
-            self.owner._tk_widget.delete(0, tk.END)
+        if self.owner.GetTkWidget():
+            self.owner.GetTkWidget().delete(0, tk.END)
 
     def Contains(self, item):
-        """Determina si el elemento especificado está ubicado en la colección."""
+        """Determina si el elemento especificado estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ ubicado en la colecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n."""
         return item in self._items
 
     def CopyTo(self, dest, index):
-        """Copia toda la colección en una matriz de objetos existente."""
+        """Copia toda la colecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n en una matriz de objetos existente."""
         for i, item in enumerate(self._items):
             if index + i < len(dest):
                 dest[index + i] = item
@@ -15980,31 +16802,31 @@ class ListBoxObjectCollection:
                     dest.append(item)
 
     def IndexOf(self, item):
-        """Devuelve el índice del elemento especificado en la colección."""
+        """Devuelve el ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ndice del elemento especificado en la colecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n."""
         try:
             return self._items.index(item)
         except ValueError:
             return -1
 
     def Insert(self, index, item):
-        """Inserta un elemento en el cuadro de lista en el índice especificado."""
+        """Inserta un elemento en el cuadro de lista en el ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ndice especificado."""
         if self.owner.DataSource:
             raise RuntimeError("Cannot modify Items collection when DataSource is set.")
             
         self._items.insert(index, item)
-        if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
-            self.owner._tk_widget.insert(index, item)
+        if self.owner.GetTkWidget():
+            self.owner.GetTkWidget().insert(index, item)
 
     def Remove(self, item):
-        """Quita el objeto especificado de la colección."""
+        """Quita el objeto especificado de la colecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n."""
         if self.owner.DataSource:
             raise RuntimeError("Cannot modify Items collection when DataSource is set.")
             
         if item in self._items:
             index = self._items.index(item)
             self._items.remove(item)
-            if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
-                self.owner._tk_widget.delete(index)
+            if self.owner.GetTkWidget():
+                self.owner.GetTkWidget().delete(index)
 
     # List compatibility aliases
     def append(self, item): return self.Add(item)
@@ -16015,14 +16837,14 @@ class ListBoxObjectCollection:
     def index(self, item): return self.IndexOf(item)
 
     def RemoveAt(self, index):
-        """Quita el elemento en el índice especificado de la colección."""
+        """Quita el elemento en el ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ndice especificado de la colecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n."""
         if self.owner.DataSource:
             raise RuntimeError("Cannot modify Items collection when DataSource is set.")
             
         if 0 <= index < len(self._items):
             del self._items[index]
-            if hasattr(self.owner, '_tk_widget') and self.owner._tk_widget:
-                self.owner._tk_widget.delete(index)
+            if self.owner.GetTkWidget():
+                self.owner.GetTkWidget().delete(index)
 
     def __len__(self):
         return len(self._items)
@@ -16102,20 +16924,20 @@ class ListBoxSelectedIndexCollection:
         self.owner = owner
         
     def __getitem__(self, index):
-        sel = self.owner._tk_widget.curselection()
+        sel = self.owner.GetTkWidget().curselection()
         return sel[index]
 
     def __len__(self):
-        return len(self.owner._tk_widget.curselection())
+        return len(self.owner.GetTkWidget().curselection())
 
     def __iter__(self):
-        return iter(self.owner._tk_widget.curselection())
+        return iter(self.owner.GetTkWidget().curselection())
         
     def Contains(self, index):
-        return index in self.owner._tk_widget.curselection()
+        return index in self.owner.GetTkWidget().curselection()
         
     def IndexOf(self, index):
-        sel = self.owner._tk_widget.curselection()
+        sel = self.owner.GetTkWidget().curselection()
         try:
             return sel.index(index)
         except ValueError:
@@ -16557,6 +17379,18 @@ class ListBox(ControlBase):
     def ClearSelected(self):
         """Unselects all items in the ListBox."""
         self._tk_widget.selection_clear(0, tk.END)
+
+    def EnsureVisible(self, index):
+        """Ensures that the specified item is visible within the control, scrolling if necessary.
+        
+        Args:
+            index (int): The zero-based index of the item to make visible.
+        """
+        if self._tk_widget:
+            try:
+                self._tk_widget.see(index)
+            except Exception:
+                pass
 
     def GetItemHeight(self, index):
         """Returns the height of an item in the ListBox."""
@@ -17201,12 +18035,10 @@ class CheckedListBox(ControlBase):
             self.SelectedIndex = -1
 
 
+############# Split Panels #############
+
 class SplitterPanel(Panel):
-    """
-    Represents a panel in a SplitContainer.
-    
-    SplitterPanel is a member of its associated SplitContainer rather than being a member 
-    of the underlying form. At design time, SplitterPanel is accessible through the 
+    """Represents a panel of a SplitContainer. Access via
     Panel1 or Panel2 properties of SplitContainer.
     """
     def __init__(self, owner, props=None):
@@ -17613,10 +18445,10 @@ class SplitContainer(ControlBase):
             self._tk_widget.after(10, lambda: self._restore_splitter_distance(self._splitter_distance))
 
 
+############# Status Bar & Image Controls #############
+
 class StatusBar(ControlBase):
-    """
-    Windows Forms status bar control.
-    """
+    """Represents a Windows status bar control."""
     def __init__(self, master_form, props=None):
         defaults = {
             'Text': "Ready",
@@ -18642,7 +19474,7 @@ class ListViewItem:
 
     def EnsureVisible(self):
         """Ensures that the item is visible within the control."""
-        if self._list_view and self._list_view._tk_widget:
+        if self._list_view and self._list_view.GetTkWidget():
             # Treeview see method
             # We need the item ID in the treeview. 
             # Currently ListView implementation doesn't store ID in ListViewItem easily accessible.
@@ -18870,7 +19702,7 @@ class ListViewItemCollection:
         item._index = len(self._items) - 1
         
         # Add to UI
-        if self._owner and self._owner._tk_widget:
+        if self._owner and self._owner.GetTkWidget():
             self._owner._add_item_to_ui(item)
             
         return item
@@ -18883,10 +19715,10 @@ class ListViewItemCollection:
     def Clear(self):
         """Removes all items from the collection."""
         self._items.clear()
-        if self._owner and self._owner._tk_widget:
+        if self._owner and self._owner.GetTkWidget():
             # Clear UI
-            for item in self._owner._tk_widget.get_children():
-                self._owner._tk_widget.delete(item)
+            for item in self._owner.GetTkWidget().get_children():
+                self._owner.GetTkWidget().delete(item)
 
     def Contains(self, item):
         """Determines whether the specified item is located in the collection."""
@@ -18923,15 +19755,15 @@ class ListViewItemCollection:
             it._index = i
             
         # Update UI
-        if self._owner and self._owner._tk_widget:
+        if self._owner and self._owner.GetTkWidget():
              self._owner._insert_item_to_ui(index, item)
 
     def Remove(self, item):
         """Removes the specified item from the collection."""
         if item in self._items:
             self._items.remove(item)
-            if self._owner and self._owner._tk_widget and item._id:
-                self._owner._tk_widget.delete(item._id)
+            if self._owner and self._owner.GetTkWidget() and item._id:
+                self._owner.GetTkWidget().delete(item._id)
             
             # Re-index
             for i, it in enumerate(self._items):
@@ -18984,7 +19816,7 @@ class ColumnHeaderCollection:
         column._list_view = self._owner
         
         # Update UI
-        if self._owner and self._owner._tk_widget:
+        if self._owner and self._owner.GetTkWidget():
             self._owner._update_columns()
             
         return column
@@ -19032,11 +19864,10 @@ class ListViewHitTestInfo:
         self.Location = location
 
 
+############# Data View Controls #############
+
 class ListView(ControlBase):
-    """
-    Represents a ListView with VB.NET properties.
-    """
-    
+    """Represents a Windows ListView control."""
     def __init__(self, master_form, props=None):
         defaults = {
             'Columns': None,
@@ -19486,7 +20317,7 @@ class ListView(ControlBase):
                 
                 # If still no icon, add text placeholder
                 if not icon_added:
-                    placeholder = tk.Label(item_frame, text='📄', bg='white', fg='gray', 
+                    placeholder = tk.Label(item_frame, text='ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¾', bg='white', fg='gray', 
                                           font=('Arial', icon_size), bd=0)
                     placeholder.pack()
             
@@ -19961,9 +20792,9 @@ class ListView(ControlBase):
         # Only 'values' are displayed in columns, so include item.Text as first value
         # In List view (show='tree'), 'text' is shown, so don't duplicate in values
         
-        # Checkbox symbol: ☐ (unchecked) or ☑ (checked)
+        # Checkbox symbol: ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â (unchecked) or ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ (checked)
         if self._check_boxes:
-            checkbox_symbol = '☑' if item.Checked else '☐'
+            checkbox_symbol = 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“' if item.Checked else 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â'
             if self._view == View.Details:
                 values = [checkbox_symbol, item.Text] + list(item.SubItems)
             else:
@@ -19989,9 +20820,9 @@ class ListView(ControlBase):
         # Include item.Text as the first value only for Details view
         # In List view, text is shown separately, so don't duplicate in values
         
-        # Checkbox symbol: ☐ (unchecked) or ☑ (checked)
+        # Checkbox symbol: ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â (unchecked) or ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ (checked)
         if self._check_boxes:
-            checkbox_symbol = '☑' if item.Checked else '☐'
+            checkbox_symbol = 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“' if item.Checked else 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â'
             if self._view == View.Details:
                 values = [checkbox_symbol, item.Text] + list(item.SubItems)
             else:
@@ -20454,7 +21285,7 @@ class TreeNode:
     def Text(self, value):
         self._text = value
         if self.TreeView and self._id:
-            self.TreeView._tk_widget.item(self._id, text=value)
+            self.TreeView.GetTkWidget().item(self._id, text=value)
 
     @property
     def Name(self): return self._name
@@ -20594,7 +21425,7 @@ class TreeNode:
     def IsExpanded(self):
         """Gets whether the node is expanded."""
         if self.TreeView and self._id:
-            return self.TreeView._tk_widget.item(self._id, 'open')
+            return self.TreeView.GetTkWidget().item(self._id, 'open')
         return False
 
     @property
@@ -20624,7 +21455,7 @@ class TreeNode:
     def Bounds(self):
         """Gets the bounds of the tree node."""
         if self.TreeView and self._id:
-            bbox = self.TreeView._tk_widget.bbox(self._id)
+            bbox = self.TreeView.GetTkWidget().bbox(self._id)
             if bbox:
                 return Rectangle(bbox[0], bbox[1], bbox[2], bbox[3])
         return Rectangle(0, 0, 0, 0)
@@ -20668,7 +21499,7 @@ class TreeNode:
     def Expand(self):
         """Expands the node."""
         if self.TreeView and self._id:
-            self.TreeView._tk_widget.item(self._id, open=True)
+            self.TreeView.GetTkWidget().item(self._id, open=True)
             # Trigger BeforeExpand/AfterExpand? (Tkinter handles this via events usually)
 
     def ExpandAll(self):
@@ -20680,7 +21511,7 @@ class TreeNode:
     def Collapse(self, ignoreChildren=False):
         """Collapses the node."""
         if self.TreeView and self._id:
-            self.TreeView._tk_widget.item(self._id, open=False)
+            self.TreeView.GetTkWidget().item(self._id, open=False)
             if not ignoreChildren:
                 for child in self.Nodes:
                     child.Collapse()
@@ -20695,7 +21526,7 @@ class TreeNode:
     def EnsureVisible(self):
         """Ensures the node is visible, expanding parents if necessary."""
         if self.TreeView and self._id:
-            self.TreeView._tk_widget.see(self._id)
+            self.TreeView.GetTkWidget().see(self._id)
             
     def Remove(self):
         """Removes the current node from the TreeView."""
@@ -21720,12 +22551,11 @@ class DataGridView(ControlBase):
         self.MouseDoubleClick(self, EventArgs(event))
 
 
+############# Menus & Toolbars #############
+
 class ToolStripItem:
-    """Base class for items in a ToolStrip or StatusStrip."""
+    """Base class for items in a ToolStrip."""
     def __init__(self):
-        self._text = ""
-        self._image = None
-        self._visible = True
         self._enabled = True
         self._alignment = "Left"  # 'Left', 'Right'
         self._spring = False
@@ -21893,7 +22723,7 @@ class ToolStripButton(ToolStripItem):
 
     def _on_mouse_leave(self, event):
         if self.Enabled and not self.Checked:
-            self._widget.config(relief='flat', bg=self._owner._tk_widget.cget('bg') if self._owner else 'SystemButtonFace')
+            self._widget.config(relief='flat', bg=self._owner.GetTkWidget().cget('bg') if self._owner else 'SystemButtonFace')
         elif self.Checked:
              self._widget.config(relief='sunken', bg='#cce8ff') # Checked state
         self.MouseLeave(self, event)
@@ -21912,7 +22742,7 @@ class ToolStripButton(ToolStripItem):
             if self.Checked:
                 self._widget.config(relief='sunken', bg='#cce8ff')
             else:
-                self._widget.config(relief='flat', bg=self._owner._tk_widget.cget('bg') if self._owner else 'SystemButtonFace')
+                self._widget.config(relief='flat', bg=self._owner.GetTkWidget().cget('bg') if self._owner else 'SystemButtonFace')
 
     def _add_to_menu(self, menu):
         # ToolStripButton in a menu acts like a command
@@ -22122,7 +22952,7 @@ class ToolStripMenuItem(ToolStripItem):
 
     def _on_mouse_leave(self, event):
         if self.Enabled:
-            self._widget.config(bg=self._owner._tk_widget.cget('bg') if self._owner else 'SystemButtonFace')
+            self._widget.config(bg=self._owner.GetTkWidget().cget('bg') if self._owner else 'SystemButtonFace')
         self.MouseLeave(self, event)
 
     def _update_widget(self):
@@ -22735,13 +23565,14 @@ class ContextMenuStrip:
 
     def Show(self, control, position=None):
         """Displays the shortcut menu at the specified position."""
-        if not control or not control._tk_widget:
+        ctrl_widget = control.GetTkWidget() if hasattr(control, 'GetTkWidget') else getattr(control, '_tk_widget', None)
+        if not control or not ctrl_widget:
             return
             
         self._target_control = control
         
         # Create menu if needed
-        self._rebuild_menu(control._tk_widget)
+        self._rebuild_menu(ctrl_widget)
         
         # Trigger Opening event
         cancel_args = type('CancelEventArgs', (), {'Cancel': False})()
@@ -22755,15 +23586,15 @@ class ContextMenuStrip:
             # Position is relative to control
             # Convert to screen coordinates
             try:
-                x = control._tk_widget.winfo_rootx() + position.X
-                y = control._tk_widget.winfo_rooty() + position.Y
+                x = ctrl_widget.winfo_rootx() + position.X
+                y = ctrl_widget.winfo_rooty() + position.Y
             except:
                 x = position.X
                 y = position.Y
         else:
             # Default to mouse position
-            x = control._tk_widget.winfo_pointerx()
-            y = control._tk_widget.winfo_pointery()
+            x = ctrl_widget.winfo_pointerx()
+            y = ctrl_widget.winfo_pointery()
             
         try:
             self._tk_menu.tk_popup(x, y)
@@ -22817,10 +23648,10 @@ class ContextMenuStrip:
         # Context menu usually closes on click
 
 
+############# Application & System Services #############
+
 class Application:
-    """
-    Provides static methods and properties to manage an application.
-    """
+    """Provides static methods and properties to manage an application."""
     @staticmethod
     def Run(main_form):
         """Begins running a standard application message loop on the current thread."""
@@ -22830,8 +23661,8 @@ class Application:
         # If main_form is a Form, it has a _root (tk.Tk or Toplevel)
         if hasattr(main_form, '_root'):
             main_form._root.mainloop()
-        elif hasattr(main_form, '_tk_widget'):
-             main_form._tk_widget.mainloop()
+        elif hasattr(main_form, 'GetTkWidget') and main_form.GetTkWidget():
+             main_form.GetTkWidget().mainloop()
              
     @staticmethod
     def Exit():
@@ -23116,8 +23947,8 @@ class ErrorProvider:
             
         # Create a small label with an exclamation mark or icon
         # Position it to the right of the control
-        if hasattr(control, '_tk_widget'):
-            widget = control._tk_widget
+        if hasattr(control, 'GetTkWidget'):
+            widget = control.GetTkWidget()
             parent = widget.master
             
             # We need to place it relative to the control. 
@@ -24037,12 +24868,9 @@ def _ensure_tkinterweb():
     return TKINTERWEB_AVAILABLE
 
 
+############# Web Controls #############
+
 class WebBrowserReadyState:
-    """
-    Specifies the state of the WebBrowser control.
-    Equivalent to System.Windows.Forms.WebBrowserReadyState
-    """
-    Uninitialized = 0  # No document is currently loaded
     Loading = 1        # The control is loading a new document
     Loaded = 2         # The control has loaded and initialized a new document but has not received all document data
     Interactive = 3    # The control has loaded enough of the document to allow limited user interaction

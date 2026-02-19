@@ -427,7 +427,7 @@ class MasterDetailPanel(Panel):
         self._master_listbox = ListBox(self._master_panel, list_props)
         
         # Bind selection event
-        self._master_listbox._tk_widget.bind('<<ListboxSelect>>', self._on_listbox_select)
+        self._master_listbox.SelectedIndexChanged = self._on_listbox_select
         
         # Load items
         self._load_master_list()
@@ -437,11 +437,11 @@ class MasterDetailPanel(Panel):
         response = self._manager.fetch_master_list()
         
         self._list_items = response.items
-        self._master_listbox._tk_widget.delete(0, 'end')
+        self._master_listbox.Items.Clear()
         
         for item in response.items:
             display = f"{item.icon}  {item.text}" if item.icon else item.text
-            self._master_listbox._tk_widget.insert('end', display)
+            self._master_listbox.Items.Add(display)
     
     def _build_detail_content(self):
         """Build the detail panel content (always a DataGrid)."""
@@ -500,14 +500,12 @@ class MasterDetailPanel(Panel):
         # Forward event
         self.MasterRowClick(sender, event_args)
     
-    def _on_listbox_select(self, event):
+    def _on_listbox_select(self, sender, e):
         """Handle listbox selection change."""
-        selection = self._master_listbox._tk_widget.curselection()
-        if selection:
-            index = selection[0]
-            if index < len(self._list_items):
-                item = self._list_items[index]
-                self._manager.set_selected_master_id(item.id, {'item': item})
+        index = self._master_listbox.SelectedIndex
+        if index >= 0 and index < len(self._list_items):
+            item = self._list_items[index]
+            self._manager.set_selected_master_id(item.id, {'item': item})
     
     def _on_master_selection_changed(self, master_id: Any):
         """Handle master selection change from manager."""
@@ -591,9 +589,9 @@ class MasterDetailPanel(Panel):
             # For listbox, find the item and select it
             for i, item in enumerate(self._list_items):
                 if item.id == master_id:
-                    self._master_listbox._tk_widget.selection_clear(0, 'end')
-                    self._master_listbox._tk_widget.selection_set(i)
-                    self._master_listbox._tk_widget.see(i)
+                    self._master_listbox.ClearSelected()
+                    self._master_listbox.SetSelected(i, True)
+                    self._master_listbox.EnsureVisible(i)
                     self._manager.set_selected_master_id(master_id, {'item': item})
                     break
     
@@ -601,7 +599,7 @@ class MasterDetailPanel(Panel):
         """Clear both master and detail selections."""
         self._manager.clear_master_selection()
         if self._master_listbox:
-            self._master_listbox._tk_widget.selection_clear(0, 'end')
+            self._master_listbox.ClearSelected()
         if self._detail_grid:
             self._detail_grid_manager.clear_selection()
 

@@ -678,8 +678,7 @@ class WordProcessorPanel(Panel):
             self._editor.SelectionFont = new_font
             
             # Force widget update to apply changes
-            if hasattr(self._editor, '_tk_widget'):
-                self._editor._tk_widget.update_idletasks()
+            self._editor.Refresh()
             
             # Restore original selection and focus
             self._editor.SelectionStart = sel_start
@@ -703,8 +702,7 @@ class WordProcessorPanel(Panel):
             self._editor.SelectionFont = new_font
             
             # Force widget update to apply changes
-            if hasattr(self._editor, '_tk_widget'):
-                self._editor._tk_widget.update_idletasks()
+            self._editor.Refresh()
             
             # Restore original selection and focus
             self._editor.SelectionStart = sel_start

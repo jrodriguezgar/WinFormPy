@@ -1,4 +1,4 @@
-import tkinter as tk
+from .winformpy import Native, LEFT, RIGHT, TOP, BOTTOM, BOTH, X, Y, CENTER, END, SOLID
 import os
 import sys
 from datetime import datetime
@@ -46,7 +46,7 @@ class MDIParent(Form):
         # Use the MDIChild color constant for consistent styling
         bg_color = MDIChild.MDI_CLIENT_COLOR
 
-        self._mdi_client = tk.Frame(self._root, bg=bg_color, relief="sunken", bd=2)
+        self._mdi_client = Native.Frame(self._root, bg=bg_color, relief="sunken", bd=2)
         
         # To truly follow the "Fill" behavior, the MDI client must be the LAST thing packed.
         # This allows other controls (MenuStrip, StatusBars) to take their space first.
@@ -88,7 +88,7 @@ class MDIParent(Form):
             return
 
         # Create new menubar
-        menubar = tk.Menu(self._root)
+        menubar = Native.Menu(self._root)
         
         # Build menu items
         # Support both MenuStrip (Items) and MainMenu (MenuItems)
@@ -212,7 +212,7 @@ class MDIParent(Form):
             try:
                 child._root.lift()
                 child._root.focus_force()
-            except tk.TclError:
+            except Native.TclError:
                 pass
                 
             self._active_mdi_child = child
@@ -236,7 +236,7 @@ class MDIParent(Form):
             
         if subitems:
             # Submenu
-            submenu = tk.Menu(parent_menu, tearoff=0)
+            submenu = Native.Menu(parent_menu, tearoff=0)
             parent_menu.add_cascade(label=text, menu=submenu)
             for subitem in subitems:
                 self._build_menu(submenu, subitem)
@@ -277,7 +277,7 @@ class MDIParent(Form):
             self._mdi_client.update_idletasks()
             client_w = self._mdi_client.winfo_width()
             client_h = self._mdi_client.winfo_height()
-        except tk.TclError:
+        except Native.TclError:
             return
 
         if value == 3: # ArrangeIcons
@@ -441,7 +441,7 @@ class MDIChild:
         parent_client = self._mdi_parent._mdi_client
         
         # Main outer frame (with border for resizing)
-        self._outer_frame = tk.Frame(
+        self._outer_frame = Native.Frame(
             parent_client,
             bg=self.ACTIVE_BORDER_COLOR,
             relief="raised",
@@ -450,18 +450,18 @@ class MDIChild:
         self._outer_frame.place(x=self._left, y=self._top, width=self._width, height=self._height)
         
         # Inner container (inside the border)
-        inner = tk.Frame(self._outer_frame, bg=self.CONTENT_BG)
+        inner = Native.Frame(self._outer_frame, bg=self.CONTENT_BG)
         inner.place(x=self.BORDER_WIDTH, y=self.BORDER_WIDTH, 
                     width=self._width - 2*self.BORDER_WIDTH, 
                     height=self._height - 2*self.BORDER_WIDTH)
         
         # Title bar
-        self._title_bar = tk.Frame(inner, bg=self.ACTIVE_TITLE_BG, height=self.TITLE_BAR_HEIGHT)
+        self._title_bar = Native.Frame(inner, bg=self.ACTIVE_TITLE_BG, height=self.TITLE_BAR_HEIGHT)
         self._title_bar.pack(fill="x", side="top")
         self._title_bar.pack_propagate(False)
         
         # Title label
-        self._title_label = tk.Label(
+        self._title_label = Native.Label(
             self._title_bar, 
             text=self._text, 
             bg=self.ACTIVE_TITLE_BG, 
@@ -473,11 +473,11 @@ class MDIChild:
         self._title_label.pack(side="left", fill="x", expand=True)
         
         # Window buttons frame
-        btn_frame = tk.Frame(self._title_bar, bg=self.ACTIVE_TITLE_BG)
+        btn_frame = Native.Frame(self._title_bar, bg=self.ACTIVE_TITLE_BG)
         btn_frame.pack(side="right")
         
         # Minimize button
-        self._btn_minimize = tk.Label(
+        self._btn_minimize = Native.Label(
             btn_frame, text="−", bg=self.ACTIVE_TITLE_BG, fg=self.ACTIVE_TITLE_FG,
             font=("Segoe UI", 10), width=3, cursor="hand2"
         )
@@ -487,7 +487,7 @@ class MDIChild:
         self._btn_minimize.bind('<Leave>', lambda e: self._btn_minimize.config(bg=self.ACTIVE_TITLE_BG))
         
         # Maximize button
-        self._btn_maximize = tk.Label(
+        self._btn_maximize = Native.Label(
             btn_frame, text="□", bg=self.ACTIVE_TITLE_BG, fg=self.ACTIVE_TITLE_FG,
             font=("Segoe UI", 10), width=3, cursor="hand2"
         )
@@ -497,7 +497,7 @@ class MDIChild:
         self._btn_maximize.bind('<Leave>', lambda e: self._btn_maximize.config(bg=self.ACTIVE_TITLE_BG))
         
         # Close button
-        self._btn_close = tk.Label(
+        self._btn_close = Native.Label(
             btn_frame, text="×", bg=self.ACTIVE_TITLE_BG, fg=self.ACTIVE_TITLE_FG,
             font=("Segoe UI", 12, "bold"), width=3, cursor="hand2"
         )
@@ -507,7 +507,7 @@ class MDIChild:
         self._btn_close.bind('<Leave>', lambda e: self._btn_close.config(bg=self.ACTIVE_TITLE_BG))
         
         # Content frame (where controls go)
-        self._content_frame = tk.Frame(inner, bg=self.CONTENT_BG)
+        self._content_frame = Native.Frame(inner, bg=self.CONTENT_BG)
         self._content_frame.pack(fill="both", expand=True)
         
         # For compatibility - _root points to content frame
@@ -741,7 +741,7 @@ class MDIChild:
         try:
             client_w = self._mdi_parent._mdi_client.winfo_width()
             client_h = self._mdi_parent._mdi_client.winfo_height()
-        except tk.TclError:
+        except Native.TclError:
             return
             
         # Ensure at least 50px visible horizontally and title bar visible vertically
@@ -794,7 +794,7 @@ class MDIChild:
             try:
                 client_w = self._mdi_parent._mdi_client.winfo_width()
                 client_h = self._mdi_parent._mdi_client.winfo_height()
-            except tk.TclError:
+            except Native.TclError:
                 return
                 
             self._left = 0

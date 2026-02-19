@@ -24,8 +24,7 @@ For WinUI 3 styled controls, see the winui3.py module.
 # Note: WinUI 3 controls have been moved to winui3.py module.
 # =============================================================
 
-import tkinter as tk
-import tkinter.ttk as ttk
+from .winformpy import Native, LEFT, RIGHT, TOP, BOTTOM, BOTH, X, Y, CENTER, END, SOLID, WORD
 import sys
 import os
 import subprocess
@@ -249,25 +248,24 @@ class PhotoImage:
             master: Tkinter master widget (optional)
         """
         # Import tkinter PhotoImage only when needed
-        import tkinter as tk
-        from tkinter import PhotoImage as TkPhotoImage
+        from .winformpy import Native, LEFT, RIGHT, TOP, BOTTOM, BOTH, X, Y, CENTER, END, SOLID, WORD
         
         # Ensure there's a default root window if needed
         # PhotoImage requires a Tk root to exist
         if 'master' not in kwargs:
             try:
                 # Try to get existing root
-                root = tk._default_root
+                root = Native.DefaultRoot()
                 if root is None:
                     # Create a hidden root if none exists
-                    root = tk.Tk()
+                    root = Native.Window()
                     root.withdraw()  # Hide the root window
             except:
                 # If that fails, just pass - let tkinter handle it
                 pass
         
         # Create the underlying tkinter PhotoImage
-        self._tk_image = TkPhotoImage(**kwargs)
+        self._tk_image = Native.PhotoImage(**kwargs)
     
     def put(self, color, to=None):
         """
@@ -439,15 +437,15 @@ class ExtendedLabel(Label):
         self._tk_widget.bind('<Configure>', self._update_wrapping, add="+")
         
         # Initial wrap update
-        self._tk_widget.after(10, self._update_wrapping)
+        self.InvokeDelayed(10, self._update_wrapping)
         
     def _update_wrapping(self, event=None):
         """Updates the wraplength of the label to match its current width."""
         if self._tk_widget:
             # Set wraplength to the current width of the widget
             # Subtract a small padding to ensure it fits comfortably
-            # event.width is available on resize, otherwise use winfo_width
-            width = event.width if event else self._tk_widget.winfo_width()
+            # event.width is available on resize, otherwise use ActualWidth
+            width = event.width if event else self.ActualWidth
             
             # Only update if width is valid and changed
             if width > 10:
@@ -618,7 +616,7 @@ class ConsoleTextBox:
     def _create_widget(self):
         """Create the underlying Tkinter widgets."""
         # Container frame for text + scrollbar
-        self._container_frame = tk.Frame(
+        self._container_frame = Native.Frame(
             self.master, 
             bg=self._back_color,
             borderwidth=self._border_width,
@@ -637,7 +635,7 @@ class ConsoleTextBox:
         
         # Text widget
         wrap_mode = 'word' if self._word_wrap else 'none'
-        self._tk_widget = tk.Text(
+        self._tk_widget = Native.Text(
             self._container_frame,
             wrap=wrap_mode,
             bg=self._back_color,
@@ -662,12 +660,12 @@ class ConsoleTextBox:
         self._scrollbar = None
         self._scrollbar_visible = False
         if self._show_scrollbar:
-            self._scrollbar = tk.Scrollbar(self._container_frame, command=self._tk_widget.yview)
+            self._scrollbar = Native.Scrollbar(self._container_frame, command=self._tk_widget.yview)
             self._tk_widget.config(yscrollcommand=self._on_scroll_update)
             # Don't pack initially - will be shown when needed
         
         # Pack text widget
-        self._tk_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._tk_widget.pack(side=LEFT, fill=BOTH, expand=True)
         
         # Bind configure event to check scrollbar visibility
         self._tk_widget.bind('<Configure>', self._on_text_configure)
@@ -698,12 +696,12 @@ class ConsoleTextBox:
             needed = not (float(first) <= 0.0 and float(last) >= 1.0)
             
             if needed and not self._scrollbar_visible:
-                self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y, before=self._tk_widget)
+                self._scrollbar.pack(side=RIGHT, fill=Y, before=self._tk_widget)
                 self._scrollbar_visible = True
             elif not needed and self._scrollbar_visible:
                 self._scrollbar.pack_forget()
                 self._scrollbar_visible = False
-        except (tk.TclError, ValueError):
+        except (Native.TclError, ValueError):
             pass
     
     def _place_control(self, width=None, height=None):
@@ -717,7 +715,7 @@ class ConsoleTextBox:
             place_args['height'] = height
         try:
             self._container_frame.place(**place_args)
-        except tk.TclError:
+        except Native.TclError:
             pass
     
     def set_Visible(self, value):
@@ -1009,7 +1007,7 @@ class ConsoleTextBox:
     def Copy(self):
         """Copy selected text to clipboard."""
         try:
-            self._tk_widget.event_generate('<<Copy>>')
+            self.GenerateEvent('<<Copy>>')
         except:
             pass
     
@@ -1219,14 +1217,14 @@ class DatePickerBox(ControlBase):
     def _create_control(self):
         """Create the control UI."""
         # Main container frame
-        self._frame = tk.Frame(self.master, bg=self._back_color)
+        self._frame = Native.Frame(self.master, bg=self._back_color)
         self._tk_widget = self._frame
         
         # Calculate dimensions
         text_width = self.Width - self.BUTTON_WIDTH - 2
         
         # Create the date text field
-        self._text_entry = tk.Entry(
+        self._text_entry = Native.Entry(
             self._frame,
             font=('Segoe UI', 10),
             bg=self._back_color,
@@ -1242,7 +1240,7 @@ class DatePickerBox(ControlBase):
         self._text_entry.bind('<Escape>', self._on_escape)
         
         # Create dropdown button
-        self._dropdown_btn = tk.Button(
+        self._dropdown_btn = Native.Button(
             self._frame,
             text='▼',
             font=('Segoe UI', 8),
@@ -1398,12 +1396,12 @@ class DatePickerBox(ControlBase):
         y = self._frame.winfo_rooty() + self.Height
         
         # Create toplevel window for calendar
-        self._calendar_window = tk.Toplevel(self.master)
+        self._calendar_window = Native.Toplevel(self.master)
         self._calendar_window.wm_overrideredirect(True)
         self._calendar_window.geometry(f"{self.CALENDAR_WIDTH}x{self.CALENDAR_HEIGHT}+{x}+{y}")
         
         # Create calendar frame with border
-        calendar_frame = tk.Frame(
+        calendar_frame = Native.Frame(
             self._calendar_window,
             bg=self._calendar_styles['TitleBackColor'],
             relief='solid',
@@ -1457,10 +1455,10 @@ class DatePickerBox(ControlBase):
     def _create_fallback_calendar(self, parent):
         """Create a simple fallback calendar when tkcalendar is not available."""
         # Header with month/year
-        header = tk.Frame(parent, bg=self._calendar_styles['TitleBackColor'])
+        header = Native.Frame(parent, bg=self._calendar_styles['TitleBackColor'])
         header.pack(fill='x', padx=2, pady=2)
         
-        tk.Label(
+        Native.Label(
             header,
             text=self._value.strftime("%B %Y"),
             font=('Segoe UI', 11, 'bold'),
@@ -1469,7 +1467,7 @@ class DatePickerBox(ControlBase):
         ).pack(pady=5)
         
         # Message
-        msg = tk.Label(
+        msg = Native.Label(
             parent,
             text="Install tkcalendar for\nfull calendar support:\n\npip install tkcalendar",
             font=('Segoe UI', 9),
@@ -1480,7 +1478,7 @@ class DatePickerBox(ControlBase):
         msg.pack(expand=True)
         
         # OK button to close
-        ok_btn = tk.Button(
+        ok_btn = Native.Button(
             parent,
             text="OK",
             command=self._hide_calendar,

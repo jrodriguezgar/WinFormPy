@@ -8,12 +8,12 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from winformpy.winformpy import (
-    Panel, Label, Button, TextBox,
+    Native, Panel, Label, Button, TextBox,
     DockStyle, AnchorStyles, Color, 
-    Font, FlatStyle, Clipboard
+    Font, FlatStyle, Clipboard,
+    LEFT, RIGHT, BOTH, X, Y
 )
 from winformpy.ui_elements.chat.chat_manager import ChatManager
-import tkinter as tk
 
 class ChatBubble(Panel):
     """A single chat message bubble."""
@@ -84,11 +84,10 @@ class ChatBubble(Panel):
 
         # Configure text wrapping and calculate height
         req_height = 30  # Default height
-        # Note: Direct tkinter - WinFormPy Label doesn't have wraplength property yet
-        if hasattr(self.lbl_text, '_tk_widget') and self.lbl_text._tk_widget:
-            self.lbl_text._tk_widget.config(wraplength=bubble_width - 25, justify='left')
+        if hasattr(self.lbl_text, 'GetTkWidget') and self.lbl_text.GetTkWidget():
+            self.lbl_text.GetTkWidget().config(wraplength=bubble_width - 25, justify='left')
             self.lbl_text.Refresh()
-            req_height = self.lbl_text._tk_widget.winfo_reqheight()
+            req_height = self.lbl_text.DesiredHeight
         
         # Update bubble and container heights
         self.bubble.Height = req_height + 20
@@ -257,18 +256,18 @@ class ChatPanel(Panel):
         
         if container_widget:
             # Create Canvas for scrolling
-            self._canvas = tk.Canvas(container_widget, bg='#FFFFFF', highlightthickness=0)
-            self._canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            self._canvas = Native.Canvas(container_widget, bg='#FFFFFF', highlightthickness=0)
+            self._canvas.pack(side=LEFT, fill=BOTH, expand=True)
             
             # Scrollbar (initially hidden - auto-hide behavior)
-            self._scrollbar = tk.Scrollbar(container_widget, orient=tk.VERTICAL, command=self._canvas.yview)
+            self._scrollbar = Native.Scrollbar(container_widget, orient='vertical', command=self._canvas.yview)
             # Don't pack initially - will be shown when needed
             self._scrollbar_visible = False
             
             self._canvas.configure(yscrollcommand=self._on_scroll_update)
             
             # Inner frame for messages
-            self._messages_frame = tk.Frame(self._canvas, bg='#FFFFFF')
+            self._messages_frame = Native.Frame(self._canvas, bg='#FFFFFF')
             self._canvas_window = self._canvas.create_window((0, 0), window=self._messages_frame, anchor='nw')
             
             # Bind events
@@ -297,7 +296,7 @@ class ChatPanel(Panel):
         needed = not (float(first) <= 0.0 and float(last) >= 1.0)
         
         if needed and not self._scrollbar_visible:
-            self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            self._scrollbar.pack(side=RIGHT, fill=Y)
             self._scrollbar_visible = True
         elif not needed and self._scrollbar_visible:
             self._scrollbar.pack_forget()
@@ -400,7 +399,7 @@ class ChatPanel(Panel):
         bubble_width = int(bubble_container_width * 0.70)
         
         # Create a temporary label to measure text height
-        temp_label = tk.Label(self._messages_frame, text=message.text, 
+        temp_label = Native.Label(self._messages_frame, text=message.text, 
                               font=('Segoe UI', 10), wraplength=bubble_width - 50)
         temp_label.update_idletasks()
         text_height = temp_label.winfo_reqheight()
@@ -420,13 +419,13 @@ class ChatPanel(Panel):
         container_height = max(actual_bubble_height, avatar_size) + 10
         
         # Container frame
-        bubble_frame = tk.Frame(self._messages_frame, bg='#FFFFFF', height=container_height)
-        bubble_frame.pack(fill=tk.X, padx=5, pady=3)
+        bubble_frame = Native.Frame(self._messages_frame, bg='#FFFFFF', height=container_height)
+        bubble_frame.pack(fill=X, padx=5, pady=3)
         bubble_frame.pack_propagate(False)
         
         # Create avatar if enabled
         if show_avatar:
-            avatar_canvas = tk.Canvas(bubble_frame, bg='#FFFFFF', highlightthickness=0,
+            avatar_canvas = Native.Canvas(bubble_frame, bg='#FFFFFF', highlightthickness=0,
                                        width=avatar_size, height=avatar_size)
             # Draw circular avatar
             avatar_canvas.create_oval(2, 2, avatar_size-2, avatar_size-2, 
@@ -436,18 +435,18 @@ class ChatPanel(Panel):
                                        font=('Segoe UI', 11, 'bold'))
         
         # Create canvas for rounded bubble
-        bubble_canvas = tk.Canvas(bubble_frame, bg='#FFFFFF', highlightthickness=0,
+        bubble_canvas = Native.Canvas(bubble_frame, bg='#FFFFFF', highlightthickness=0,
                                    width=actual_bubble_width, height=actual_bubble_height)
         
         # Position based on sender
         if message.is_user:
-            bubble_canvas.pack(side=tk.RIGHT, padx=5, pady=2)
+            bubble_canvas.pack(side=RIGHT, padx=5, pady=2)
             if show_avatar:
-                avatar_canvas.pack(side=tk.RIGHT, padx=2, pady=2)
+                avatar_canvas.pack(side=RIGHT, padx=2, pady=2)
         else:
             if show_avatar:
-                avatar_canvas.pack(side=tk.LEFT, padx=2, pady=2)
-            bubble_canvas.pack(side=tk.LEFT, padx=5, pady=2)
+                avatar_canvas.pack(side=LEFT, padx=2, pady=2)
+            bubble_canvas.pack(side=LEFT, padx=5, pady=2)
         
         # Draw rounded rectangle
         self._create_rounded_rectangle(bubble_canvas, 2, 2, 
@@ -500,7 +499,7 @@ class ChatPanel(Panel):
     
     def _show_context_menu(self, event, message, bubble_frame):
         """Show context menu for message bubble."""
-        menu = tk.Menu(self._messages_frame, tearoff=0)
+        menu = Native.Menu(self._messages_frame, tearoff=0)
         menu.add_command(label="📋 Copy", command=lambda: self._copy_message(message))
         menu.add_command(label="↩️ Reply", command=lambda: self._reply_to_message(message))
         menu.add_separator()
@@ -517,8 +516,7 @@ class ChatPanel(Panel):
         # Show reply preview in input area
         preview_text = message.text[:50] + "..." if len(message.text) > 50 else message.text
         self.txt_input.Text = f"↩️ {preview_text}\n"
-        if hasattr(self.txt_input, '_tk_widget') and self.txt_input._tk_widget:
-            self.txt_input._tk_widget.focus_set()
+        self.txt_input.Focus()
     
     def _delete_message(self, message, bubble_frame):
         """Delete a message from the chat."""
@@ -539,13 +537,13 @@ class ChatPanel(Panel):
         if hasattr(self, '_typing_indicator') and self._typing_indicator:
             return  # Already showing
         
-        self._typing_indicator = tk.Frame(self._messages_frame, bg='#FFFFFF')
-        self._typing_indicator.pack(fill=tk.X, padx=5, pady=3)
+        self._typing_indicator = Native.Frame(self._messages_frame, bg='#FFFFFF')
+        self._typing_indicator.pack(fill=X, padx=5, pady=3)
         
         # Create typing dots animation
-        dots_canvas = tk.Canvas(self._typing_indicator, bg='#FFFFFF', 
+        dots_canvas = Native.Canvas(self._typing_indicator, bg='#FFFFFF', 
                                  highlightthickness=0, width=60, height=30)
-        dots_canvas.pack(side=tk.LEFT, padx=10)
+        dots_canvas.pack(side=LEFT, padx=10)
         
         # Draw typing bubble
         self._create_rounded_rectangle(dots_canvas, 2, 2, 58, 28, 
@@ -575,7 +573,7 @@ class ChatPanel(Panel):
             self._dots_canvas.itemconfig(dot, fill=colors[color_idx])
         
         if hasattr(self, '_tk_widget') and self._tk_widget:
-            self._tk_widget.after(300, lambda: self._animate_typing_dots((step + 1) % 3))
+            self.InvokeDelayed(300, lambda: self._animate_typing_dots((step + 1) % 3))
     
     def hide_typing_indicator(self):
         """Hide typing indicator."""
@@ -593,9 +591,7 @@ class ChatPanel(Panel):
         
     def after(self, ms, func):
         """Schedule a function to run after ms milliseconds."""
-        # Note: Direct tkinter access - Timer not yet implemented in WinFormPy
-        if hasattr(self, '_tk_widget') and self._tk_widget:
-            self._tk_widget.after(ms, func)
+        self.InvokeDelayed(ms, func)
 
 
 # =============================================================================

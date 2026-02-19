@@ -585,10 +585,9 @@ class WebBrowserUI(Form):
             return
         
         try:
-            notebook = self._tab_control._tk_widget
             # Refresh to get accurate dimensions
             self._tab_control.Refresh()
-            nb_width = notebook.winfo_width()
+            nb_width = self._tab_control.ActualWidth
             
             # Place on the right side of the tab header area
             # Note: Direct tkinter - tk.Frame needs place() for positioning
@@ -767,15 +766,15 @@ class WebBrowserUI(Form):
         tab = self._tabs[index]
         
         # Remove browser
-        if tab['browser'] and hasattr(tab['browser'], '_tk_widget'):
-            tab['browser']._tk_widget.destroy()
+        if tab['browser'] and hasattr(tab['browser'], 'Dispose'):
+            tab['browser'].Dispose()
         
         # Remove TabPage from TabControl
         if tab['tab_page'] and hasattr(self._tab_control, 'RemoveTab'):
             self._tab_control.RemoveTab(tab['tab_page'])
-        elif tab['tab_page'] and hasattr(tab['tab_page'], '_tk_widget'):
+        elif tab['tab_page'] and hasattr(tab['tab_page'], 'Dispose'):
             # Fallback: destroy the TabPage widget
-            tab['tab_page']._tk_widget.destroy()
+            tab['tab_page'].Dispose()
         
         # Remove from list
         self._tabs.pop(index)

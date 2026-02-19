@@ -28,13 +28,21 @@
 #   - Pillow (optional, for image support - auto-installed on demand)
 # =============================================================
 
-import tkinter as tk
-from tkinter import ttk
 from datetime import datetime, date, time
 import calendar
 import sys
 import os
 import subprocess
+
+# Windows 11 Font support
+if sys.platform == "win32":
+    DEFAULT_FONT_FAMILY = "Segoe UI Variable Display"
+    DEFAULT_FONT_TEXT = "Segoe UI Variable Text"
+    DEFAULT_FONT_ICONS = "Segoe Fluent Icons"
+else:
+    DEFAULT_FONT_FAMILY = "Segoe UI"
+    DEFAULT_FONT_TEXT = "Segoe UI"
+    DEFAULT_FONT_ICONS = "Segoe UI"
 
 # Import WinFormPy base controls
 try:
@@ -42,7 +50,9 @@ try:
     from .winformpy import (
         Application, Form, ControlBase, DockStyle, Size, Color, Font, 
         MessageBox, Panel, Label as WinFormLabel, Button as WinFormButton,
-        FormStartPosition
+        FormStartPosition, get_tk_root, Native, 
+        TOP, BOTTOM, LEFT, RIGHT, BOTH, X, Y, CENTER, END, VERTICAL, HORIZONTAL, SOLID, WORD, FLAT, ARC,
+        WORD, FLAT, ARC
     )
 except (ImportError, ValueError):
     try:
@@ -50,7 +60,8 @@ except (ImportError, ValueError):
         from winformpy import (
             Application, Form, ControlBase, DockStyle, Size, Color, Font, 
             MessageBox, Panel, Label as WinFormLabel, Button as WinFormButton,
-            FormStartPosition
+            FormStartPosition, get_tk_root, Native,
+            TOP, BOTTOM, LEFT, RIGHT, BOTH, X, Y, CENTER, END, VERTICAL, HORIZONTAL, SOLID, WORD, FLAT, ARC
         )
     except ImportError:
         # Fallback for direct execution or unusual path setups
@@ -61,7 +72,8 @@ except (ImportError, ValueError):
             from winformpy import (
                 Application, Form, ControlBase, DockStyle, Size, Color, Font, 
                 MessageBox, Panel, Label as WinFormLabel, Button as WinFormButton,
-                FormStartPosition
+                FormStartPosition, get_tk_root, Native,
+                TOP, BOTTOM, LEFT, RIGHT, BOTH, X, Y, CENTER, END, VERTICAL, HORIZONTAL, SOLID, WORD, FLAT, ARC
             )
         except ImportError:
             # winformpy not available
@@ -232,9 +244,17 @@ class Shell(Form):
             'Height': 700,
             'BackColor': '#FAFAFA',
             'HeaderColor': '#512BD4',
+            'HeaderTextColor': 'white',
             'FlyoutWidth': 250,
+            'FlyoutBackgroundColor': '#F0F0F0',
+            'FlyoutTextColor': '#333333',
+            'FlyoutSelectedColor': '#E0E0E0',
             'HeaderHeight': 50,
-            'CenterOnScreen': True
+            'FontFamily': DEFAULT_FONT_FAMILY,
+            'CenterOnScreen': True,
+            'FlyoutBehavior': 'Flyout', # Options: Flyout, Locked, Disabled
+            'WindowState': 'Normal',
+            'FlyoutIsPresented': False
         }
         
         # Apply props over defaults
@@ -246,7 +266,8 @@ class Shell(Form):
             'Text': defaults['Text'],
             'Width': defaults['Width'],
             'Height': defaults['Height'],
-            'BackColor': defaults['BackColor']
+            'BackColor': defaults['BackColor'],
+            'WindowState': defaults['WindowState']
         }
         
         if defaults['CenterOnScreen']:
@@ -259,67 +280,79 @@ class Shell(Form):
         # Internal state
         self._flyout_width = defaults['FlyoutWidth']
         self._flyout_visible = False
+        self._flyout_behavior = defaults['FlyoutBehavior']
+        self._flyout_is_presented = defaults['FlyoutIsPresented']
         self._header_height = defaults['HeaderHeight']
         self._header_color = defaults['HeaderColor']
+        self._header_text_color = defaults['HeaderTextColor']
+        self._flyout_bg_color = defaults['FlyoutBackgroundColor']
+        self._flyout_fg_color = defaults['FlyoutTextColor']
+        self._flyout_sel_color = defaults['FlyoutSelectedColor']
+        self._font_family = defaults['FontFamily']
         
         # Build UI structure
         self._build_shell_structure()
+
+        # Apply behavior and initial state
+        self.FlyoutBehavior = self._flyout_behavior
+        if self._flyout_is_presented:
+            self.FlyoutIsPresented = True
+        
+        # Apply initial window title
+        if 'Text' in defaults:
+            self.Text = defaults['Text']
         
     def _build_shell_structure(self):
         """Builds the internal shell structure."""
         # Header Bar
-        self._header = tk.Frame(self._root, bg=self._header_color, height=self._header_height)
-        self._header.pack(fill=tk.X, side=tk.TOP)
-        self._header.pack_propagate(False)
+        self._header = Native.Frame(self._root, bg=self._header_color, height=self._header_height)
+        self._header.pack(fill=X, side=TOP)
+        Native.PackPropagate(self._header, False)
         
         # Menu toggle button
-        self._menu_btn = tk.Button(
+        self._menu_btn = Native.Button(
             self._header, 
             text="☰", 
-            font=("Segoe UI", 14),
+            font=(self._font_family, 14),
             bg=self._header_color, 
-            fg="white",
+            fg=self._header_text_color,
             bd=0,
-            activebackground="#6B3FA0",
-            activeforeground="white",
+            activebackground=self._header_color,
+            activeforeground=self._header_text_color,
             cursor="hand2",
             command=self._toggle_flyout
         )
-        self._menu_btn.pack(side=tk.LEFT, padx=10)
+        self._menu_btn.pack(side=LEFT, padx=10)
         
         # Title label
-        self._title_label = tk.Label(
+        self._title_label = Native.Label(
             self._header,
             text="",
-            font=("Segoe UI", 12, "bold"),
+            font=(self._font_family, 12, "bold"),
             bg=self._header_color,
-            fg="white"
+            fg=self._header_text_color
         )
-        self._title_label.pack(side=tk.LEFT, padx=10)
+        self._title_label.pack(side=LEFT, padx=10)
         
         # Main container (holds flyout and content)
-        self._main_container = tk.Frame(self._root, bg=self._root.cget("bg"))
-        self._main_container.pack(fill=tk.BOTH, expand=True)
+        self._main_container = Native.Frame(self._root, bg=self._root.cget("bg"))
+        self._main_container.pack(fill=BOTH, expand=True)
         
-        # Flyout Panel (sidebar menu)
-        self._flyout_frame = tk.Frame(self._main_container, bg="#F0F0F0", width=0)
-        self._flyout_frame.pack(side=tk.LEFT, fill=tk.Y)
-        self._flyout_frame.pack_propagate(False)
+        # Flyout Panel (sidebar menu) - starts hidden (not packed)
+        self._flyout_frame = Native.Frame(self._main_container, bg=self._flyout_bg_color, width=self._flyout_width)
+        Native.PackPropagate(self._flyout_frame, False)
         
         # Flyout content area
-        self._flyout_content = tk.Frame(self._flyout_frame, bg="#F0F0F0")
-        self._flyout_content.pack(fill=tk.BOTH, expand=True, pady=10)
+        self._flyout_content = Native.Frame(self._flyout_frame, bg=self._flyout_bg_color)
+        self._flyout_content.pack(fill=BOTH, expand=True, pady=10)
         
         # Content Area (main content)
-        self._content_frame = tk.Frame(self._main_container, bg="#FAFAFA")
-        self._content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._content_frame = Native.Frame(self._main_container, bg="#FAFAFA")
+        self._content_frame.pack(side=LEFT, fill=BOTH, expand=True)
         
         # Navigation stack
         self._page_stack = []
         self._current_page = None
-        
-        # Overlay for closing flyout when clicking outside
-        self._overlay = None
         
     def _toggle_flyout(self):
         """Toggles the flyout menu visibility."""
@@ -329,24 +362,17 @@ class Shell(Form):
             self._show_flyout()
             
     def _show_flyout(self):
-        """Shows the flyout menu with animation."""
+        """Shows the flyout menu."""
         self._flyout_visible = True
-        self._flyout_frame.configure(width=self._flyout_width)
-        
-        # Create overlay to capture clicks outside flyout
-        self._overlay = tk.Frame(self._content_frame, bg="#E0E0E0")
-        self._overlay.place(x=0, y=0, relwidth=1, relheight=1)
-        self._overlay.bind("<Button-1>", lambda e: self._hide_flyout())
-        self._overlay.lift()
+        # Unpack content so flyout gets space first, then re-pack content
+        self._content_frame.pack_forget()
+        self._flyout_frame.pack(side=LEFT, fill=Y)
+        self._content_frame.pack(side=LEFT, fill=BOTH, expand=True)
         
     def _hide_flyout(self):
         """Hides the flyout menu."""
         self._flyout_visible = False
-        self._flyout_frame.configure(width=0)
-        
-        if self._overlay:
-            self._overlay.destroy()
-            self._overlay = None
+        self._flyout_frame.pack_forget()
             
     @property
     def Text(self):
@@ -384,49 +410,104 @@ class Shell(Form):
         
     @HeaderColor.setter
     def HeaderColor(self, value):
+        self._header_color = value
         self._header.configure(bg=value)
         self._menu_btn.configure(bg=value, activebackground=value)
         self._title_label.configure(bg=value)
+
+    @property
+    def HeaderTextColor(self):
+        """Gets or sets the header text color."""
+        return self._header_text_color
+        
+    @HeaderTextColor.setter
+    def HeaderTextColor(self, value):
+        self._header_text_color = value
+        self._menu_btn.configure(fg=value, activeforeground=value)
+        self._title_label.configure(fg=value)
+
+    @property
+    def FlyoutBehavior(self):
+        """Gets or sets the flyout behavior (Flyout, Locked, Disabled)."""
+        return self._flyout_behavior
+        
+    @FlyoutBehavior.setter
+    def FlyoutBehavior(self, value):
+        self._flyout_behavior = value
+        if value == "Disabled":
+            self._hide_flyout()
+            self._menu_btn.pack_forget()
+        elif value == "Locked":
+            self._show_flyout()
+            self._menu_btn.pack_forget()
+        else: # Flyout
+            # If behavior is set to Flyout, we respect current visibility
+            # unless it was initialized with FlyoutIsPresented=True
+            if not getattr(self, '_flyout_visible', False):
+                self._hide_flyout()
+                
+            if hasattr(self, '_menu_btn'):
+                self._menu_btn.pack(side=LEFT, padx=10)
+
+    @property
+    def FlyoutIsPresented(self):
+        """Gets or sets whether the flyout is currently presented (open)."""
+        return self._flyout_visible
+        
+    @FlyoutIsPresented.setter
+    def FlyoutIsPresented(self, value):
+        if value:
+            self._show_flyout()
+        else:
+            self._hide_flyout()
         
     def AddMenuItem(self, text, command=None, icon=""):
         """Adds a menu item to the flyout."""
         display_text = f"{icon}  {text}" if icon else text
         
-        btn = tk.Button(
+        # Wrap command to close flyout if in Flyout mode
+        def wrapped_command():
+            if self._flyout_behavior == "Flyout":
+                self._hide_flyout()
+            if command:
+                command()
+
+        btn = Native.Button(
             self._flyout_content,
             text=display_text,
-            font=("Segoe UI", 11),
-            bg="#F0F0F0",
-            fg="#333333",
+            font=(self._font_family, 11),
+            bg=self._flyout_bg_color,
+            fg=self._flyout_fg_color,
             bd=0,
             anchor="w",
             padx=20,
             pady=12,
-            activebackground="#E0E0E0",
-            activeforeground="#333333",
-            cursor="hand2"
+            activebackground=self._flyout_sel_color,
+            activeforeground=self._flyout_fg_color,
+            cursor="hand2",
+            command=wrapped_command
         )
-        btn.pack(fill=tk.X)
+        btn.pack(fill=X)
         
-        if command:
-            def on_click():
-                self._hide_flyout()
-                command()
-            btn.configure(command=on_click)
-            
         # Hover effects
-        btn.bind("<Enter>", lambda e: btn.configure(bg="#E0E0E0"))
-        btn.bind("<Leave>", lambda e: btn.configure(bg="#F0F0F0"))
+        btn.bind("<Enter>", lambda e: btn.configure(bg=self._flyout_sel_color))
+        btn.bind("<Leave>", lambda e: btn.configure(bg=self._flyout_bg_color))
         
         return btn
         
     def AddMenuSeparator(self):
         """Adds a separator line to the flyout menu."""
-        sep = tk.Frame(self._flyout_content, bg="#D0D0D0", height=1)
-        sep.pack(fill=tk.X, padx=10, pady=5)
+        # Use a shade slightly different from background
+        sep_color = "#D0D0D0" if self._flyout_bg_color.lower() in ["#f0f0f0", "white", "#ffffff"] else "#404040"
+        sep = Native.Frame(self._flyout_content, bg=sep_color, height=1)
+        sep.pack(fill=X, padx=10, pady=5)
         
     def NavigateTo(self, page_class, *args, **kwargs):
         """Navigates to a new page."""
+        # Auto-hide flyout on navigation if in Flyout mode
+        if self._flyout_behavior == "Flyout":
+            self._hide_flyout()
+
         # Create page instance
         page = page_class(self._content_frame, *args, **kwargs)
         
@@ -435,9 +516,9 @@ class Shell(Form):
             self._current_page._frame.pack_forget()
             
         # Show new page
-        page._frame.pack(fill=tk.BOTH, expand=True)
-        page._frame.lift()
-        page._frame.focus_set()
+        page._frame.pack(fill=BOTH, expand=True)
+        Native.Lift(page._frame)
+        Native.Focus(page._frame)
         
         # Update stack and title
         self._page_stack.append(page)
@@ -445,8 +526,8 @@ class Shell(Form):
         self.HeaderTitle = getattr(page, 'Title', '')
         
         # Force update to ensure layout is calculated and visible
-        self._root.update_idletasks()
-        self._root.update()
+        Native.Update(self._root)
+        Native.Update(self._root)
         
         return page
         
@@ -455,11 +536,11 @@ class Shell(Form):
         if len(self._page_stack) > 1:
             # Remove current page
             current = self._page_stack.pop()
-            current._frame.destroy()
+            Native.Destroy(current._frame)
             
             # Show previous page
             self._current_page = self._page_stack[-1]
-            self._current_page._frame.pack(fill=tk.BOTH, expand=True)
+            self._current_page._frame.pack(fill=BOTH, expand=True)
             self.HeaderTitle = getattr(self._current_page, 'Title', '')
             
     @property
@@ -474,14 +555,18 @@ class Shell(Form):
         
     def Show(self):
         """Displays the shell window (winformpy Application.Run compatibility)."""
-        if self._root:
-            self._root.deiconify()
-            self._root.lift()
-            self._root.focus_force()
+        super().Show()
+        if Native.Exists(self._root):
+            Native.Deiconify(self._root)
+            Native.Lift(self._root)
+            Native.ForceFocus(self._root)
 
     def Run(self):
         """Starts the application main loop."""
-        self._root.mainloop()
+        if isinstance(self._root, Native.Window):
+            self.Show()
+        else:
+            Native.Mainloop(self._root)
 
 
 # =============================================================================
@@ -523,12 +608,12 @@ class ContentPage:
         self.BackColor = defaults['BackColor']
         
         # Create main frame
-        self._frame = tk.Frame(master, bg=self.BackColor)
+        self._frame = Native.Frame(master, bg=self.BackColor)
         
         # Content area with scrolling
-        self._canvas = tk.Canvas(self._frame, bg=self.BackColor, highlightthickness=0)
-        self._scrollbar = ttk.Scrollbar(self._frame, orient=tk.VERTICAL, command=self._canvas.yview)
-        self._content = tk.Frame(self._canvas, bg=self.BackColor)
+        self._canvas = Native.Canvas(self._frame, bg=self.BackColor, highlightthickness=0)
+        self._scrollbar = Native.Scrollbar(self._frame, orient=VERTICAL, command=self._canvas.yview)
+        self._content = Native.Frame(self._canvas, bg=self.BackColor)
         
         # Configure scrolling
         self._content.bind("<Configure>", lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
@@ -536,8 +621,8 @@ class ContentPage:
         self._canvas.configure(yscrollcommand=self._scrollbar.set)
         
         # Pack scrollable area
-        self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self._canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._scrollbar.pack(side=RIGHT, fill=Y)
+        self._canvas.pack(side=LEFT, fill=BOTH, expand=True)
         
         # Bind canvas resize to content width
         self._canvas.bind("<Configure>", self._on_canvas_configure)
@@ -571,7 +656,7 @@ class ContentPage:
         """Binds mouse wheel to scrolling."""
         self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         # Force a configured event to ensure components are sized correctly
-        self._frame.after(10, lambda: self._on_canvas_configure(EventArgs(width=self._canvas.winfo_width())))
+        Native.Wait(self._frame, 10, lambda: self._on_canvas_configure(EventArgs(width=Native.GetSize(self._canvas)[0])))
         
     def _unbind_mousewheel(self):
         """Unbinds mouse wheel scrolling."""
@@ -630,15 +715,15 @@ class NavigationPage:
         self.NavBarHeight = defaults['NavBarHeight']
         
         # Create main frame
-        self._frame = tk.Frame(master, bg=self.BackColor)
+        self._frame = Native.Frame(master, bg=self.BackColor)
         
         # Navigation bar
-        self._navbar = tk.Frame(self._frame, bg=self.NavBarColor, height=self.NavBarHeight)
-        self._navbar.pack(fill=tk.X, side=tk.TOP)
-        self._navbar.pack_propagate(False)
+        self._navbar = Native.Frame(self._frame, bg=self.NavBarColor, height=self.NavBarHeight)
+        self._navbar.pack(fill=X, side=TOP)
+        Native.PackPropagate(self._navbar, False)
         
         # Back button
-        self._back_btn = tk.Button(
+        self._back_btn = Native.Button(
             self._navbar,
             text="←",
             font=("Segoe UI", 14, "bold"),
@@ -650,22 +735,22 @@ class NavigationPage:
             cursor="hand2",
             command=self._go_back
         )
-        self._back_btn.pack(side=tk.LEFT, padx=10)
+        self._back_btn.pack(side=LEFT, padx=10)
         self._back_btn.pack_forget()  # Hidden initially
         
         # Title label
-        self._nav_title = tk.Label(
+        self._nav_title = Native.Label(
             self._navbar,
             text="",
             font=("Segoe UI", 12, "bold"),
             bg=self.NavBarColor,
             fg="white"
         )
-        self._nav_title.pack(side=tk.LEFT, padx=10)
+        self._nav_title.pack(side=LEFT, padx=10)
         
         # Content area
-        self._content_container = tk.Frame(self._frame, bg=self.BackColor)
-        self._content_container.pack(fill=tk.BOTH, expand=True)
+        self._content_container = Native.Frame(self._frame, bg=self.BackColor)
+        self._content_container.pack(fill=BOTH, expand=True)
         
         # Page stack
         self._stack = []
@@ -685,7 +770,7 @@ class NavigationPage:
             self._current._frame.pack_forget()
             
         # Show new page
-        page._frame.pack(fill=tk.BOTH, expand=True)
+        page._frame.pack(fill=BOTH, expand=True)
         
         # Update stack
         self._stack.append(page)
@@ -701,11 +786,11 @@ class NavigationPage:
         if len(self._stack) > 1:
             # Remove current
             page = self._stack.pop()
-            page._frame.destroy()
+            Native.Destroy(page._frame)
             
             # Show previous
             self._current = self._stack[-1]
-            self._current._frame.pack(fill=tk.BOTH, expand=True)
+            self._current._frame.pack(fill=BOTH, expand=True)
             
             # Update navbar
             self._update_navbar()
@@ -721,7 +806,7 @@ class NavigationPage:
             
         # Show/hide back button
         if len(self._stack) > 1:
-            self._back_btn.pack(side=tk.LEFT, padx=10)
+            self._back_btn.pack(side=LEFT, padx=10)
         else:
             self._back_btn.pack_forget()
 
@@ -773,21 +858,21 @@ class TabbedPage:
         self.UnselectedColor = defaults['UnselectedColor']
         
         # Create main frame
-        self._frame = tk.Frame(master, bg=self.BackColor)
+        self._frame = Native.Frame(master, bg=self.BackColor)
         
         # Tab bar
-        self._tab_bar = tk.Frame(self._frame, bg=self.TabBarColor)
+        self._tab_bar = Native.Frame(self._frame, bg=self.TabBarColor)
         
         # Content area
-        self._content_area = tk.Frame(self._frame, bg=self.BackColor)
+        self._content_area = Native.Frame(self._frame, bg=self.BackColor)
         
         # Pack based on position
         if self.TabPosition == "bottom":
-            self._content_area.pack(fill=tk.BOTH, expand=True)
-            self._tab_bar.pack(fill=tk.X, side=tk.BOTTOM)
+            self._content_area.pack(fill=BOTH, expand=True)
+            self._tab_bar.pack(fill=X, side=BOTTOM)
         else:
-            self._tab_bar.pack(fill=tk.X, side=tk.TOP)
-            self._content_area.pack(fill=tk.BOTH, expand=True)
+            self._tab_bar.pack(fill=X, side=TOP)
+            self._content_area.pack(fill=BOTH, expand=True)
         
         # Tabs data
         self._tabs = []
@@ -799,7 +884,7 @@ class TabbedPage:
         
         # Create tab button
         display_text = f"{icon} {title}" if icon else title
-        btn = tk.Button(
+        btn = Native.Button(
             self._tab_bar,
             text=display_text,
             font=("Segoe UI", 10),
@@ -811,7 +896,7 @@ class TabbedPage:
             cursor="hand2",
             command=lambda: self._select_tab(index)
         )
-        btn.pack(side=tk.LEFT)
+        btn.pack(side=LEFT)
         
         # Create page instance (lazy - only when selected)
         self._tabs.append({
@@ -847,7 +932,7 @@ class TabbedPage:
             tab['page'] = tab['page_class'](self._content_area)
             
         # Show page
-        tab['page']._frame.pack(fill=tk.BOTH, expand=True)
+        tab['page']._frame.pack(fill=BOTH, expand=True)
         self._current_index = index
 
 
@@ -879,7 +964,7 @@ class VerticalStackLayout:
     def __init__(self, master, props=None):
         # Default values - WinFormPy style
         defaults = {
-            'Spacing': 10,
+            'Spacing': 4,
             'Padding': (20, 20, 20, 20),
             'BackColor': None
         }
@@ -903,8 +988,8 @@ class VerticalStackLayout:
             
         # Create frame
         bg = self.BackColor if self.BackColor else parent.cget("bg")
-        self._frame = tk.Frame(parent, bg=bg)
-        self._frame.pack(fill=tk.X, padx=(self.Padding[0], self.Padding[2]), 
+        self._frame = Native.Frame(parent, bg=bg)
+        self._frame.pack(fill=X, padx=(self.Padding[0], self.Padding[2]), 
                         pady=(self.Padding[1], self.Padding[3]))
         
         self._children = []
@@ -914,13 +999,26 @@ class VerticalStackLayout:
         """Adds a child widget to the layout."""
         # Add spacing if not first child
         if self._children:
-            spacer = tk.Frame(self._frame, height=self.Spacing, bg=self._bg)
-            spacer.pack(fill=tk.X)
+            spacer = Native.Frame(self._frame, height=self.Spacing, bg=self._bg)
+            spacer.pack(fill=X)
             
         # Create widget
         widget = widget_class(self._frame, **kwargs)
         self._children.append(widget)
         return widget
+
+
+class StackPanel(VerticalStackLayout):
+    """
+    XAML-style StackPanel (alias for VerticalStackLayout).
+    Arranges child elements in a single line that can be oriented horizontally or vertically.
+    """
+    def __init__(self, master, props=None, **kwargs):
+        # Default XAML Margin="20" Spacing="4"
+        xaml_props = {'Spacing': 4, 'Padding': (20, 20, 20, 20)}
+        if props:
+            xaml_props.update(props)
+        super().__init__(master, props=xaml_props)
 
 
 class HorizontalStackLayout:
@@ -970,8 +1068,8 @@ class HorizontalStackLayout:
             parent = master
             
         bg = self.BackColor if self.BackColor else parent.cget("bg")
-        self._frame = tk.Frame(parent, bg=bg)
-        self._frame.pack(fill=tk.X, padx=(self.Padding[0], self.Padding[2]),
+        self._frame = Native.Frame(parent, bg=bg)
+        self._frame.pack(fill=X, padx=(self.Padding[0], self.Padding[2]),
                         pady=(self.Padding[1], self.Padding[3]))
         
         self._children = []
@@ -981,11 +1079,11 @@ class HorizontalStackLayout:
         """Adds a child widget to the layout."""
         # Add spacing if not first child
         if self._children:
-            spacer = tk.Frame(self._frame, width=self.Spacing, bg=self._bg)
-            spacer.pack(side=tk.LEFT)
+            spacer = Native.Frame(self._frame, width=self.Spacing, bg=self._bg)
+            spacer.pack(side=LEFT)
             
         # Create widget
-        widget = widget_class(self._frame, side=tk.LEFT, **kwargs)
+        widget = widget_class(self._frame, side=LEFT, **kwargs)
         self._children.append(widget)
         return widget
 
@@ -1048,8 +1146,8 @@ class Grid:
             parent = master
             
         bg = self.BackColor if self.BackColor else parent.cget("bg")
-        self._frame = tk.Frame(parent, bg=bg)
-        self._frame.pack(fill=tk.BOTH, expand=True, 
+        self._frame = Native.Frame(parent, bg=bg)
+        self._frame.pack(fill=BOTH, expand=True, 
                         padx=(self.Padding[0], self.Padding[2]),
                         pady=(self.Padding[1], self.Padding[3]))
         
@@ -1059,22 +1157,68 @@ class Grid:
         for i in range(self.Rows):
             self._frame.rowconfigure(i, weight=1)
             
-    def AddChild(self, widget_class, row, column, rowspan=1, columnspan=1, **kwargs):
+    def AddChild(self, widget_class, row, column, rowspan=1, columnspan=1, sticky="nsew", **kwargs):
         """Adds a widget at the specified grid position."""
         widget = widget_class(self._frame, use_grid=True, **kwargs)
-        widget._tk_widget.grid(
+        
+        # Determine which widget to actually grid (the container if it exists, otherwise the tk_widget)
+        # Using getattr to be safe across different control implementations
+        target = getattr(widget, '_container', None) or (widget.GetTkWidget() if hasattr(widget, 'GetTkWidget') else widget._tk_widget)
+        
+        target.grid(
             row=row, column=column,
             rowspan=rowspan, columnspan=columnspan,
             padx=self.ColumnSpacing // 2,
             pady=self.RowSpacing // 2,
-            sticky="nsew"
+            sticky=sticky
         )
         return widget
 
+    def AddChildLayout(self, layout_class, row, column, rowspan=1, columnspan=1, sticky="nsew", **kwargs):
+        """Adds a layout container (HorizontalStackLayout, etc.) at a grid position.
+        
+        Unlike AddChild which creates winformpy controls, this creates a mauipy
+        layout container and places its _frame in the specified grid cell.
+        
+        Args:
+            layout_class: The layout class (e.g., HorizontalStackLayout).
+            row (int): Grid row position.
+            column (int): Grid column position.
+            rowspan (int): Number of rows to span (default: 1).
+            columnspan (int): Number of columns to span (default: 1).
+            sticky (str): Tkinter sticky directions (default: 'nsew').
+            **kwargs: Passed as props to the layout constructor.
+        
+        Returns:
+            The newly created layout instance.
+        """
+        # Create a transparent parent frame for the layout
+        cell_frame = Native.Frame(self._frame, bg=self._frame.cget('bg'))
+        cell_frame.grid(
+            row=row, column=column,
+            rowspan=rowspan, columnspan=columnspan,
+            padx=self.ColumnSpacing // 2,
+            pady=self.RowSpacing // 2,
+            sticky=sticky
+        )
+        layout = layout_class(cell_frame, props=kwargs if kwargs else None)
+        return layout
+
 
 # =============================================================================
-# MAUI-STYLE CONTROLS
+# BASIC DISPLAY & INPUT CONTROLS
 # =============================================================================
+
+def _bind_standard_mouse_events(widget, owner):
+    """Bind standard mouse events (Click, DoubleClick, MouseDown/Up/Move/Enter/Leave) to the owner's event handlers."""
+    widget.bind("<Button-1>", lambda e: owner.Click(owner, EventArgs(e)))
+    widget.bind("<Double-Button-1>", lambda e: owner.DoubleClick(owner, EventArgs(e)))
+    widget.bind("<ButtonPress>", lambda e: owner.MouseDown(owner, EventArgs(e)))
+    widget.bind("<ButtonRelease>", lambda e: owner.MouseUp(owner, EventArgs(e)))
+    widget.bind("<Motion>", lambda e: owner.MouseMove(owner, EventArgs(e)))
+    widget.bind("<Enter>", lambda e: owner.MouseEnter(owner, EventArgs(e)))
+    widget.bind("<Leave>", lambda e: owner.MouseLeave(owner, EventArgs(e)))
+
 
 class Label:
     """
@@ -1099,11 +1243,11 @@ class Label:
     Example:
         >>> Label(container, text='Hello World', fg='#0078D4')
     """
-    def __init__(self, master, text="", side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, text="", side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Text': text,
-            'Font': ("Segoe UI", 11),
+            'Font': (DEFAULT_FONT_TEXT, 11),
             'ForeColor': '#333333',
             'BackColor': None,
             'Anchor': 'w',
@@ -1147,7 +1291,7 @@ class Label:
         bg_color = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
             
         # Create label
-        self._tk_widget = tk.Label(
+        self._tk_widget = Native.Label(
             parent,
             text=defaults['Text'],
             font=defaults['Font'],
@@ -1158,16 +1302,10 @@ class Label:
         )
         
         if not use_grid:
-            self._tk_widget.pack(side=side, anchor="w", fill=tk.X)
+            self._tk_widget.pack(side=side, anchor="w", fill=X)
         
         # Bind events
-        self._tk_widget.bind("<Button-1>", lambda e: self.Click(self, EventArgs(e)))
-        self._tk_widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
-        self._tk_widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
-        self._tk_widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
-        self._tk_widget.bind("<Motion>", lambda e: self.MouseMove(self, EventArgs(e)))
-        self._tk_widget.bind("<Enter>", lambda e: self.MouseEnter(self, EventArgs(e)))
-        self._tk_widget.bind("<Leave>", lambda e: self.MouseLeave(self, EventArgs(e)))
+        _bind_standard_mouse_events(self._tk_widget, self)
         
     @property
     def Text(self):
@@ -1192,6 +1330,26 @@ class Label:
     @ForeColor.setter
     def ForeColor(self, value):
         self._tk_widget.configure(fg=value)
+
+
+class TextBlock(Label):
+    """
+    WinUI3-style TextBlock for displaying read-only text.
+    
+    TextBlock is a lightweight control for displaying read-only text.
+    It provides a WinUI-aligned naming for general text display.
+    """
+    def __init__(self, master, text="", **kwargs):
+        # Apply BodyStrongTextBlockStyle defaults from XAML
+        if 'font' not in kwargs:
+            # Default to "Strong" style (bold) as seen in the provided XAML
+            kwargs['font'] = (DEFAULT_FONT_TEXT, 10, "bold")
+        
+        super().__init__(master, text=text, **kwargs)
+        
+        # Apply XAML Margin (0,0,0,8) -> bottom padding 8
+        if hasattr(self, '_tk_widget'):
+            self._tk_widget.pack_configure(pady=(0, 8))
 
 
 class Button:
@@ -1219,11 +1377,11 @@ class Button:
         >>> btn = Button(container, text='Click Me', bg='#2196F3')
         >>> btn.Click = lambda: print('Clicked!')
     """
-    def __init__(self, master, text="", side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, text="", side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Text': text,
-            'Font': ("Segoe UI", 10, "bold"),
+            'Font': (DEFAULT_FONT_TEXT, 10, "bold"),
             'BackColor': '#512BD4',
             'ForeColor': 'white',
             'HoverColor': '#6B3FA0',
@@ -1277,7 +1435,7 @@ class Button:
         else:
             parent = master
         
-        self._tk_widget = tk.Button(
+        self._tk_widget = Native.Button(
             parent,
             text=defaults['Text'],
             font=defaults['Font'],
@@ -1300,12 +1458,9 @@ class Button:
         self._bg = defaults['BackColor']
         self._hover_bg = defaults['HoverColor']
         
-        # Bind events
+        # Bind events: standard mouse + custom handlers for hover/click/focus
+        _bind_standard_mouse_events(self._tk_widget, self)
         self._tk_widget.bind("<Button-1>", self._on_click)
-        self._tk_widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
-        self._tk_widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
-        self._tk_widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
-        self._tk_widget.bind("<Motion>", lambda e: self.MouseMove(self, EventArgs(e)))
         self._tk_widget.bind("<Enter>", self._on_mouse_enter)
         self._tk_widget.bind("<Leave>", self._on_mouse_leave)
         self._tk_widget.bind("<FocusIn>", lambda e: self.GotFocus(self, EventArgs(e)))
@@ -1354,15 +1509,17 @@ class Entry:
         >>> email = Entry(form, placeholder='Enter your email')
         >>> print(email.Text)  # Get entered text
     """
-    def __init__(self, master, placeholder="", side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, placeholder="", side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Placeholder': placeholder,
-            'Font': ("Segoe UI", 11),
+            'Font': (DEFAULT_FONT_TEXT, 11),
             'ForeColor': '#333333',
             'BackColor': 'white',
             'Width': 300,
-            'Fill': False
+            'Fill': False,
+            'IsPassword': False,  # Mask text input
+            'PasswordChar': '●'   # Mask character (fluent style bullet)
         }
         
         # Apply props over defaults
@@ -1380,9 +1537,13 @@ class Entry:
             defaults['Width'] = kwargs['width']
         if 'fill' in kwargs:
             defaults['Fill'] = kwargs['fill']
+        if 'is_password' in kwargs:
+            defaults['IsPassword'] = kwargs['is_password']
         
         self._master = master
         self._placeholder = defaults['Placeholder']
+        self._is_password = defaults['IsPassword']
+        self._password_char = defaults['PasswordChar']
         
         # Events
         self.TextChanged = lambda sender, e: None
@@ -1403,28 +1564,36 @@ class Entry:
         else:
             parent = master
             
+        # Create container frame for border styling (WinUI look)
+        self._container = Native.Frame(parent, bg="#E5E5E5", padx=1, pady=1)
+        
+        # TK char width is roughly 1/8 of pixel width for standard font
+        tk_width = defaults['Width'] // 8 if defaults['Width'] > 40 else defaults['Width']
+
         # Create entry
-        self._tk_widget = tk.Entry(
-            parent,
+        self._tk_widget = Native.Entry(
+            self._container,
             font=defaults['Font'],
             fg=defaults['ForeColor'],
             bg=defaults['BackColor'],
-            bd=1,
-            relief=tk.SOLID
+            bd=0,
+            width=tk_width, # Use the calculated char width
+            insertbackground=defaults['ForeColor']
         )
         
+        self._tk_widget.pack(fill=BOTH, expand=True)
+
         if not use_grid:
-            self._tk_widget.configure(width=defaults['Width'] // 8)  # Approximate char width
-            self._tk_widget.pack(side=side, anchor="w", fill=tk.X if defaults['Fill'] else None)
+            fill = X if defaults['Fill'] else None
+            self._container.pack(side=side, anchor="w", fill=fill)
         
-        # Bind events
+        # Apply password mask if not showing placeholder
+        if self._is_password and not placeholder:
+            self._tk_widget.configure(show=self._password_char)
+
+        # Bind events: standard mouse + custom key/focus handlers
+        _bind_standard_mouse_events(self._tk_widget, self)
         self._tk_widget.bind("<KeyRelease>", self._on_text_changed)
-        self._tk_widget.bind("<Button-1>", lambda e: self.Click(self, EventArgs(e)))
-        self._tk_widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
-        self._tk_widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
-        self._tk_widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
-        self._tk_widget.bind("<Enter>", lambda e: self.MouseEnter(self, EventArgs(e)))
-        self._tk_widget.bind("<Leave>", lambda e: self.MouseLeave(self, EventArgs(e)))
         self._tk_widget.bind("<KeyPress>", lambda e: self.KeyDown(self, EventArgs(e)))
         self._tk_widget.bind("<KeyRelease>", lambda e: self.KeyUp(self, EventArgs(e)), add='+')
         
@@ -1439,8 +1608,10 @@ class Entry:
             
     def _on_focus_in(self, event):
         if self._tk_widget.get() == self._placeholder:
-            self._tk_widget.delete(0, tk.END)
+            self._tk_widget.delete(0, END)
             self._tk_widget.configure(fg="#333333")
+            if self._is_password:
+                self._tk_widget.configure(show=self._password_char)
         self.GotFocus(self, EventArgs(event))
             
     def _on_focus_out(self, event):
@@ -1464,16 +1635,20 @@ class Entry:
         
     @Text.setter
     def Text(self, value):
-        self._tk_widget.delete(0, tk.END)
+        self._tk_widget.delete(0, END)
         if value:
             self._tk_widget.configure(fg="#333333")
+            if self._is_password:
+                self._tk_widget.configure(show=self._password_char)
             self._tk_widget.insert(0, value)
         else:
             self._show_placeholder()
 
     def _show_placeholder(self):
         """Shows the placeholder text."""
-        self._tk_widget.delete(0, tk.END)
+        if self._is_password:
+            self._tk_widget.configure(show="")
+        self._tk_widget.delete(0, END)
         self._tk_widget.insert(0, self._placeholder)
         self._tk_widget.configure(fg="#999999")
 
@@ -1500,7 +1675,7 @@ class Image:
         >>> img = Image(container, source='logo.png')
         >>> img.Load('new_image.jpg')  # Load different image
     """
-    def __init__(self, master, source=None, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, source=None, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Source': source,
@@ -1522,7 +1697,7 @@ class Image:
             parent = master
         
         bg_color = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
-        self._tk_widget = tk.Label(parent, bg=bg_color)
+        self._tk_widget = Native.Label(parent, bg=bg_color)
         
         if not use_grid:
             self._tk_widget.pack(side=side)
@@ -1537,13 +1712,7 @@ class Image:
         self.MouseLeave = lambda sender, e: None
         
         # Bind events
-        self._tk_widget.bind("<Button-1>", lambda e: self.Click(self, EventArgs(e)))
-        self._tk_widget.bind("<Double-Button-1>", lambda e: self.DoubleClick(self, EventArgs(e)))
-        self._tk_widget.bind("<ButtonPress>", lambda e: self.MouseDown(self, EventArgs(e)))
-        self._tk_widget.bind("<ButtonRelease>", lambda e: self.MouseUp(self, EventArgs(e)))
-        self._tk_widget.bind("<Motion>", lambda e: self.MouseMove(self, EventArgs(e)))
-        self._tk_widget.bind("<Enter>", lambda e: self.MouseEnter(self, EventArgs(e)))
-        self._tk_widget.bind("<Leave>", lambda e: self.MouseLeave(self, EventArgs(e)))
+        _bind_standard_mouse_events(self._tk_widget, self)
 
         if defaults['Source']:
             self.Load(defaults['Source'])
@@ -1563,13 +1732,13 @@ class Image:
         
         # Fallback for GIF/PGM/PPM without Pillow
         try:
-            self._image = tk.PhotoImage(file=source)
+            self._image = Native.PhotoImage(file=source)
             self._tk_widget.configure(image=self._image)
         except:
             self._tk_widget.configure(text=f"[Image: {source}]")
 
 # =============================================================================
-# ADDITIONAL MAUI COMPONENTS
+# NAVIGATION & INTERACTIVE COMPONENTS
 # =============================================================================
 
 class FlyoutMenu:
@@ -1616,14 +1785,14 @@ class FlyoutMenu:
         else:
             parent = master
             
-        self._frame = tk.Frame(parent, bg=self._back_color)
-        self._frame.pack(fill=tk.BOTH, expand=True)
+        self._frame = Native.Frame(parent, bg=self._back_color)
+        self._frame.pack(fill=BOTH, expand=True)
         
     def AddItem(self, text, command=None, icon=""):
         """Adds a menu item."""
         display_text = f"{icon}  {text}" if icon else text
         
-        btn = tk.Button(
+        btn = Native.Button(
             self._frame,
             text=display_text,
             font=self._font,
@@ -1635,7 +1804,7 @@ class FlyoutMenu:
             pady=12,
             cursor="hand2"
         )
-        btn.pack(fill=tk.X)
+        btn.pack(fill=X)
         
         if command:
             btn.configure(command=command)
@@ -1667,7 +1836,7 @@ class CarouselView:
         >>> carousel = CarouselView(container)
         >>> carousel.SetItems(['Slide 1', 'Slide 2', 'Slide 3'])
     """
-    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'BackColor': None,
@@ -1695,28 +1864,28 @@ class CarouselView:
         
         bg_color = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
         
-        self._frame = tk.Frame(parent, bg=bg_color, **kwargs)
+        self._frame = Native.Frame(parent, bg=bg_color, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
-            self._frame.pack(side=side, fill=tk.BOTH, expand=True)
+            self._frame.pack(side=side, fill=BOTH, expand=True)
         
         # Content area
-        self._content = tk.Frame(self._frame, bg=bg_color)
-        self._content.pack(fill=tk.BOTH, expand=True)
+        self._content = Native.Frame(self._frame, bg=bg_color)
+        self._content.pack(fill=BOTH, expand=True)
         
         # Navigation
-        self._nav = tk.Frame(self._frame, bg=bg_color)
-        self._nav.pack(fill=tk.X, pady=10)
+        self._nav = Native.Frame(self._frame, bg=bg_color)
+        self._nav.pack(fill=X, pady=10)
         
-        self._prev_btn = tk.Button(self._nav, text="◀", command=self._prev, font=defaults['NavButtonFont'])
-        self._prev_btn.pack(side=tk.LEFT, padx=20)
+        self._prev_btn = Native.Button(self._nav, text="◀", command=self._prev, font=defaults['NavButtonFont'])
+        self._prev_btn.pack(side=LEFT, padx=20)
         
-        self._indicator = tk.Label(self._nav, text="0 / 0", font=defaults['IndicatorFont'], bg=bg_color)
-        self._indicator.pack(side=tk.LEFT, expand=True)
+        self._indicator = Native.Label(self._nav, text="0 / 0", font=defaults['IndicatorFont'], bg=bg_color)
+        self._indicator.pack(side=LEFT, expand=True)
         
-        self._next_btn = tk.Button(self._nav, text="▶", command=self._next, font=defaults['NavButtonFont'])
-        self._next_btn.pack(side=tk.RIGHT, padx=20)
+        self._next_btn = Native.Button(self._nav, text="▶", command=self._next, font=defaults['NavButtonFont'])
+        self._next_btn.pack(side=RIGHT, padx=20)
         
     def SetItems(self, items):
         """Sets the carousel items."""
@@ -1727,8 +1896,8 @@ class CarouselView:
     def _update_view(self):
         """Updates the current view."""
         # Clear content
-        for child in self._content.winfo_children():
-            child.destroy()
+        for child in Native.GetChildren(self._content):
+            Native.Destroy(child)
             
         if not self._items:
             self._indicator.configure(text="0 / 0")
@@ -1736,7 +1905,7 @@ class CarouselView:
             
         # Show current item
         item = self._items[self._current_index]
-        lbl = tk.Label(
+        lbl = Native.Label(
             self._content,
             text=str(item),
             font=("Segoe UI", 16),
@@ -1782,50 +1951,47 @@ class ToastNotification:
     @staticmethod
     def Show(master, message, duration=2000):
         """Shows a toast notification."""
-        # Find root window
-        root = master
-        if hasattr(master, '_root'):
-            root = master._root
-        elif hasattr(master, '_frame'):
-            root = master._frame.winfo_toplevel()
-        elif hasattr(master, 'winfo_toplevel'):
-            root = master.winfo_toplevel()
+        try:
+            # Use centralized WinFormPy utility to resolve the root window
+            root = get_tk_root(master)
+            if not root:
+                return
+                
+            # Create toast
+            toast = Native.Toplevel(root)
+            Native.Overrideredirect(toast, True)
             
-        # Create toast
-        toast = tk.Toplevel(root)
-        toast.overrideredirect(True)
-        
-        # Style
-        frame = tk.Frame(toast, bg="#333333", padx=20, pady=10)
-        frame.pack()
-        
-        label = tk.Label(
-            frame,
-            text=message,
-            font=("Segoe UI", 10),
-            bg="#333333",
-            fg="white"
-        )
-        label.pack()
-        
-        # Position at bottom center
-        toast.update_idletasks()
-        w = toast.winfo_width()
-        h = toast.winfo_height()
-        
-        root.update_idletasks()
-        rx = root.winfo_rootx()
-        ry = root.winfo_rooty()
-        rw = root.winfo_width()
-        rh = root.winfo_height()
-        
-        x = rx + (rw - w) // 2
-        y = ry + rh - h - 50
-        
-        toast.geometry(f"+{x}+{y}")
-        
-        # Auto-close
-        toast.after(duration, toast.destroy)
+            # Style
+            frame = Native.Frame(toast, bg="#333333", padx=20, pady=10)
+            frame.pack()
+            
+            label = Native.Label(
+                frame,
+                text=message,
+                font=("Segoe UI", 10),
+                bg="#333333",
+                fg="white"
+            )
+            label.pack()
+            
+            # Position at bottom center
+            Native.Update(toast)
+            tw, th = Native.GetSize(toast)
+            
+            Native.Update(root)
+            rx, ry = Native.GetPosition(root)
+            rw, rh = Native.GetSize(root)
+            
+            x = rx + (rw - tw) // 2
+            y = ry + rh - th - 50
+            
+            Native.Geometry(toast, f"+{x}+{y}")
+            
+            # Auto-close
+            Native.Wait(toast, duration, lambda: Native.Destroy(toast) if Native.Exists(toast) else None)
+        except (Native.TclError, RuntimeError):
+            # Application or widget destroyed during setup
+            pass
 
 
 class SearchBar:
@@ -1848,7 +2014,7 @@ class SearchBar:
         >>> search = SearchBar(header, placeholder='Search products...')
         >>> search.SearchCommand = lambda query: filter_results(query)
     """
-    def __init__(self, master, placeholder="Search...", side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, placeholder="Search...", side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Placeholder': placeholder,
@@ -1878,20 +2044,20 @@ class SearchBar:
         else:
             parent = master
             
-        self._frame = tk.Frame(parent, bg=parent.cget("bg"), **kwargs)
+        self._frame = Native.Frame(parent, bg=parent.cget("bg"), **kwargs)
         self._tk_widget = self._frame # Alias for consistency
 
         if not use_grid:
-            self._frame.pack(side=side, fill=tk.X, padx=defaults['PaddingX'], pady=defaults['PaddingY'])
+            self._frame.pack(side=side, fill=X, padx=defaults['PaddingX'], pady=defaults['PaddingY'])
         
         # Search entry
-        self._entry = tk.Entry(
+        self._entry = Native.Entry(
             self._frame,
             font=defaults['Font'],
             bd=1,
-            relief=tk.SOLID
+            relief=SOLID
         )
-        self._entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._entry.pack(side=LEFT, fill=X, expand=True)
         self._entry.insert(0, self._placeholder)
         self._entry.configure(fg=self._placeholder_color)
         
@@ -1901,18 +2067,18 @@ class SearchBar:
         self._entry.bind("<Return>", lambda e: self._on_search())
         
         # Search button
-        self._btn = tk.Button(
+        self._btn = Native.Button(
             self._frame,
             text=defaults['ButtonText'],
             font=defaults['ButtonFont'],
             bd=1,
             command=self._on_search
         )
-        self._btn.pack(side=tk.RIGHT, padx=(5, 0))
+        self._btn.pack(side=RIGHT, padx=(5, 0))
         
     def _on_focus_in(self, event):
         if self._entry.get() == self._placeholder:
-            self._entry.delete(0, tk.END)
+            self._entry.delete(0, END)
             self._entry.configure(fg=self._fg_color)
             
     def _on_focus_out(self, event):
@@ -1932,7 +2098,7 @@ class SearchBar:
         
     @Text.setter
     def Text(self, value):
-        self._entry.delete(0, tk.END)
+        self._entry.delete(0, END)
         if value:
             self._entry.configure(fg="#333333")
             self._entry.insert(0, value)
@@ -1962,7 +2128,7 @@ class ChipTag:
         >>> chip = ChipTag(container, text='Python', closable=True)
         >>> chip.CloseCommand = lambda: remove_filter('Python')
     """
-    def __init__(self, master, text="Tag", closable=False, side=tk.LEFT, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, text="Tag", closable=False, side=LEFT, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Text': text,
@@ -1990,7 +2156,7 @@ class ChipTag:
         else:
             parent = master
             
-        self._frame = tk.Frame(parent, bg=self._back_color, 
+        self._frame = Native.Frame(parent, bg=self._back_color, 
                               padx=defaults['PaddingX'], pady=defaults['PaddingY'], **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
@@ -1998,18 +2164,18 @@ class ChipTag:
             self._frame.pack(side=side, padx=2, pady=2)
         
         # Text
-        self._label = tk.Label(
+        self._label = Native.Label(
             self._frame,
             text=defaults['Text'],
             font=self._font,
             bg=self._back_color,
             fg=self._fore_color
         )
-        self._label.pack(side=tk.LEFT)
+        self._label.pack(side=LEFT)
         
         # Close button
         if defaults['Closable']:
-            self._close_btn = tk.Button(
+            self._close_btn = Native.Button(
                 self._frame,
                 text="×",
                 font=self._font,
@@ -2020,11 +2186,11 @@ class ChipTag:
                 cursor="hand2",
                 command=self._on_close
             )
-            self._close_btn.pack(side=tk.LEFT, padx=(5, 0))
+            self._close_btn.pack(side=LEFT, padx=(5, 0))
             
     def _on_close(self):
         self.Close(self, EventArgs())
-        self._frame.destroy()
+        Native.Destroy(self._frame)
         
     @property
     def Text(self):
@@ -2058,7 +2224,7 @@ class Stepper:
         >>> qty = Stepper(cart, min_val=1, max_val=10, value=1)
         >>> qty.ValueChanged = lambda v: update_total(v)
     """
-    def __init__(self, master, min_val=0, max_val=100, step=1, value=0, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, min_val=0, max_val=100, step=1, value=0, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Minimum': min_val,
@@ -2090,41 +2256,41 @@ class Stepper:
         
         bg_color = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
         
-        self._frame = tk.Frame(parent, bg=bg_color, **kwargs)
+        self._frame = Native.Frame(parent, bg=bg_color, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
             self._frame.pack(side=side, pady=5)
         
         # Minus button
-        self._minus_btn = tk.Button(
+        self._minus_btn = Native.Button(
             self._frame,
             text="-",
             font=defaults['ButtonFont'],
             width=defaults['ButtonWidth'],
             command=self._decrement
         )
-        self._minus_btn.pack(side=tk.LEFT)
+        self._minus_btn.pack(side=LEFT)
         
         # Value label
-        self._value_label = tk.Label(
+        self._value_label = Native.Label(
             self._frame,
             text=str(self._value),
             font=defaults['ValueFont'],
             width=defaults['ValueWidth'],
             bg=bg_color
         )
-        self._value_label.pack(side=tk.LEFT, padx=10)
+        self._value_label.pack(side=LEFT, padx=10)
         
         # Plus button
-        self._plus_btn = tk.Button(
+        self._plus_btn = Native.Button(
             self._frame,
             text="+",
             font=defaults['ButtonFont'],
             width=defaults['ButtonWidth'],
             command=self._increment
         )
-        self._plus_btn.pack(side=tk.LEFT)
+        self._plus_btn.pack(side=LEFT)
         
     def _increment(self):
         new_val = min(self._max, self._value + self._step)
@@ -2192,54 +2358,54 @@ class PopUpFlyout:
         self._width = defaults['Width']
         self._height = defaults['Height']
         
-        # Find root
-        root = master
-        if hasattr(master, '_root'):
-            root = master._root
-        elif hasattr(master, '_frame'):
-            root = master._frame.winfo_toplevel()
+        # Resolve root window using centralized utility
+        root = get_tk_root(master)
             
-        self._popup = tk.Toplevel(root)
-        self._popup.withdraw()
-        self._popup.overrideredirect(True)
-        self._popup.geometry(f"{self._width}x{self._height}")
+        self._popup = Native.Toplevel(root)
+        Native.Withdraw(self._popup)
+        Native.Overrideredirect(self._popup, True)
+        Native.Geometry(self._popup, f"{self._width}x{self._height}")
         
         # Content frame
-        self._frame = tk.Frame(self._popup, bg=defaults['BackColor'], 
-                              bd=defaults['BorderWidth'], relief=tk.SOLID)
-        self._frame.pack(fill=tk.BOTH, expand=True)
+        self._frame = Native.Frame(self._popup, bg=defaults['BackColor'], 
+                              bd=defaults['BorderWidth'], relief=SOLID)
+        self._frame.pack(fill=BOTH, expand=True)
         
         # Close on click outside
         self._popup.bind("<FocusOut>", lambda e: self.Hide())
         
     def Show(self, x=None, y=None):
         """Shows the popup at specified coordinates."""
-        if x is None or y is None:
-            # Center on parent
-            root = self._popup.master
-            root.update_idletasks()
-            rx = root.winfo_rootx()
-            ry = root.winfo_rooty()
-            rw = root.winfo_width()
-            rh = root.winfo_height()
-            
-            x = rx + (rw - self._width) // 2
-            y = ry + (rh - self._height) // 2
-            
-        self._popup.geometry(f"+{x}+{y}")
-        self._popup.deiconify()
-        self._popup.lift()
-        self._popup.focus_set()
-        
+        try:
+            if x is None or y is None:
+                # Center on parent
+                root = self._popup.master
+                Native.Update(root)
+                rx, ry = Native.GetPosition(root)
+                rw, rh = Native.GetSize(root)
+                
+                x = rx + (rw - self._width) // 2
+                y = ry + (rh - self._height) // 2
+                
+            Native.Geometry(self._popup, f"+{x}+{y}")
+            Native.Deiconify(self._popup)
+            Native.Lift(self._popup)
+            Native.Focus(self._popup)
+        except (Native.TclError, RuntimeError):
+            pass
+
     def Hide(self):
         """Hides the popup."""
-        self._popup.withdraw()
+        if Native.Exists(self._popup):
+            Native.Withdraw(self._popup)
         
     @property
     def Content(self):
         """Returns the content frame."""
         return self._frame
 
+
+############# Form Input Controls #############
 
 # =============================================================================
 # SWITCH - Toggle Control
@@ -2267,11 +2433,11 @@ class Switch:
         >>> dark_mode = Switch(settings, is_toggled=False)
         >>> dark_mode.Toggled = lambda state: toggle_theme(state)
     """
-    def __init__(self, master, is_toggled=False, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, is_toggled=False, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'IsToggled': is_toggled,
-            'OnColor': '#512BD4',
+            'OnColor': '#0078D4',
             'OffColor': '#CCCCCC',
             'ThumbColor': 'white',
             'Width': 50,
@@ -2314,7 +2480,7 @@ class Switch:
             parent = master
             
         # Create canvas for drawing
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             parent,
             width=self._width,
             height=self._height,
@@ -2419,7 +2585,7 @@ class CheckBox:
         >>> agree = CheckBox(form, text='I agree to the terms', is_checked=False)
         >>> agree.CheckedChanged = lambda checked: enable_submit(checked)
     """
-    def __init__(self, master, text="", is_checked=False, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, text="", is_checked=False, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Text': text,
@@ -2464,14 +2630,14 @@ class CheckBox:
         self._bg = parent.cget("bg")
             
         # Container frame
-        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._frame = Native.Frame(parent, bg=self._bg, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
             self._frame.pack(side=side, anchor="w", pady=3)
         
         # Canvas for checkbox
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             self._frame,
             width=self._box_size,
             height=self._box_size,
@@ -2479,10 +2645,10 @@ class CheckBox:
             highlightthickness=0,
             cursor="hand2"
         )
-        self._canvas.pack(side=tk.LEFT)
+        self._canvas.pack(side=LEFT)
         
         # Label
-        self._label = tk.Label(
+        self._label = Native.Label(
             self._frame,
             text=self._text,
             font=("Segoe UI", 10),
@@ -2490,7 +2656,7 @@ class CheckBox:
             bg=self._bg,
             cursor="hand2"
         )
-        self._label.pack(side=tk.LEFT, padx=(8, 0))
+        self._label.pack(side=LEFT, padx=(8, 0))
         
         # Draw initial state
         self._draw()
@@ -2592,7 +2758,7 @@ class RadioButton:
         >>> opt1 = RadioButton(form, text='Option A', value='A', group=group)
         >>> opt2 = RadioButton(form, text='Option B', value='B', group=group)
     """
-    def __init__(self, master, text="", value=None, group=None, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, text="", value=None, group=None, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Text': text,
@@ -2632,14 +2798,14 @@ class RadioButton:
         self._bg = parent.cget("bg")
             
         # Container frame
-        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._frame = Native.Frame(parent, bg=self._bg, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
             self._frame.pack(side=side, anchor="w", pady=3)
         
         # Canvas for radio button
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             self._frame,
             width=self._radio_size,
             height=self._radio_size,
@@ -2647,10 +2813,10 @@ class RadioButton:
             highlightthickness=0,
             cursor="hand2"
         )
-        self._canvas.pack(side=tk.LEFT)
+        self._canvas.pack(side=LEFT)
         
         # Label
-        self._label = tk.Label(
+        self._label = Native.Label(
             self._frame,
             text=self._text,
             font=("Segoe UI", 10),
@@ -2658,7 +2824,7 @@ class RadioButton:
             bg=self._bg,
             cursor="hand2"
         )
-        self._label.pack(side=tk.LEFT, padx=(8, 0))
+        self._label.pack(side=LEFT, padx=(8, 0))
         
         # Draw initial state
         self._draw()
@@ -2816,7 +2982,7 @@ class Picker:
         >>> colors = Picker(form, items=['Red', 'Green', 'Blue'], title='Choose color')
         >>> colors.SelectedIndexChanged = lambda idx: apply_color(colors.SelectedItem)
     """
-    def __init__(self, master, items=None, title="Select", side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, items=None, title="Select", side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Items': items or [],
@@ -2842,27 +3008,32 @@ class Picker:
             
         self._bg = parent.cget("bg")
             
+        # Determine width (convert pixels to chars if provided)
+        width_pixels = kwargs.pop('width', None)
+        tk_width = width_pixels // 8 if width_pixels and width_pixels > 40 else width_pixels
+
         # Frame
-        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._frame = Native.Frame(parent, bg=self._bg, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
-            self._frame.pack(side=side, fill=tk.X, pady=5)
+            self._frame.pack(side=side, anchor="w", pady=5)
         
         # Combobox using ttk
-        style = ttk.Style()
+        style = Native.Style()
         style.configure("Picker.TCombobox", padding=5)
         
-        self._var = tk.StringVar()
-        self._combo = ttk.Combobox(
+        self._var = Native.StringVar()
+        self._combo = Native.Combobox(
             self._frame,
             textvariable=self._var,
             values=self._items,
             state="readonly",
             font=("Segoe UI", 10),
-            style="Picker.TCombobox"
+            style="Picker.TCombobox",
+            width=tk_width
         )
-        self._combo.pack(fill=tk.X)
+        self._combo.pack(fill=X if not tk_width else None)
         
         if self._items:
             self._combo.set(self._title)
@@ -2935,7 +3106,7 @@ class Slider:
         >>> volume = Slider(settings, minimum=0, maximum=100, value=50)
         >>> volume.ValueChanged = lambda v: set_volume(int(v))
     """
-    def __init__(self, master, minimum=0, maximum=100, value=0, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, minimum=0, maximum=100, value=0, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Minimum': minimum,
@@ -2988,7 +3159,7 @@ class Slider:
         self._bg = parent.cget("bg")
             
         # Canvas
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             parent,
             width=self._width,
             height=self._height,
@@ -3133,7 +3304,7 @@ class Editor:
         >>> notes = Editor(form, placeholder='Enter your notes here...')
         >>> notes.TextChanged = lambda text: auto_save(text)
     """
-    def __init__(self, master, placeholder="", side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, placeholder="", side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Placeholder': placeholder,
@@ -3166,26 +3337,26 @@ class Editor:
         self._bg = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
             
         # Frame
-        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._frame = Native.Frame(parent, bg=self._bg, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
-            self._frame.pack(side=side, fill=tk.X, pady=5)
+            self._frame.pack(side=side, fill=X, pady=5)
         
         # Text widget with scrollbar
-        self._scrollbar = ttk.Scrollbar(self._frame)
-        self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self._scrollbar = Native.Scrollbar(self._frame)
+        self._scrollbar.pack(side=RIGHT, fill=Y)
         
-        self._text = tk.Text(
+        self._text = Native.Text(
             self._frame,
             font=self._font,
-            wrap=tk.WORD,
+            wrap=WORD,
             bd=1,
-            relief=tk.SOLID,
+            relief=SOLID,
             height=self._height // 20,  # Approximate lines
             yscrollcommand=self._scrollbar.set
         )
-        self._text.pack(fill=tk.BOTH, expand=True)
+        self._text.pack(fill=BOTH, expand=True)
         
         self._scrollbar.config(command=self._text.yview)
         
@@ -3200,7 +3371,7 @@ class Editor:
         
     def _show_placeholder(self):
         """Shows placeholder text."""
-        if not self._text.get("1.0", tk.END).strip():
+        if not self._text.get("1.0", END).strip():
             self._text.insert("1.0", self._placeholder)
             self._text.config(fg=self._placeholder_color)
             self._showing_placeholder = True
@@ -3208,13 +3379,13 @@ class Editor:
     def _on_focus_in(self, event):
         """Clears placeholder on focus."""
         if self._showing_placeholder:
-            self._text.delete("1.0", tk.END)
+            self._text.delete("1.0", END)
             self._text.config(fg=self._fg_color)
             self._showing_placeholder = False
             
     def _on_focus_out(self, event):
         """Shows placeholder if empty."""
-        if not self._text.get("1.0", tk.END).strip():
+        if not self._text.get("1.0", END).strip():
             self._show_placeholder()
             
     def _on_key_release(self, event):
@@ -3226,11 +3397,11 @@ class Editor:
     def Text(self):
         if self._showing_placeholder:
             return ""
-        return self._text.get("1.0", tk.END).strip()
+        return self._text.get("1.0", END).strip()
         
     @Text.setter
     def Text(self, value):
-        self._text.delete("1.0", tk.END)
+        self._text.delete("1.0", END)
         if value:
             self._text.config(fg="#333333")
             self._text.insert("1.0", value)
@@ -3246,6 +3417,8 @@ class Editor:
     def Placeholder(self, value):
         self._placeholder = value
 
+
+############# Date & Time Controls #############
 
 # =============================================================================
 # DATEPICKER - Date Selection Control
@@ -3280,7 +3453,7 @@ class DatePicker:
         >>> birth_date.MaximumDate = date.today()
         >>> birth_date.DateSelected = lambda d: validate_age(d)
     """
-    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Date': datetime.now().date(),
@@ -3309,21 +3482,21 @@ class DatePicker:
         self._bg = parent.cget("bg")
             
         # Main frame
-        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._frame = Native.Frame(parent, bg=self._bg, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
-            self._frame.pack(side=side, fill=tk.X, pady=5)
+            self._frame.pack(side=side, fill=X, pady=5)
         
         # Entry for date display
-        self._entry = ttk.Entry(self._frame, width=15)
-        self._entry.pack(side=tk.LEFT, padx=(0, 5))
+        self._entry = Native.Entry(self._frame, width=15)
+        self._entry.pack(side=LEFT, padx=(0, 5))
         self._entry.insert(0, self._date.strftime(self._format))
         self._entry.bind("<Return>", self._parse_entry)
         
         # Calendar button
-        self._btn = ttk.Button(self._frame, text="📅", width=3, command=self._show_calendar)
-        self._btn.pack(side=tk.LEFT)
+        self._btn = tNative.Button(self._frame, text="📅", width=3, command=self._show_calendar)
+        self._btn.pack(side=LEFT)
         
         self._calendar_popup = None
         
@@ -3336,7 +3509,7 @@ class DatePicker:
                 if self.DateSelected:
                     self.DateSelected(self._date)
         except ValueError:
-            self._entry.delete(0, tk.END)
+            self._entry.delete(0, END)
             self._entry.insert(0, self._date.strftime(self._format))
             
     def _validate_date(self, date):
@@ -3349,63 +3522,63 @@ class DatePicker:
         
     def _show_calendar(self):
         """Shows calendar popup."""
-        if self._calendar_popup and self._calendar_popup.winfo_exists():
-            self._calendar_popup.destroy()
+        if Native.Exists(self._calendar_popup):
+            Native.Destroy(self._calendar_popup)
             return
             
         # Get root window
-        root = self._frame.winfo_toplevel()
+        root = Native.GetRoot(self._frame)
         
         # Create popup
-        self._calendar_popup = tk.Toplevel(root)
-        self._calendar_popup.wm_overrideredirect(True)
+        self._calendar_popup = Native.Toplevel(root)
+        Native.Overrideredirect(self._calendar_popup, True)
         
         # Position near button
-        x = self._btn.winfo_rootx()
-        y = self._btn.winfo_rooty() + self._btn.winfo_height()
-        self._calendar_popup.geometry(f"+{x}+{y}")
+        bx, by = Native.GetPosition(self._btn)
+        _, bh = Native.GetSize(self._btn)
+        Native.Geometry(self._calendar_popup, f"+{bx}+{by + bh}")
         
         # Calendar frame
-        cal_frame = tk.Frame(self._calendar_popup, bg="white", bd=1, relief=tk.SOLID)
+        cal_frame = Native.Frame(self._calendar_popup, bg="white", bd=1, relief=SOLID)
         cal_frame.pack()
         
         # Month/Year navigation
-        nav_frame = tk.Frame(cal_frame, bg="white")
-        nav_frame.pack(fill=tk.X, padx=5, pady=5)
+        nav_frame = Native.Frame(cal_frame, bg="white")
+        nav_frame.pack(fill=X, padx=5, pady=5)
         
         self._display_month = self._date.month
         self._display_year = self._date.year
         
-        tk.Button(nav_frame, text="<", command=self._prev_month, width=2).pack(side=tk.LEFT)
-        self._month_label = tk.Label(nav_frame, bg="white", font=("Segoe UI", 10, "bold"))
-        self._month_label.pack(side=tk.LEFT, expand=True, fill=tk.X)
-        tk.Button(nav_frame, text=">", command=self._next_month, width=2).pack(side=tk.RIGHT)
+        Native.Button(nav_frame, text="<", command=self._prev_month, width=2).pack(side=LEFT)
+        self._month_label = Native.Label(nav_frame, bg="white", font=("Segoe UI", 10, "bold"))
+        self._month_label.pack(side=LEFT, expand=True, fill=X)
+        Native.Button(nav_frame, text=">", command=self._next_month, width=2).pack(side=RIGHT)
         
         # Days grid frame
-        self._days_frame = tk.Frame(cal_frame, bg="white")
+        self._days_frame = Native.Frame(cal_frame, bg="white")
         self._days_frame.pack(padx=5, pady=5)
         
         self._draw_calendar()
         
         # Close on click outside
         self._calendar_popup.bind("<FocusOut>", lambda e: self._close_calendar_delayed())
-        self._calendar_popup.focus_set()
+        Native.Focus(self._calendar_popup)
         
     def _close_calendar_delayed(self):
         """Closes calendar with delay to allow button clicks."""
         if self._calendar_popup:
-            self._frame.after(100, self._safe_close_calendar)
+            Native.Wait(self._frame, 100, self._safe_close_calendar)
             
     def _safe_close_calendar(self):
         """Safely closes calendar if it exists."""
-        if self._calendar_popup and self._calendar_popup.winfo_exists():
-            self._calendar_popup.destroy()
+        if Native.Exists(self._calendar_popup):
+            Native.Destroy(self._calendar_popup)
         
     def _draw_calendar(self):
         """Draws calendar grid."""
         # Clear previous
-        for widget in self._days_frame.winfo_children():
-            widget.destroy()
+        for widget in Native.GetChildren(self._days_frame):
+            Native.Destroy(widget)
             
         # Update label
         month_names = ["January", "February", "March", "April", "May", "June",
@@ -3415,7 +3588,7 @@ class DatePicker:
         # Day headers
         days = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
         for i, day in enumerate(days):
-            tk.Label(self._days_frame, text=day, bg="white", width=3, 
+            Native.Label(self._days_frame, text=day, bg="white", width=3, 
                     font=("Segoe UI", 8, "bold")).grid(row=0, column=i)
         
         # Get calendar data
@@ -3426,13 +3599,13 @@ class DatePicker:
         for row_idx, week in enumerate(month_days):
             for col_idx, day in enumerate(week):
                 if day == 0:
-                    tk.Label(self._days_frame, text="", bg="white", width=3).grid(row=row_idx+1, column=col_idx)
+                    Native.Label(self._days_frame, text="", bg="white", width=3).grid(row=row_idx+1, column=col_idx)
                 else:
                     btn_bg = "#0078D4" if (day == self._date.day and 
                                            self._display_month == self._date.month and 
                                            self._display_year == self._date.year) else "white"
                     btn_fg = "white" if btn_bg == "#0078D4" else "black"
-                    btn = tk.Label(self._days_frame, text=str(day), bg=btn_bg, fg=btn_fg,
+                    btn = Native.Label(self._days_frame, text=str(day), bg=btn_bg, fg=btn_fg,
                                   width=3, cursor="hand2")
                     btn.grid(row=row_idx+1, column=col_idx)
                     btn.bind("<Button-1>", lambda e, d=day: self._select_day(d))
@@ -3458,11 +3631,10 @@ class DatePicker:
         new_date = date(self._display_year, self._display_month, day)
         if self._validate_date(new_date):
             self._date = new_date
-            self._entry.delete(0, tk.END)
+            self._entry.delete(0, END)
             self._entry.insert(0, self._date.strftime(self._format))
             self.DateSelected(self, EventArgs(self._date))
-        if self._calendar_popup:
-            self._calendar_popup.destroy()
+        Native.Destroy(self._calendar_popup)
             
     @property
     def Date(self):
@@ -3472,7 +3644,7 @@ class DatePicker:
     def Date(self, value):
         if isinstance(value, date) and self._validate_date(value):
             self._date = value
-            self._entry.delete(0, tk.END)
+            self._entry.delete(0, END)
             self._entry.insert(0, self._date.strftime(self._format))
             
     @property
@@ -3520,7 +3692,7 @@ class TimePicker:
         >>> alarm_time.Time = time(7, 30, 0)
         >>> alarm_time.TimeSelected = lambda t: set_alarm(t)
     """
-    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Time': datetime.now().time(),
@@ -3545,44 +3717,44 @@ class TimePicker:
         self._bg = parent.cget("bg")
             
         # Main frame
-        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._frame = Native.Frame(parent, bg=self._bg, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
-            self._frame.pack(side=side, fill=tk.X, pady=5)
+            self._frame.pack(side=side, fill=X, pady=5)
         
         # Hour spinbox
-        self._hour_var = tk.StringVar(value=f"{self._time.hour:02d}")
-        self._hour_spin = ttk.Spinbox(
+        self._hour_var = Native.StringVar(value=f"{self._time.hour:02d}")
+        self._hour_spin = Native.Spinbox(
             self._frame, from_=0, to=23, width=3,
             textvariable=self._hour_var, format="%02.0f",
             command=self._on_time_change
         )
-        self._hour_spin.pack(side=tk.LEFT)
+        self._hour_spin.pack(side=LEFT)
         
         # Separator
-        tk.Label(self._frame, text=":", bg=self._bg, font=("Segoe UI", 12, "bold")).pack(side=tk.LEFT)
+        Native.Label(self._frame, text=":", bg=self._bg, font=("Segoe UI", 12, "bold")).pack(side=LEFT)
         
         # Minute spinbox
-        self._minute_var = tk.StringVar(value=f"{self._time.minute:02d}")
-        self._minute_spin = ttk.Spinbox(
+        self._minute_var = Native.StringVar(value=f"{self._time.minute:02d}")
+        self._minute_spin = Native.Spinbox(
             self._frame, from_=0, to=59, width=3,
             textvariable=self._minute_var, format="%02.0f",
             command=self._on_time_change
         )
-        self._minute_spin.pack(side=tk.LEFT)
+        self._minute_spin.pack(side=LEFT)
         
         # Separator
-        tk.Label(self._frame, text=":", bg=self._bg, font=("Segoe UI", 12, "bold")).pack(side=tk.LEFT)
+        Native.Label(self._frame, text=":", bg=self._bg, font=("Segoe UI", 12, "bold")).pack(side=LEFT)
         
         # Second spinbox
-        self._second_var = tk.StringVar(value=f"{self._time.second:02d}")
-        self._second_spin = ttk.Spinbox(
+        self._second_var = Native.StringVar(value=f"{self._time.second:02d}")
+        self._second_spin = Native.Spinbox(
             self._frame, from_=0, to=59, width=3,
             textvariable=self._second_var, format="%02.0f",
             command=self._on_time_change
         )
-        self._second_spin.pack(side=tk.LEFT)
+        self._second_spin.pack(side=LEFT)
         
         # Bind validation
         for spin in [self._hour_spin, self._minute_spin, self._second_spin]:
@@ -3646,6 +3818,8 @@ class TimePicker:
         return self._time.second
 
 
+############# Progress & Activity Controls #############
+
 # =============================================================================
 # ACTIVITYINDICATOR - Loading Spinner
 # =============================================================================
@@ -3676,7 +3850,7 @@ class ActivityIndicator:
         >>> # ... perform async operation ...
         >>> loader.Stop()   # Hide loading
     """
-    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Color': '#0078D4',
@@ -3704,14 +3878,14 @@ class ActivityIndicator:
         self._bg = parent.cget("bg")
             
         # Frame container
-        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._frame = Native.Frame(parent, bg=self._bg, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
             self._frame.pack(side=side, pady=5)
         
         # Canvas for drawing
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             self._frame, 
             width=self._size, 
             height=self._size,
@@ -3740,7 +3914,7 @@ class ActivityIndicator:
             cx - radius, cy - radius,
             cx + radius, cy + radius,
             start=start, extent=arc_length,
-            style=tk.ARC, outline=self._color, width=3
+            style=ARC, outline=self._color, width=3
         )
         
     def _animate(self):
@@ -3748,7 +3922,7 @@ class ActivityIndicator:
         if self._is_running:
             self._angle = (self._angle + 15) % 360
             self._draw()
-            self._animation_id = self._frame.after(50, self._animate)
+            self._animation_id = Native.Wait(self._frame, 50, self._animate)
             
     @property
     def IsRunning(self):
@@ -3761,7 +3935,7 @@ class ActivityIndicator:
             self._animate()
         else:
             if self._animation_id:
-                self._frame.after_cancel(self._animation_id)
+                Native.CancelWait(self._frame, self._animation_id)
                 self._animation_id = None
             self._draw()
             
@@ -3812,7 +3986,7 @@ class ProgressBar:
         >>> # Indeterminate progress
         >>> loading = ProgressBar(container, props={'IsIndeterminate': True})
     """
-    def __init__(self, master, side=tk.TOP, use_grid=False, props=None, **kwargs):
+    def __init__(self, master, side=TOP, use_grid=False, props=None, **kwargs):
         # Default values - WinFormPy style
         defaults = {
             'Progress': 0.0,
@@ -3844,20 +4018,20 @@ class ProgressBar:
         self._bg = parent.cget("bg")
             
         # Frame
-        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
+        self._frame = Native.Frame(parent, bg=self._bg, **kwargs)
         self._tk_widget = self._frame # Alias for consistency
         
         if not use_grid:
-            self._frame.pack(side=side, fill=tk.X, pady=5)
+            self._frame.pack(side=side, fill=X, pady=5)
         
         # Canvas for progress
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             self._frame,
             height=self._height,
             bg=self._track_color,
             highlightthickness=0
         )
-        self._canvas.pack(fill=tk.X)
+        self._canvas.pack(fill=X)
         
         # Bind resize
         self._canvas.bind("<Configure>", lambda e: self._draw())
@@ -3869,7 +4043,7 @@ class ProgressBar:
         """Draws the progress bar."""
         self._canvas.delete("all")
         
-        width = self._canvas.winfo_width()
+        width = Native.GetSize(self._canvas)[0]
         height = self._height
         
         if self._is_indeterminate:
@@ -3893,7 +4067,7 @@ class ProgressBar:
     def _animate_indeterminate(self):
         """Animates indeterminate progress."""
         if self._is_indeterminate:
-            width = self._canvas.winfo_width()
+            width = Native.GetSize(self._canvas)[0]
             seg_width = width // 4
             
             self._indeterminate_pos += 5
@@ -3901,7 +4075,7 @@ class ProgressBar:
                 self._indeterminate_pos = -seg_width
                 
             self._draw()
-            self._animation_id = self._frame.after(30, self._animate_indeterminate)
+            self._animation_id = Native.Wait(self._frame, 30, self._animate_indeterminate)
             
     @property
     def Progress(self):
@@ -3924,7 +4098,7 @@ class ProgressBar:
             self._animate_indeterminate()
         else:
             if self._animation_id:
-                self._frame.after_cancel(self._animation_id)
+                Native.CancelWait(self._frame, self._animation_id)
                 self._animation_id = None
             self._draw()
             
@@ -3937,6 +4111,8 @@ class ProgressBar:
         self._color = value
         self._draw()
 
+
+############# Container & Card Controls #############
 
 # =============================================================================
 # FRAME - Bordered Container
@@ -3971,6 +4147,7 @@ class Frame:
             'BackgroundColor': 'white',
             'CornerRadius': 5,
             'Padding': 10,
+            'Height': None,
             'HasShadow': False
         }
         
@@ -3983,7 +4160,9 @@ class Frame:
         self._background_color = defaults['BackgroundColor']
         self._corner_radius = defaults['CornerRadius']
         self._padding = defaults['Padding']
+        self._height = defaults['Height']
         self._has_shadow = defaults['HasShadow']
+        self._pack_propagate = True
         
         # Determine parent
         if hasattr(master, '_frame'):
@@ -3995,8 +4174,8 @@ class Frame:
             
         # Outer frame for shadow effect
         if self._has_shadow:
-            self._shadow_frame = tk.Frame(parent, bg="#AAAAAA")
-            self._shadow_frame.pack(fill=tk.X, pady=(5, 7), padx=(5, 7))
+            self._shadow_frame = Native.Frame(parent, bg="#AAAAAA")
+            self._shadow_frame.pack(fill=X, pady=(5, 7), padx=(5, 7))
             container_parent = self._shadow_frame
             pack_pady = (0, 2)
             pack_padx = (0, 2)
@@ -4005,25 +4184,33 @@ class Frame:
             pack_pady = 5
             pack_padx = 0
             
-        # Main frame
-        self._frame = tk.Frame(
-            container_parent,
+        # Main frame — apply fixed height if specified
+        frame_kwargs = dict(
             bg=self._background_color,
             bd=1,
-            relief=tk.SOLID,
+            relief=SOLID,
             highlightbackground=self._border_color,
             highlightthickness=1
         )
-        self._frame.pack(fill=tk.X, pady=pack_pady, padx=pack_padx)
+        if self._height is not None:
+            frame_kwargs['height'] = self._height
+            
+        self._frame = Native.Frame(container_parent, **frame_kwargs)
+        self._frame.pack(fill=X, pady=pack_pady, padx=pack_padx)
+        
+        # Disable pack propagation when a fixed height is set
+        if self._height is not None:
+            self._pack_propagate = False
+            self._frame.pack_propagate(False)
         
         # Content frame with padding
-        self._content = tk.Frame(
+        self._content = Native.Frame(
             self._frame,
             bg=self._background_color,
             padx=self._padding,
             pady=self._padding
         )
-        self._content.pack(fill=tk.BOTH, expand=True)
+        self._content.pack(fill=BOTH, expand=True)
         
     @property
     def Content(self):
@@ -4048,6 +4235,77 @@ class Frame:
         self._background_color = value
         self._frame.config(bg=value)
         self._content.config(bg=value)
+
+    @property
+    def PackPropagate(self):
+        """Gets or sets whether the frame propagates child geometry.
+        
+        When False, the frame keeps its fixed size regardless of child content.
+        Typically used with the Height property for fixed-height containers.
+        """
+        return self._pack_propagate
+
+    @PackPropagate.setter
+    def PackPropagate(self, value):
+        self._pack_propagate = value
+        self._frame.pack_propagate(value)
+
+    @property
+    def Height(self):
+        """Gets or sets the fixed height of the frame."""
+        return self._height
+
+    @Height.setter
+    def Height(self, value):
+        self._height = value
+        if value is not None:
+            self._frame.config(height=value)
+            if not self._pack_propagate:
+                self._frame.pack_propagate(False)
+
+    def Show(self):
+        """Shows the frame (re-packs it)."""
+        self._frame.pack(fill=X, pady=5)
+
+    def Hide(self):
+        """Hides the frame (removes it from layout)."""
+        self._frame.pack_forget()
+
+    @property
+    def IsVisible(self):
+        """Gets whether the frame is currently visible."""
+        return Native.IsViewable(self._frame)
+
+    @IsVisible.setter
+    def IsVisible(self, value):
+        if value:
+            self.Show()
+        else:
+            self.Hide()
+
+    def Fill(self, control):
+        """Hosts a WinFormPy control inside this Frame, filling the entire content area.
+        
+        WinFormPy controls use `place()` geometry by default, which may not
+        integrate well with `pack()`-managed mauipy containers. This method
+        removes the `place()` positioning and instead packs the control to
+        fill the Frame's content area using `pack(fill=BOTH, expand=True)`.
+        
+        Args:
+            control: A WinFormPy control instance (e.g., CheckedListBox, ListBox).
+        
+        Example:
+            >>> wrapper = layout.AddChild(Frame, props={'Height': 200, 'Padding': 0})
+            >>> my_list = CheckedListBox(wrapper.Content, props={...})
+            >>> wrapper.Fill(my_list)
+        """
+        widget = (control.GetTkWidget() if hasattr(control, 'GetTkWidget') else getattr(control, '_tk_widget', None)) or getattr(control, '_container_frame', None)
+        if widget:
+            try:
+                widget.place_forget()
+            except Exception:
+                pass
+            widget.pack(in_=self._content, fill=BOTH, expand=True)
 
 
 # =============================================================================
@@ -4112,27 +4370,27 @@ class Card:
         
         current_parent = parent
         for i in range(min(self._elevation, len(shadow_colors))):
-            shadow = tk.Frame(current_parent, bg=shadow_colors[i])
-            shadow.pack(fill=tk.X, pady=(5, 3), padx=(5, 3))
+            shadow = Native.Frame(current_parent, bg=shadow_colors[i])
+            shadow.pack(fill=X, pady=(5, 3), padx=(5, 3))
             self._shadow_frames.append(shadow)
             current_parent = shadow
             
         # Main card frame
-        self._frame = tk.Frame(
+        self._frame = Native.Frame(
             current_parent,
             bg=self._background_color,
             bd=0,
-            relief=tk.FLAT
+            relief=FLAT
         )
-        self._frame.pack(fill=tk.X, pady=(0, self._elevation), padx=(0, self._elevation))
+        self._frame.pack(fill=X, pady=(0, self._elevation), padx=(0, self._elevation))
         
         # Header section (if title/subtitle)
         if self._title or self._subtitle:
-            self._header = tk.Frame(self._frame, bg=self._background_color)
-            self._header.pack(fill=tk.X, padx=self._padding, pady=(self._padding, 5))
+            self._header = Native.Frame(self._frame, bg=self._background_color)
+            self._header.pack(fill=X, padx=self._padding, pady=(self._padding, 5))
             
             if self._title:
-                self._title_label = tk.Label(
+                self._title_label = Native.Label(
                     self._header,
                     text=self._title,
                     font=("Segoe UI", 12, "bold"),
@@ -4140,10 +4398,10 @@ class Card:
                     fg="#333333",
                     anchor="w"
                 )
-                self._title_label.pack(fill=tk.X)
+                self._title_label.pack(fill=X)
                 
             if subtitle:
-                self._subtitle_label = tk.Label(
+                self._subtitle_label = Native.Label(
                     self._header,
                     text=subtitle,
                     font=("Segoe UI", 9),
@@ -4151,16 +4409,16 @@ class Card:
                     fg="#666666",
                     anchor="w"
                 )
-                self._subtitle_label.pack(fill=tk.X)
+                self._subtitle_label.pack(fill=X)
         
         # Content frame
-        self._content = tk.Frame(
+        self._content = Native.Frame(
             self._frame,
             bg=self._background_color,
             padx=self._padding,
             pady=self._padding if not (title or subtitle) else 5
         )
-        self._content.pack(fill=tk.BOTH, expand=True)
+        self._content.pack(fill=BOTH, expand=True)
         
     @property
     def Content(self):
@@ -4187,6 +4445,16 @@ class Card:
         if hasattr(self, '_subtitle_label'):
             self._subtitle_label.config(text=value)
 
+
+# SettingsCard relocated to winformpy.py (core Navigation control)
+# Re-exported here for backward compatibility
+try:
+    from .winformpy import SettingsCard
+except (ImportError, ValueError):
+    from winformpy import SettingsCard
+
+
+############# Notification & Overlay Controls #############
 
 # =============================================================================
 # BADGE - Notification Badge
@@ -4249,7 +4517,7 @@ class Badge:
         self._height = self._size
         
         # Canvas for rounded badge
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             parent,
             width=self._width,
             height=self._height,
@@ -4310,7 +4578,7 @@ class Badge:
         
     @property
     def IsVisible(self):
-        return self._canvas.winfo_viewable()
+        return Native.IsViewable(self._canvas)
         
     @IsVisible.setter
     def IsVisible(self, value):
@@ -4360,9 +4628,9 @@ class Expander:
             'IsExpanded': is_expanded,
             'HeaderBackColor': '#F5F5F5',
             'ContentBackColor': 'white',
-            'HeaderFont': ('Segoe UI', 10, 'bold'),
+            'HeaderFont': (DEFAULT_FONT_TEXT, 10, 'bold'),
             'HeaderForeColor': '#333333',
-            'IndicatorFont': ('Segoe UI', 8),
+            'IndicatorFont': (DEFAULT_FONT_ICONS, 10),
             'IndicatorColor': '#666666',
             'PaddingX': 10,
             'PaddingY': 10
@@ -4388,15 +4656,15 @@ class Expander:
         self._bg = parent.cget("bg")
             
         # Main container
-        self._frame = tk.Frame(parent, bg=self._bg, bd=1, relief=tk.SOLID)
-        self._frame.pack(fill=tk.X, pady=5)
+        self._frame = Native.Frame(parent, bg=self._bg, bd=1, relief=SOLID)
+        self._frame.pack(fill=X, pady=5)
         
         # Header (clickable)
-        self._header = tk.Frame(self._frame, bg=self._header_bg, cursor="hand2")
-        self._header.pack(fill=tk.X)
+        self._header = Native.Frame(self._frame, bg=self._header_bg, cursor="hand2")
+        self._header.pack(fill=X)
         
         # Expand/Collapse indicator
-        self._indicator = tk.Label(
+        self._indicator = Native.Label(
             self._header,
             text="▼" if self._is_expanded else "▶",
             font=defaults['IndicatorFont'],
@@ -4405,10 +4673,10 @@ class Expander:
             padx=defaults['PaddingX'],
             pady=8
         )
-        self._indicator.pack(side=tk.LEFT)
+        self._indicator.pack(side=LEFT)
         
         # Header label
-        self._header_label = tk.Label(
+        self._header_label = Native.Label(
             self._header,
             text=self._header_text,
             font=defaults['HeaderFont'],
@@ -4416,25 +4684,25 @@ class Expander:
             fg=defaults['HeaderForeColor'],
             pady=8
         )
-        self._header_label.pack(side=tk.LEFT, fill=tk.X, expand=True, anchor="w")
+        self._header_label.pack(side=LEFT, fill=X, expand=True, anchor="w")
         
         # Bind click events
         for widget in [self._header, self._indicator, self._header_label]:
             widget.bind("<Button-1>", self._toggle)
         
         # Content frame
-        self._content = tk.Frame(self._frame, bg=self._content_bg, 
+        self._content = Native.Frame(self._frame, bg=self._content_bg, 
                                 padx=defaults['PaddingX'], pady=defaults['PaddingY'])
         
         if self._is_expanded:
-            self._content.pack(fill=tk.BOTH, expand=True)
+            self._content.pack(fill=BOTH, expand=True)
             
     def _toggle(self, event=None):
         """Toggles expanded state."""
         self._is_expanded = not self._is_expanded
         
         if self._is_expanded:
-            self._content.pack(fill=tk.BOTH, expand=True)
+            self._content.pack(fill=BOTH, expand=True)
             self._indicator.config(text="▼")
         else:
             self._content.pack_forget()
@@ -4475,6 +4743,37 @@ class Expander:
         if self._is_expanded:
             self._toggle()
 
+    def Show(self, before=None):
+        """Shows the expander (re-packs it into the layout).
+        
+        Args:
+            before: Optional widget reference. If provided, the expander
+                    is inserted before this widget in the pack order.
+        """
+        if before is not None:
+            before_frame = before._frame if hasattr(before, '_frame') else before
+            self._frame.pack(fill=X, pady=5, before=before_frame)
+        else:
+            self._frame.pack(fill=X, pady=5)
+
+    def Hide(self):
+        """Hides the expander (removes it from layout)."""
+        self._frame.pack_forget()
+
+    @property
+    def IsVisible(self):
+        """Gets whether the expander is currently visible in the layout."""
+        return Native.IsViewable(self._frame)
+
+    @IsVisible.setter
+    def IsVisible(self, value):
+        if value:
+            self.Show()
+        else:
+            self.Hide()
+
+
+############# Material Design Controls #############
 
 # =============================================================================
 # FLOATING ACTION BUTTON (FAB) - Material Design FAB
@@ -4533,16 +4832,16 @@ class FloatingActionButton:
         
         # Get root window for positioning
         if hasattr(master, '_frame'):
-            self._root = master._frame.winfo_toplevel()
+            self._root = Native.GetRoot(master._frame) or master._frame
             parent = master._frame
         else:
-            self._root = master.winfo_toplevel() if hasattr(master, 'winfo_toplevel') else master
+            self._root = Native.GetRoot(master) or master
             parent = master
             
         self._bg = parent.cget("bg") if hasattr(parent, 'cget') else "white"
         
         # Canvas for circular button
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             parent,
             width=self._size,
             height=self._size,
@@ -4644,7 +4943,7 @@ class FloatingActionButton:
         
     @property
     def IsVisible(self):
-        return self._canvas.winfo_viewable()
+        return Native.IsViewable(self._canvas)
         
     @IsVisible.setter
     def IsVisible(self, value):
@@ -4716,25 +5015,22 @@ class BottomSheet:
         self._background_color = defaults['BackgroundColor']
         self.StateChanged = lambda sender, e: None
         
-        # Get root window
-        if hasattr(master, '_frame'):
-            self._root = master._frame.winfo_toplevel()
-        else:
-            self._root = master.winfo_toplevel() if hasattr(master, 'winfo_toplevel') else master
+        # Use centralized WinFormPy utility to resolve the root window
+        self._root = get_tk_root(master)
         
         # Create overlay (semi-transparent background)
-        self._overlay = tk.Frame(self._root, bg="#000000")
+        self._overlay = Native.Frame(self._root, bg="#000000")
         self._overlay.bind("<Button-1>", lambda e: self.Close())
         
         # Sheet frame
-        self._sheet = tk.Frame(self._root, bg=self._background_color)
+        self._sheet = Native.Frame(self._root, bg=self._background_color)
         
         # Handle bar
-        self._handle_frame = tk.Frame(self._sheet, bg=self._background_color, cursor="hand2")
-        self._handle_frame.pack(fill=tk.X, pady=10)
+        self._handle_frame = Native.Frame(self._sheet, bg=self._background_color, cursor="hand2")
+        self._handle_frame.pack(fill=X, pady=10)
         
         # Draw handle
-        self._handle = tk.Canvas(
+        self._handle = Native.Canvas(
             self._handle_frame,
             width=40, height=5,
             bg=self._background_color,
@@ -4745,7 +5041,7 @@ class BottomSheet:
         
         # Title (optional)
         if title:
-            self._title_label = tk.Label(
+            self._title_label = Native.Label(
                 self._sheet,
                 text=title,
                 font=("Segoe UI", 14, "bold"),
@@ -4755,8 +5051,8 @@ class BottomSheet:
             self._title_label.pack(pady=(0, 10))
         
         # Content frame
-        self._content = tk.Frame(self._sheet, bg=self._background_color, padx=20, pady=10)
-        self._content.pack(fill=tk.BOTH, expand=True)
+        self._content = Native.Frame(self._sheet, bg=self._background_color, padx=20, pady=10)
+        self._content.pack(fill=BOTH, expand=True)
         
         # Bind handle for dragging
         self._handle_frame.bind("<Button-1>", self._start_drag)
@@ -4793,33 +5089,38 @@ class BottomSheet:
         if self._is_open:
             return
             
-        self._is_open = True
-        
-        # Show overlay with transparency effect
-        self._overlay.place(x=0, y=0, relwidth=1, relheight=1)
-        self._overlay.lift()
-        
-        # Position sheet at bottom
-        self._root.update_idletasks()
-        root_height = self._root.winfo_height()
-        root_width = self._root.winfo_width()
-        
-        self._sheet.place(x=0, y=root_height - self._height, 
-                         width=root_width, height=self._height)
-        self._sheet.lift()
-        
-        self.StateChanged(self, EventArgs(True))
+        try:
+            self._is_open = True
             
+            # Show overlay with transparency effect
+            self._overlay.place(x=0, y=0, relwidth=1, relheight=1)
+            Native.Lift(self._overlay)
+            
+            # Position sheet at bottom
+            Native.Update(self._root)
+            root_width, root_height = Native.GetSize(self._root)
+            
+            self._sheet.place(x=0, y=root_height - self._height, 
+                             width=root_width, height=self._height)
+            Native.Lift(self._sheet)
+            
+            self.StateChanged(self, EventArgs(True))
+        except (Native.TclError, RuntimeError):
+            self._is_open = False
+
     def Close(self):
         """Closes the bottom sheet."""
         if not self._is_open:
             return
             
-        self._is_open = False
-        self._overlay.place_forget()
-        self._sheet.place_forget()
-        
-        self.StateChanged(self, EventArgs(False))
+        try:
+            self._is_open = False
+            self._overlay.place_forget()
+            self._sheet.place_forget()
+            
+            self.StateChanged(self, EventArgs(False))
+        except (Native.TclError, RuntimeError):
+            pass
             
     @property
     def Title(self):
@@ -4893,7 +5194,7 @@ class Avatar:
         self._bg = parent.cget("bg")
         
         # Canvas for circular avatar
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             parent,
             width=self._size,
             height=self._size,
@@ -4997,6 +5298,8 @@ class Avatar:
         self._click_command = value
 
 
+############# Collection & Data Controls #############
+
 # =============================================================================
 # INDICATORVIEW - Page Indicator Dots
 # =============================================================================
@@ -5061,7 +5364,7 @@ class IndicatorView:
         total_width = self._count * self._indicator_size + (self._count - 1) * self._spacing
         
         # Canvas
-        self._canvas = tk.Canvas(
+        self._canvas = Native.Canvas(
             parent,
             width=total_width,
             height=self._indicator_size,
@@ -5204,11 +5507,11 @@ class RefreshView:
         self._bg = defaults['BackColor'] if defaults['BackColor'] else parent.cget("bg")
         
         # Main frame
-        self._frame = tk.Frame(parent, bg=self._bg, **kwargs)
-        self._frame.pack(fill=tk.BOTH, expand=True)
+        self._frame = Native.Frame(parent, bg=self._bg, **kwargs)
+        self._frame.pack(fill=BOTH, expand=True)
         
         # Refresh indicator (hidden initially)
-        self._indicator_frame = tk.Frame(self._frame, bg=self._bg, height=defaults['IndicatorHeight'])
+        self._indicator_frame = Native.Frame(self._frame, bg=self._bg, height=defaults['IndicatorHeight'])
         
         self._indicator = ActivityIndicator(self._indicator_frame, props={
             'Color': self._refresh_color, 
@@ -5216,12 +5519,12 @@ class RefreshView:
         })
         
         # Content frame
-        self._content = tk.Frame(self._frame, bg=self._bg)
-        self._content.pack(fill=tk.BOTH, expand=True)
+        self._content = Native.Frame(self._frame, bg=self._bg)
+        self._content.pack(fill=BOTH, expand=True)
         
         # Refresh button (simulates pull)
-        self._refresh_btn = ttk.Button(self._frame, text=defaults['ButtonText'], command=self._on_refresh)
-        self._refresh_btn.pack(side=tk.TOP, pady=5)
+        self._refresh_btn = tNative.Button(self._frame, text=defaults['ButtonText'], command=self._on_refresh)
+        self._refresh_btn.pack(side=TOP, pady=5)
         self._refresh_btn.pack_forget()  # Hidden by default
         
     def _on_refresh(self):
@@ -5252,7 +5555,7 @@ class RefreshView:
             return
             
         self._is_refreshing = True
-        self._indicator_frame.pack(side=tk.TOP, fill=tk.X, before=self._content)
+        self._indicator_frame.pack(side=TOP, fill=X, before=self._content)
         self._indicator.Start()
         
     def EndRefresh(self):
@@ -5267,7 +5570,7 @@ class RefreshView:
     def ShowRefreshButton(self, show=True):
         """Shows or hides the refresh button."""
         if show:
-            self._refresh_btn.pack(side=tk.TOP, pady=5, before=self._content)
+            self._refresh_btn.pack(side=TOP, pady=5, before=self._content)
         else:
             self._refresh_btn.pack_forget()
 
@@ -5340,14 +5643,14 @@ class CollectionView:
         self._bg = parent.cget("bg")
         
         # Main frame with scrollbar
-        self._frame = tk.Frame(parent, bg=self._bg)
-        self._frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        self._frame = Native.Frame(parent, bg=self._bg)
+        self._frame.pack(fill=BOTH, expand=True, pady=5)
         
         # Canvas for scrolling
-        self._canvas = tk.Canvas(self._frame, bg=self._bg, highlightthickness=0)
-        self._scrollbar = ttk.Scrollbar(self._frame, orient="vertical", command=self._canvas.yview)
+        self._canvas = Native.Canvas(self._frame, bg=self._bg, highlightthickness=0)
+        self._scrollbar = tNative.Scrollbar(self._frame, orient="vertical", command=self._canvas.yview)
         
-        self._scrollable_frame = tk.Frame(self._canvas, bg=self._bg)
+        self._scrollable_frame = Native.Frame(self._canvas, bg=self._bg)
         
         self._scrollable_frame.bind(
             "<Configure>",
@@ -5358,8 +5661,8 @@ class CollectionView:
         self._canvas.configure(yscrollcommand=self._scrollbar.set)
         
         # Pack
-        self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self._canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._scrollbar.pack(side=RIGHT, fill=Y)
+        self._canvas.pack(side=LEFT, fill=BOTH, expand=True)
         
         # Mouse wheel binding
         self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
@@ -5375,8 +5678,8 @@ class CollectionView:
     def _render_items(self):
         """Renders all items."""
         # Clear existing
-        for widget in self._scrollable_frame.winfo_children():
-            widget.destroy()
+        for widget in Native.GetChildren(self._scrollable_frame):
+            Native.Destroy(widget)
         self._item_widgets.clear()
         
         if self._layout_mode == "grid":
@@ -5387,20 +5690,20 @@ class CollectionView:
     def _render_list(self):
         """Renders items as list."""
         for idx, item in enumerate(self._items):
-            item_frame = tk.Frame(
+            item_frame = Native.Frame(
                 self._scrollable_frame,
                 bg="white",
                 height=self._item_height,
                 bd=1,
-                relief=tk.SOLID
+                relief=SOLID
             )
             
             if self._layout_mode == "horizontal":
-                item_frame.pack(side=tk.LEFT, padx=2, pady=2)
+                item_frame.pack(side=LEFT, padx=2, pady=2)
             else:
-                item_frame.pack(fill=tk.X, padx=2, pady=2)
+                item_frame.pack(fill=X, padx=2, pady=2)
                 
-            item_frame.pack_propagate(False)
+            Native.PackPropagate(item_frame, False)
             
             # Use template or default
             if self._item_template:
@@ -5410,7 +5713,7 @@ class CollectionView:
                 
             # Bind click
             item_frame.bind("<Button-1>", lambda e, i=idx: self._on_item_click(i))
-            for child in item_frame.winfo_children():
+            for child in Native.GetChildren(item_frame):
                 child.bind("<Button-1>", lambda e, i=idx: self._on_item_click(i))
                 
             self._item_widgets.append(item_frame)
@@ -5421,15 +5724,15 @@ class CollectionView:
         col = 0
         
         for idx, item in enumerate(self._items):
-            item_frame = tk.Frame(
+            item_frame = Native.Frame(
                 self._scrollable_frame,
                 bg="white",
                 height=self._item_height,
                 bd=1,
-                relief=tk.SOLID
+                relief=SOLID
             )
             item_frame.grid(row=row, column=col, padx=2, pady=2, sticky="nsew")
-            item_frame.pack_propagate(False)
+            Native.PackPropagate(item_frame, False)
             
             # Use template or default
             if self._item_template:
@@ -5439,7 +5742,7 @@ class CollectionView:
                 
             # Bind click
             item_frame.bind("<Button-1>", lambda e, i=idx: self._on_item_click(i))
-            for child in item_frame.winfo_children():
+            for child in Native.GetChildren(item_frame):
                 child.bind("<Button-1>", lambda e, i=idx: self._on_item_click(i))
                 
             self._item_widgets.append(item_frame)
@@ -5456,8 +5759,8 @@ class CollectionView:
     def _default_template(self, parent, item):
         """Default item template."""
         text = str(item) if not isinstance(item, dict) else item.get('title', str(item))
-        label = tk.Label(parent, text=text, bg="white", anchor="w", padx=10)
-        label.pack(fill=tk.BOTH, expand=True)
+        label = Native.Label(parent, text=text, bg="white", anchor="w", padx=10)
+        label.pack(fill=BOTH, expand=True)
         
     def _on_item_click(self, index):
         """Handles item click."""
@@ -5467,23 +5770,23 @@ class CollectionView:
             # Deselect previous
             for i, widget in enumerate(self._item_widgets):
                 widget.config(bg="white")
-                for child in widget.winfo_children():
+                for child in Native.GetChildren(widget):
                     child.config(bg="white")
             # Select new
             self._selected_indices = [index]
             self._item_widgets[index].config(bg="#E3F2FD")
-            for child in self._item_widgets[index].winfo_children():
+            for child in Native.GetChildren(self._item_widgets[index]):
                 child.config(bg="#E3F2FD")
         elif self._selection_mode == "multiple":
             if index in self._selected_indices:
                 self._selected_indices.remove(index)
                 self._item_widgets[index].config(bg="white")
-                for child in self._item_widgets[index].winfo_children():
+                for child in Native.GetChildren(self._item_widgets[index]):
                     child.config(bg="white")
             else:
                 self._selected_indices.append(index)
                 self._item_widgets[index].config(bg="#E3F2FD")
-                for child in self._item_widgets[index].winfo_children():
+                for child in Native.GetChildren(self._item_widgets[index]):
                     child.config(bg="#E3F2FD")
                     
         if self.ItemTapped:
@@ -5521,6 +5824,8 @@ class CollectionView:
         if 0 <= value < len(self._items):
             self._on_item_click(value)
 
+
+############# Navigation Bar Controls #############
 
 # =============================================================================
 # TOOLBAR - Toolbar with Actions
@@ -5578,49 +5883,49 @@ class Toolbar:
         self._bg = parent.cget("bg")
         
         # Toolbar frame
-        self._frame = tk.Frame(parent, bg=self._background_color, height=44)
+        self._frame = Native.Frame(parent, bg=self._background_color, height=44)
         
         if self._position == "bottom":
-            self._frame.pack(side=tk.BOTTOM, fill=tk.X)
+            self._frame.pack(side=BOTTOM, fill=X)
         else:
-            self._frame.pack(side=tk.TOP, fill=tk.X)
+            self._frame.pack(side=TOP, fill=X)
             
-        self._frame.pack_propagate(False)
+        Native.PackPropagate(self._frame, False)
         
         # Items container
-        self._items_frame = tk.Frame(self._frame, bg=self._background_color)
-        self._items_frame.pack(fill=tk.BOTH, expand=True)
+        self._items_frame = Native.Frame(self._frame, bg=self._background_color)
+        self._items_frame.pack(fill=BOTH, expand=True)
         
     def AddItem(self, icon="", text="", command=None, is_primary=False):
         """Adds a toolbar item."""
-        item_frame = tk.Frame(self._items_frame, bg=self._background_color, cursor="hand2")
+        item_frame = Native.Frame(self._items_frame, bg=self._background_color, cursor="hand2")
         
         if is_primary:
-            item_frame.pack(side=tk.RIGHT, padx=10)
+            item_frame.pack(side=RIGHT, padx=10)
         else:
-            item_frame.pack(side=tk.LEFT, padx=10)
+            item_frame.pack(side=LEFT, padx=10)
             
         # Icon
         if icon:
-            icon_label = tk.Label(
+            icon_label = Native.Label(
                 item_frame,
                 text=icon,
                 font=("Segoe UI", 14),
                 bg=self._background_color
             )
-            icon_label.pack(side=tk.TOP if text else tk.LEFT)
+            icon_label.pack(side=TOP if text else LEFT)
             icon_label.bind("<Button-1>", lambda e: command() if command else None)
             
         # Text
         if text:
-            text_label = tk.Label(
+            text_label = Native.Label(
                 item_frame,
                 text=text,
                 font=("Segoe UI", 9),
                 bg=self._background_color,
                 fg="#333333"
             )
-            text_label.pack(side=tk.TOP if icon else tk.LEFT)
+            text_label.pack(side=TOP if icon else LEFT)
             text_label.bind("<Button-1>", lambda e: command() if command else None)
             
         item_frame.bind("<Button-1>", lambda e: command() if command else None)
@@ -5636,18 +5941,18 @@ class Toolbar:
         
     def AddSeparator(self):
         """Adds a separator."""
-        sep = tk.Frame(self._items_frame, bg="#CCCCCC", width=1)
-        sep.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=8)
+        sep = Native.Frame(self._items_frame, bg="#CCCCCC", width=1)
+        sep.pack(side=LEFT, fill=Y, padx=5, pady=8)
         
     def AddSpacer(self):
         """Adds expandable spacer."""
-        spacer = tk.Frame(self._items_frame, bg=self._background_color)
-        spacer.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        spacer = Native.Frame(self._items_frame, bg=self._background_color)
+        spacer.pack(side=LEFT, fill=BOTH, expand=True)
         
     def RemoveItem(self, index):
         """Removes toolbar item by index."""
         if 0 <= index < len(self._items):
-            self._items[index]['frame'].destroy()
+            Native.Destroy(self._items[index]['frame'])
             del self._items[index]
             
     @property
@@ -5723,28 +6028,28 @@ class BottomNavigationBar:
             parent = master
         
         # Navigation bar frame
-        self._frame = tk.Frame(parent, bg=self._background_color, height=56, bd=0)
-        self._frame.pack(side=tk.BOTTOM, fill=tk.X)
-        self._frame.pack_propagate(False)
+        self._frame = Native.Frame(parent, bg=self._background_color, height=56, bd=0)
+        self._frame.pack(side=BOTTOM, fill=X)
+        Native.PackPropagate(self._frame, False)
         
         # Top border
-        self._border = tk.Frame(self._frame, bg="#E0E0E0", height=1)
-        self._border.pack(side=tk.TOP, fill=tk.X)
+        self._border = Native.Frame(self._frame, bg="#E0E0E0", height=1)
+        self._border.pack(side=TOP, fill=X)
         
         # Items container
-        self._items_frame = tk.Frame(self._frame, bg=self._background_color)
-        self._items_frame.pack(fill=tk.BOTH, expand=True)
+        self._items_frame = Native.Frame(self._frame, bg=self._background_color)
+        self._items_frame.pack(fill=BOTH, expand=True)
         
     def AddItem(self, icon="", label="", command=None):
         """Adds a navigation item."""
         index = len(self._items)
         
-        item_frame = tk.Frame(self._items_frame, bg=self._background_color, cursor="hand2")
-        item_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        item_frame = Native.Frame(self._items_frame, bg=self._background_color, cursor="hand2")
+        item_frame.pack(side=LEFT, fill=BOTH, expand=True)
         
         # Icon
         color = self._selected_color if index == self._selected_index else self._unselected_color
-        icon_label = tk.Label(
+        icon_label = Native.Label(
             item_frame,
             text=icon,
             font=("Segoe UI", 16),
@@ -5754,7 +6059,7 @@ class BottomNavigationBar:
         icon_label.pack(pady=(8, 2))
         
         # Label
-        text_label = tk.Label(
+        text_label = Native.Label(
             item_frame,
             text=label,
             font=("Segoe UI", 9),
@@ -5805,6 +6110,94 @@ class BottomNavigationBar:
     def SelectedIndex(self, value):
         if 0 <= value < len(self._items):
             self._on_item_click(value)
+
+
+# =============================================================================
+# ITEMSREPEATER - Collection Display Control
+# =============================================================================
+
+class ItemsRepeater:
+    """
+    WinUI3-style ItemsRepeater for displaying a collection of items using a template.
+    
+    ItemsRepeater takes a list of data items and a template function to render
+    each item into a layout.
+    
+    Properties:
+        ItemsSource (list): The collection of data items to display.
+        ItemTemplate (callable): Function that takes (parent, item_data) and returns a control.
+    """
+    def __init__(self, master, items_source=None, item_template=None, props=None):
+        defaults = {
+            'Spacing': 10,
+            'Padding': (0, 0, 0, 0),
+            'Orientation': 'vertical' # horizontal or vertical
+        }
+        if props: defaults.update(props)
+        
+        self._master = master
+        self._items_source = items_source or []
+        self._item_template = item_template
+        self._spacing = defaults['Spacing']
+        self._padding = defaults['Padding']
+        self._orientation = defaults['Orientation']
+        
+        # Determine parent
+        if hasattr(master, '_frame'):
+            parent = master._frame
+        else:
+            parent = master
+            
+        self._bg = parent.cget("bg")
+        
+        # Layout container
+        if self._orientation == 'horizontal':
+            self._layout = HorizontalStackLayout(parent, props={'Spacing': self._spacing, 'Padding': self._padding})
+        else:
+            self._layout = VerticalStackLayout(parent, props={'Spacing': self._spacing, 'Padding': self._padding})
+            
+        self._tk_widget = self._layout._frame
+        
+        if self._items_source:
+            self.Reload()
+            
+    def Reload(self):
+        """Re-renders all items from ItemsSource."""
+        # Clear existing
+        for child in Native.GetChildren(self._layout._frame):
+            Native.Destroy(child)
+            
+        if not self._item_template:
+            return
+            
+        for item in self._items_source:
+            self._item_template(self._layout, item)
+
+    @property
+    def ItemsSource(self):
+        return self._items_source
+    
+    @ItemsSource.setter
+    def ItemsSource(self, value):
+        self._items_source = value
+        self.Reload()
+
+    @property
+    def ItemTemplate(self):
+        return self._item_template
+    
+    @ItemTemplate.setter
+    def ItemTemplate(self, value):
+        self._item_template = value
+        self.Reload()
+
+
+# BreadcrumbBar relocated to winformpy.py (core WinForm control)
+# Re-exported here for backward compatibility
+try:
+    from .winformpy import BreadcrumbBar
+except (ImportError, ValueError):
+    from winformpy import BreadcrumbBar
 
 
 # =============================================================================

@@ -312,10 +312,10 @@ class RecordFormPanel(Panel):
             y += self._field_spacing
         
         # Update scroll region after layout
-        self._tk_widget.after(100, self._update_content_scroll)
+        self.InvokeDelayed(100, self._update_content_scroll)
         
         # Bind to update content width on resize
-        self._tk_widget.bind('<Configure>', self._on_resize)
+        self.BindEvent('Configure', lambda s, e: self._on_resize(e))
     
     def _update_content_scroll(self):
         """Update the scroll region of the content panel."""
@@ -465,7 +465,7 @@ class RecordFormPanel(Panel):
             self._cancel_btn.Click = lambda s, e: self.CancelClick(self, {})
         
         # Position buttons after a short delay
-        self._tk_widget.after(50, self._position_action_buttons)
+        self.InvokeDelayed(50, self._position_action_buttons)
     
     def _on_insert_click(self, sender, e):
         """Handle Insert button click."""
@@ -514,7 +514,7 @@ class RecordFormPanel(Panel):
     def _position_action_buttons(self):
         """Position action buttons based on panel width."""
         try:
-            width = self._tk_widget.winfo_width()
+            width = self.ActualWidth
             if width < 10:
                 width = 400  # Default
             
@@ -598,7 +598,7 @@ class RecordFormPanel(Panel):
     def _get_input_width(self) -> int:
         """Calculate input widget width based on panel width."""
         try:
-            width = self._tk_widget.winfo_width()
+            width = self.ActualWidth
             if width < 10:
                 width = 400
             # Subtract padding and scrollbar width
@@ -652,8 +652,8 @@ class RecordFormPanel(Panel):
         # Destroy input widgets
         for name, (input_type, widget, col) in self._inputs.items():
             try:
-                if hasattr(widget, '_tk_widget'):
-                    widget._tk_widget.destroy()
+                if hasattr(widget, 'Dispose'):
+                    widget.Dispose()
             except Exception:
                 pass
         self._inputs.clear()
@@ -661,8 +661,8 @@ class RecordFormPanel(Panel):
         # Destroy labels
         for lbl in self._field_labels:
             try:
-                if hasattr(lbl, '_tk_widget'):
-                    lbl._tk_widget.destroy()
+                if hasattr(lbl, 'Dispose'):
+                    lbl.Dispose()
             except Exception:
                 pass
         self._field_labels.clear()
@@ -670,7 +670,7 @@ class RecordFormPanel(Panel):
         # Destroy content panel
         if self._content_panel:
             try:
-                self._content_panel._tk_widget.destroy()
+                self._content_panel.Dispose()
             except Exception:
                 pass
             self._content_panel = None
@@ -678,7 +678,7 @@ class RecordFormPanel(Panel):
         # Destroy action panel
         if self._action_panel:
             try:
-                self._action_panel._tk_widget.destroy()
+                self._action_panel.Dispose()
             except Exception:
                 pass
             self._action_panel = None
@@ -1049,8 +1049,8 @@ class RecordFormPanel(Panel):
         # Destroy input widgets
         for name, (input_type, widget, col) in self._inputs.items():
             try:
-                if hasattr(widget, '_tk_widget'):
-                    widget._tk_widget.destroy()
+                if hasattr(widget, 'Dispose'):
+                    widget.Dispose()
             except Exception:
                 pass
         self._inputs.clear()
@@ -1058,8 +1058,8 @@ class RecordFormPanel(Panel):
         # Destroy labels
         for lbl in self._field_labels:
             try:
-                if hasattr(lbl, '_tk_widget'):
-                    lbl._tk_widget.destroy()
+                if hasattr(lbl, 'Dispose'):
+                    lbl.Dispose()
             except Exception:
                 pass
         self._field_labels.clear()
@@ -1067,7 +1067,7 @@ class RecordFormPanel(Panel):
         # Destroy content panel only
         if self._content_panel:
             try:
-                self._content_panel._tk_widget.destroy()
+                self._content_panel.Dispose()
             except Exception:
                 pass
             self._content_panel = None
@@ -1118,7 +1118,7 @@ class RecordFormPanel(Panel):
             y += self._field_spacing
         
         # Update scroll region after layout
-        self._tk_widget.after(100, self._update_content_scroll)
+        self.InvokeDelayed(100, self._update_content_scroll)
 
 
 # Backwards compatibility alias
@@ -1391,8 +1391,8 @@ if __name__ == "__main__":
             # Remove old employee buttons
             for btn in employee_buttons:
                 try:
-                    if hasattr(btn, '_tk_widget') and btn._tk_widget:
-                        btn._tk_widget.destroy()
+                    if hasattr(btn, 'Dispose'):
+                        btn.Dispose()
                 except:
                     pass
             employee_buttons.clear()

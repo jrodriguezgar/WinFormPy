@@ -573,8 +573,8 @@ class DataGridPanel(Panel):
         """Build column headers."""
         # Clear existing headers
         for header in self._column_headers:
-            if hasattr(header, '_tk_widget') and header._tk_widget:
-                header._tk_widget.destroy()
+            if hasattr(header, 'Dispose'):
+                header.Dispose()
         self._column_headers = []
         
         columns = self.manager.columns
@@ -831,16 +831,16 @@ class DataGridPanel(Panel):
         # Clear existing rows
         for row_data in self._row_widgets:
             for widget in row_data.get('widgets', []):
-                if hasattr(widget, '_tk_widget') and widget._tk_widget:
-                    widget._tk_widget.destroy()
-            if 'panel' in row_data and hasattr(row_data['panel'], '_tk_widget'):
-                row_data['panel']._tk_widget.destroy()
+                if hasattr(widget, 'Dispose'):
+                    widget.Dispose()
+            if 'panel' in row_data and hasattr(row_data['panel'], 'Dispose'):
+                row_data['panel'].Dispose()
         self._row_widgets = []
         
         # Clear no data label if exists
         if hasattr(self, '_no_data_label') and self._no_data_label:
-            if hasattr(self._no_data_label, '_tk_widget') and self._no_data_label._tk_widget:
-                self._no_data_label._tk_widget.destroy()
+            if hasattr(self._no_data_label, 'Dispose'):
+                self._no_data_label.Dispose()
             self._no_data_label = None
         
         records = self.manager.records
@@ -1851,11 +1851,11 @@ class DataGridPanel(Panel):
         
         # Destroy existing cell widgets and action buttons
         for widget in row_data.get('widgets', []):
-            if hasattr(widget, '_tk_widget') and widget._tk_widget:
-                widget._tk_widget.destroy()
+            if hasattr(widget, 'Dispose'):
+                widget.Dispose()
         for btn in row_data.get('action_buttons', []):
-            if hasattr(btn, '_tk_widget') and btn._tk_widget:
-                btn._tk_widget.destroy()
+            if hasattr(btn, 'Dispose'):
+                btn.Dispose()
         
         # Create edit widgets with appropriate masks
         edit_widgets = []

@@ -4,10 +4,21 @@ WinFormPy Tools - Utilities for Windows Forms in Python
 This module contains utility functions for working with Windows Forms controls.
 """
 
-import tkinter as tk
-import tkinter.font as tkFont
-from typing import Dict, List, Tuple, Optional, Union
+from __future__ import annotations
+from typing import TYPE_CHECKING, Dict, List, Tuple, Optional, Union
 import ctypes
+
+if TYPE_CHECKING:
+    import tkinter as tk
+
+
+def _get_native():
+    """Lazy import of Native to avoid circular dependency with winformpy."""
+    try:
+        from .winformpy import Native
+    except ImportError:
+        from winformpy import Native
+    return Native
 
 
 class FontManager:
@@ -36,24 +47,25 @@ class FontManager:
         """
         try:
             # Create a temporary window to get system fonts
-            root = tk._default_root
+            Native = _get_native()
+            root = Native.DefaultRoot()
             if root is None:
-                root = tk.Tk()
+                root = Native.Window()
                 root.withdraw()
                 temp_root = True
             else:
                 temp_root = False
 
             # Get system fonts
-            default_font = tkFont.nametofont("TkDefaultFont")
-            text_font = tkFont.nametofont("TkTextFont")
-            fixed_font = tkFont.nametofont("TkFixedFont")
-            menu_font = tkFont.nametofont("TkMenuFont")
-            heading_font = tkFont.nametofont("TkHeadingFont")
-            caption_font = tkFont.nametofont("TkCaptionFont")
-            small_caption_font = tkFont.nametofont("TkSmallCaptionFont")
-            icon_font = tkFont.nametofont("TkIconFont")
-            tooltip_font = tkFont.nametofont("TkTooltipFont")
+            default_font = Native.FontNameToFont("TkDefaultFont")
+            text_font = Native.FontNameToFont("TkTextFont")
+            fixed_font = Native.FontNameToFont("TkFixedFont")
+            menu_font = Native.FontNameToFont("TkMenuFont")
+            heading_font = Native.FontNameToFont("TkHeadingFont")
+            caption_font = Native.FontNameToFont("TkCaptionFont")
+            small_caption_font = Native.FontNameToFont("TkSmallCaptionFont")
+            icon_font = Native.FontNameToFont("TkIconFont")
+            tooltip_font = Native.FontNameToFont("TkTooltipFont")
 
             fonts = {
                 'default': (default_font.actual('family'), default_font.actual('size')),
@@ -123,15 +135,16 @@ class FontManager:
             ['Arial', 'Calibri', 'Consolas', 'Courier New', 'Segoe UI', ...]
         """
         try:
-            root = tk._default_root
+            Native = _get_native()
+            root = Native.DefaultRoot()
             if root is None:
-                root = tk.Tk()
+                root = Native.Window()
                 root.withdraw()
                 temp_root = True
             else:
                 temp_root = False
 
-            font_families = sorted(tkFont.families())
+            font_families = Native.FontFamilies()
 
             if temp_root:
                 root.destroy()
@@ -391,7 +404,7 @@ class CSSManager:
         return props
 
     @staticmethod
-    def apply_css_to_widget(widget: tk.Widget, css_string: str) -> None:
+    def apply_css_to_widget(widget, css_string: str) -> None:
         """
         Apply CSS styles directly to a Tkinter widget.
 
@@ -423,12 +436,12 @@ def parse_css_string(css_string: str) -> Dict[str, str]:
     return CSSManager.parse_css_string(css_string)
 
 
-def css_to_tkinter_config(css_string: str, current_widget: Optional[tk.Widget] = None) -> Dict[str, Union[str, int, Tuple]]:
+def css_to_tkinter_config(css_string: str, current_widget = None) -> Dict[str, Union[str, int, Tuple]]:
     """Deprecated: Use CSSManager.css_to_tkinter_config() instead."""
     return CSSManager.css_to_tkinter_config(css_string, current_widget)
 
 
-def apply_css_to_widget(widget: tk.Widget, css_string: str) -> None:
+def apply_css_to_widget(widget, css_string: str) -> None:
     """Deprecated: Use CSSManager.apply_css_to_widget() instead."""
     CSSManager.apply_css_to_widget(widget, css_string)
 
@@ -652,10 +665,6 @@ class LayoutManager:
             # Update container size
             self.container.Width = new_width
             self.container.Height = new_height
-            
-            # Update tkinter widget size
-            if hasattr(self.container, '_tk_widget'):
-                self.container._tk_widget.config(width=new_width, height=new_height)
     
     def reset(self):
         """
@@ -672,11 +681,11 @@ class LayoutManager:
         h = self.container.Height if hasattr(self.container, 'Height') else 0
         
         # If dimensions are 0 or 1 (uninitialized), try to get from tk widget
-        if (w <= 1 or h <= 1) and hasattr(self.container, '_tk_widget'):
+        if (w <= 1 or h <= 1) and hasattr(self.container, 'GetTkWidget'):
             try:
-                self.container._tk_widget.update_idletasks()
-                w = self.container._tk_widget.winfo_width()
-                h = self.container._tk_widget.winfo_height()
+                self.container.Refresh()
+                w = self.container.ActualWidth
+                h = self.container.ActualHeight
             except Exception:
                 pass
         

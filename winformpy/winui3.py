@@ -34,8 +34,6 @@ Design Guidelines:
 # WinUI 3 styled controls for WinFormPy
 # =============================================================
 
-import tkinter as tk
-import tkinter.ttk as ttk
 import sys
 import os
 
@@ -43,6 +41,7 @@ import os
 try:
     # Try relative import first (when part of a package)
     from .winformpy import (
+        Native,
         Button as BaseButton, Label as BaseLabel, TextBox as BaseTextBox, 
         Panel as BasePanel, CheckBox as BaseCheckBox, RadioButton as BaseRadioButton, 
         ComboBox as BaseComboBox, ProgressBar as BaseProgressBar, 
@@ -53,6 +52,7 @@ except (ImportError, ValueError):
     try:
         # Try absolute import from the module file
         from winformpy import (
+            Native,
             Button as BaseButton, Label as BaseLabel, TextBox as BaseTextBox, 
             Panel as BasePanel, CheckBox as BaseCheckBox, RadioButton as BaseRadioButton, 
             ComboBox as BaseComboBox, ProgressBar as BaseProgressBar, 
@@ -65,6 +65,7 @@ except (ImportError, ValueError):
         if current_dir not in sys.path:
             sys.path.append(current_dir)
         from winformpy import (
+            Native,
             Button as BaseButton, Label as BaseLabel, TextBox as BaseTextBox, 
             Panel as BasePanel, CheckBox as BaseCheckBox, RadioButton as BaseRadioButton, 
             ComboBox as BaseComboBox, ProgressBar as BaseProgressBar, 
@@ -456,7 +457,7 @@ class ProgressBar(BaseProgressBar):
         
         # Create unique style for this instance
         self._style_name = f"WinUI.Progressbar.{id(self)}.Horizontal.TProgressbar"
-        self._style = ttk.Style()
+        self._style = Native.Style()
         
         # Use 'clam' theme as base for better color support
         try:
@@ -468,8 +469,9 @@ class ProgressBar(BaseProgressBar):
         self._apply_winui_colors()
         
         # Update widget to use new style
-        if hasattr(self, '_tk_widget') and self._tk_widget:
-            self._tk_widget.configure(style=self._style_name)
+        w = self.GetTkWidget()
+        if w:
+            w.configure(style=self._style_name)
     
     def _apply_winui_colors(self):
         """Apply WinUI accent colors to the progress bar style."""
@@ -550,9 +552,7 @@ class ProgressRing(BasePanel):
             
         super().__init__(master_form, props)
         
-        # NOTE: Using direct tk.Canvas access as WinFormPy doesn't have drawing primitives yet
-        # Canvas allows creating an arc that rotates for the "ring" animation
-        self.canvas = tk.Canvas(
+        self.canvas = Native.Canvas(
             self._tk_widget, 
             width=self.Width, 
             height=self.Height, 
@@ -589,7 +589,7 @@ class ProgressRing(BasePanel):
         
         # WinUI 3 animation speed
         if hasattr(self, '_tk_widget'):
-            self._tk_widget.after(30, self._animate)
+            self.InvokeDelayed(30, self._animate)
 
     @property
     def IsActive(self):
@@ -659,10 +659,7 @@ class ToggleSwitch(BasePanel):
         self.label.ForeColor = WinUIColors.TextPrimary
 
         # Switch graphic using Canvas for custom drawing
-        # NOTE: Using direct tk.Canvas access as WinFormPy doesn't have drawing primitives yet
-        # This is an exception - Canvas allows custom shape drawing needed for the switch capsule
-        # A proper WinFormPy Canvas control should be created in the future
-        self.canvas = tk.Canvas(
+        self.canvas = Native.Canvas(
             self._tk_widget, 
             width=40, 
             height=20, 
@@ -685,19 +682,20 @@ class ToggleSwitch(BasePanel):
         """Get background color from parent control."""
         if hasattr(parent, 'BackColor') and parent.BackColor:
             return parent.BackColor
-        if hasattr(parent, '_tk_widget') and parent._tk_widget:
+        if hasattr(parent, 'GetTkWidget') and parent.GetTkWidget():
             try:
-                return parent._tk_widget.cget('bg')
+                return parent.GetTkWidget().cget('bg')
             except:
                 pass
         return WinUIColors.CardBg
 
     def _apply_background(self):
         """Apply background color to all internal widgets."""
-        # Apply to main widget
-        if hasattr(self, '_tk_widget') and self._tk_widget:
+        # Apply to main widget via GetTkWidget (avoid recursion with BackColor setter)
+        w = self.GetTkWidget() if hasattr(self, 'GetTkWidget') else None
+        if w:
             try:
-                self._tk_widget.configure(bg=self._bg_color)
+                w.configure(bg=self._bg_color)
             except:
                 pass
         if hasattr(self, '_container') and self._container:
@@ -828,8 +826,9 @@ class Expander(BasePanel):
         self.header.BackColor = self._bg_color
         self.header.ForeColor = WinUIColors.Accent  # Blue accent color
         self.header.Font = WinUIFonts.Body
-        if hasattr(self.header, '_tk_widget'):
-            self.header._tk_widget.configure(borderwidth=0, highlightthickness=0, bg=self._bg_color)
+        w = self.header.GetTkWidget() if hasattr(self.header, 'GetTkWidget') else None
+        if w:
+            w.configure(borderwidth=0, highlightthickness=0)
         
         self.header.Click = self.toggle
 
@@ -851,18 +850,20 @@ class Expander(BasePanel):
         """Get background color from parent control."""
         if hasattr(parent, 'BackColor') and parent.BackColor:
             return parent.BackColor
-        if hasattr(parent, '_tk_widget') and parent._tk_widget:
+        if hasattr(parent, 'GetTkWidget') and parent.GetTkWidget():
             try:
-                return parent._tk_widget.cget('bg')
+                return parent.GetTkWidget().cget('bg')
             except:
                 pass
         return WinUIColors.CardBg
 
     def _apply_background(self):
         """Apply background color to all internal widgets."""
-        if hasattr(self, '_tk_widget') and self._tk_widget:
+        # Apply to main widget via GetTkWidget (avoid recursion with BackColor setter)
+        w = self.GetTkWidget() if hasattr(self, 'GetTkWidget') else None
+        if w:
             try:
-                self._tk_widget.configure(bg=self._bg_color)
+                w.configure(bg=self._bg_color)
             except:
                 pass
         if hasattr(self, '_container') and self._container:
@@ -872,23 +873,8 @@ class Expander(BasePanel):
                 pass
         if hasattr(self, 'header') and self.header:
             self.header.BackColor = self._bg_color
-            if hasattr(self.header, '_tk_widget') and self.header._tk_widget:
-                try:
-                    self.header._tk_widget.configure(bg=self._bg_color)
-                except:
-                    pass
         if hasattr(self, 'content') and self.content:
             self.content.BackColor = self._bg_color
-            if hasattr(self.content, '_tk_widget') and self.content._tk_widget:
-                try:
-                    self.content._tk_widget.configure(bg=self._bg_color)
-                except:
-                    pass
-            if hasattr(self.content, '_container') and self.content._container:
-                try:
-                    self.content._container.configure(bg=self._bg_color)
-                except:
-                    pass
 
     @property
     def BackColor(self):
@@ -953,9 +939,10 @@ class CheckBox(BaseCheckBox):
         super().__init__(master_form, props)
         
         # Apply Hover effects if desired
-        if hasattr(self, '_tk_widget') and self._tk_widget:
+        w = self.GetTkWidget()
+        if w:
             try:
-                self._tk_widget.configure(
+                w.configure(
                     activebackground=WinUIColors.ControlBgHover,
                     activeforeground=WinUIColors.TextPrimary
                 )
@@ -1001,9 +988,10 @@ class RadioButton(BaseRadioButton):
         super().__init__(master_form, props)
         
         # Apply hover effects
-        if hasattr(self, '_tk_widget') and self._tk_widget:
+        w = self.GetTkWidget()
+        if w:
             try:
-                self._tk_widget.configure(
+                w.configure(
                     activebackground=WinUIColors.ControlBgHover,
                     activeforeground=WinUIColors.TextPrimary
                 )
@@ -1224,10 +1212,7 @@ class Slider(BasePanel):
         
         self._value = 0.5 # 0.0 a 1.0
         
-        # NOTE: Using direct tk.Canvas access as WinFormPy doesn't have drawing primitives yet
-        # This is an exception - Canvas allows drawing custom lines and circles for the slider
-        # A proper WinFormPy Canvas control should be created in the future
-        self.canvas = tk.Canvas(self._tk_widget, height=self.Height, width=self.Width, 
+        self.canvas = Native.Canvas(self._tk_widget, height=self.Height, width=self.Width, 
                                bg=Colors.WindowBg if hasattr(Colors, 'WindowBg') else "#FFFFFF", 
                                highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
@@ -1589,9 +1574,10 @@ class Card(Panel):
         
         # Note: Tkinter frames don't support border-radius natively.
         # We use highlightthickness to simulate a subtle border.
-        if hasattr(self, '_tk_widget'):
+        w = self.GetTkWidget()
+        if w:
             try:
-                self._tk_widget.configure(
+                w.configure(
                     highlightbackground=WinUIColors.CardBorder,
                     highlightthickness=1
                 )

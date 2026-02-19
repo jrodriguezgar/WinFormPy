@@ -14,12 +14,11 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from winformpy.winformpy import (
-    Form, Panel, Label, Button, ComboBox, ListBox,
+    Native, Form, Panel, Label, Button, ComboBox, ListBox,
     DockStyle, AnchorStyles, Color, ColorDialog, DialogResult,
     Font, FontStyle, FlatStyle, ControlBase
 )
 from winformpy.ui_elements.console.console_panel import ConsolePanel
-import tkinter.font as tkfont
 
 
 class ConsoleForm(Form):
@@ -472,7 +471,7 @@ class ConsoleForm(Form):
         ]
         
         try:
-            all_fonts = list(tkfont.families())
+            all_fonts = list(Native.FontFamilies())
             available = [f for f in preferred if f in all_fonts]
             
             # Add other monospace fonts from system
