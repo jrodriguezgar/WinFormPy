@@ -27,11 +27,11 @@ Features:
 
 Example:
     >>> from winformpy.ui_elements.web_browser import WebBrowser, WebBrowserPanel, WebBrowserUI
-    >>> 
+    >>>
     >>> # Option 1: As standalone control in a Form
     >>> browser = WebBrowser(form, {'Dock': 'Fill'})
     >>> browser.Navigate("https://www.python.org")
-    >>> 
+    >>>
     >>> # Option 2: Embeddable Panel with navigation bar
     >>> panel = WebBrowserPanel(form, {'Dock': 'Fill'})
     >>> panel.Navigate("https://www.google.com")

@@ -193,24 +193,36 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-# Excluir directorios de proyecto, tests y documentación
-**/secrets.*
-.github/
-.vscode/
-project_structure.txt
-pyproject.toml
-tests/
-docs/
-notebooks/
-ToDo/
+# .github: only publish essential files
+.github/*
+!.github/workflows/
+!.github/ISSUE_TEMPLATE/
+!.github/PULL_REQUEST_TEMPLATE.md
 
-# API Keys and Secrets (any subdirectory)
+# IDE
+.vscode/
+.idea/
+
+# Project-local files
+project_structure.txt
+ToDo/
+notebooks/
+
+# Secrets
+.env
+.env.*
+**/secrets.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.tfvars
 **/*key*.txt
 **/*key*.csv
-**/*key*.json
-**/*key*.cfg
-**/*secret*.txt
-**/*secret*.csv
-**/*secret*.json
-**/*secret*.toml
-**/*secret*.cfg
+**/*secret*
+**/*credential*
+**/apikey*
+
+# Database
+*.sqlite
+*.db

@@ -5,10 +5,10 @@ A complete email client component with three-layer architecture:
 
 - **Primitives Layer** (`email_backend.py`): Low-level email operations
   (IMAP/SMTP abstraction, email parsing)
-  
+
 - **Manager Layer** (`email_manager.py`): Business logic and state management
   (account handling, message organization, events)
-  
+
 - **UI Layer** (`email_panel.py`, `email_ui.py`): Visual components
   (embeddable panel and standalone form)
 
@@ -16,11 +16,11 @@ Usage:
     from winformpy.ui_elements.email_client import (
         EmailForm, EmailPanel, EmailManager, EmailAccount
     )
-    
+
     # Standalone form
     form = EmailForm()
     form.Show()
-    
+
     # Or embed in existing form
     manager = EmailManager()
     panel = EmailPanel(parent, manager)
@@ -67,7 +67,7 @@ __all__ = [
     'EmailMessage',
     'EmailFolder',
     'EmailAccount',
-    
+
     # Manager
     'EmailManager',
     'EmailEventType',
@@ -76,7 +76,7 @@ __all__ = [
     'SortOrder',
     'MessageThread',
     'EmailFilter',
-    
+
     # UI
     'EmailPanel',
     'EmailForm'

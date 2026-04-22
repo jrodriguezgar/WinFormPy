@@ -25,8 +25,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from winformpy import (
-    Form, Panel, Button, Label, 
-    AnchorStyles, DockStyle, Font, FontStyle
+    Form, Panel, Button, Label,
+    AnchorStyles, Font, FontStyle
 )
 
 class RailButton(Button):
@@ -48,7 +48,7 @@ class RailButton(Button):
         self.default_bg = '#e6e6e6'
         self.active_bg = '#ffffff'
         self.hover_bg = '#d0d0d0'
-        
+
         # Use WinFormPy events for hover effect
         self.MouseEnter = lambda s, e: self._on_hover()
         self.MouseLeave = lambda s, e: self._on_leave()
@@ -75,7 +75,7 @@ class NavigationRailApp:
     def __init__(self):
         self.col_rail = '#e6e6e6'
         self.col_content = '#ffffff'
-        
+
         # Main Form
         self.form = Form({
             'Text': 'Navigation Rail Template',
@@ -84,20 +84,20 @@ class NavigationRailApp:
             'StartPosition': 'CenterScreen',
             'BackColor': self.col_content
         })
-        
+
         # CRITICAL: Apply geometry before adding child controls
         self.form.ApplyLayout()
-        
+
         # --- Rail ---
         self.rail = Panel(self.form, {
             'Width': 64,
             'Dock': 'Left',
             'BackColor': self.col_rail
         })
-        
+
         self.rail_buttons = {}
         self.current_key = None
-        
+
         # Define items
         items = [
             ("dashboard", "📊", "Dashboard"),
@@ -106,15 +106,15 @@ class NavigationRailApp:
             ("team", "👥", "Team"),
             ("analytics", "📈", "Analytics"),
         ]
-        
+
         # Create Buttons (Top aligned)
         for i, (key, icon, tooltip) in enumerate(items):
-            btn = RailButton(self.rail, icon, tooltip, i * 60, 
+            btn = RailButton(self.rail, icon, tooltip, i * 60,
                              lambda s, e, k=key: self.navigate(k))
             self.rail_buttons[key] = btn
 
         # Settings Button (Bottom aligned)
-        self.btn_settings = RailButton(self.rail, "⚙", "Settings", 0, 
+        self.btn_settings = RailButton(self.rail, "⚙", "Settings", 0,
                                        lambda s, e: self.navigate("settings"))
         self.btn_settings.Anchor = AnchorStyles.Bottom | AnchorStyles.Left
         self.btn_settings.Top = 700 - 60 # Initial position, Anchor handles resize
@@ -126,7 +126,7 @@ class NavigationRailApp:
             'BackColor': self.col_content,
             'Padding': (40, 40, 40, 40)
         })
-        
+
         # Header in content
         self.lbl_header = Label(self.content_panel, {
             'Text': 'Content',
@@ -135,7 +135,7 @@ class NavigationRailApp:
             'AutoSize': True,
             'Font': Font('Segoe UI', 22, FontStyle.Bold)
         })
-        
+
         # Description
         self.lbl_desc = Label(self.content_panel, {
             'Text': 'Description text goes here...',
@@ -153,19 +153,19 @@ class NavigationRailApp:
         """Switch content."""
         if self.current_key == key:
             return
-            
+
         # Deactivate old
         if self.current_key in self.rail_buttons:
             self.rail_buttons[self.current_key].set_active(False)
-            
+
         # Activate new
         self.current_key = key
         if key in self.rail_buttons:
             self.rail_buttons[key].set_active(True)
-            
+
         # Update Content
         self._update_content(key)
-        
+
     def _update_content(self, key):
         titles = {
             "dashboard": "Dashboard Overview",
@@ -175,7 +175,7 @@ class NavigationRailApp:
             "analytics": "Performance Analytics",
             "settings": "System Settings"
         }
-        
+
         descs = {
             "dashboard": "Welcome back! Here is a summary of your key metrics/activity.",
             "projects": "List of current ongoing projects and their status.",
@@ -184,7 +184,7 @@ class NavigationRailApp:
             "analytics": "Charts and graphs showing performance trends.",
             "settings": "Configure application preferences and user account."
         }
-        
+
         self.lbl_header.Text = titles.get(key, "Unknown")
         self.lbl_desc.Text = descs.get(key, "")
 

@@ -16,31 +16,30 @@ SYSTEM_COLORS = {
     "control_dark": "#A0A0A0",      # SystemColors.ControlDark
     "control_dark_dark": "#696969", # SystemColors.ControlDarkDark
     "window": "#FFFFFF",            # SystemColors.Window
-    
+
     # Text
     "control_text": "#000000",      # SystemColors.ControlText
     "window_text": "#000000",       # SystemColors.WindowText
     "gray_text": "#6D6D6D",         # SystemColors.GrayText (disabled)
-    "highlight_text": "#FFFFFF",    # SystemColors.HighlightText
-    
+
     # Selection / Highlight
     "highlight": "#0078D7",         # SystemColors.Highlight
     "highlight_text": "#FFFFFF",    # SystemColors.HighlightText
     "inactive_caption": "#BFCDDB",  # SystemColors.InactiveCaption
     "active_caption": "#99B4D1",    # SystemColors.ActiveCaption
     "active_caption_text": "#000000", # SystemColors.ActiveCaptionText
-    
+
     # Menu
     "menu": "#F0F0F0",              # SystemColors.Menu
     "menu_text": "#000000",         # SystemColors.MenuText
     "menu_bar": "#F0F0F0",          # SystemColors.MenuBar (Flat menu bar background)
-    
+
     # 3D Borders
     "button_face": "#F0F0F0",       # SystemColors.ButtonFace
     "button_text": "#000000",       # SystemColors.ButtonText
     "button_highlight": "#FFFFFF",  # SystemColors.ButtonHighlight (light border)
     "button_shadow": "#A0A0A0",     # SystemColors.ButtonShadow (dark border)
-    
+
     # Tooltips
     "info": "#FFFFE1",              # SystemColors.Info
     "info_text": "#000000",         # SystemColors.InfoText
@@ -174,7 +173,7 @@ class Colors:
 class Fonts:
     """WinForms Typography."""
     _family = TYPOGRAPHY["font_family"]
-    
+
     DefaultFont = (_family, TYPOGRAPHY["sizes"]["default"], "normal")
     DialogFont = (_family, TYPOGRAPHY["sizes"]["default"], "normal")
     MenuFont = (_family, TYPOGRAPHY["sizes"]["default"], "normal")

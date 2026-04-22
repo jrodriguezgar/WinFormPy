@@ -37,7 +37,7 @@ __all__ = [
     'SearchResult',
     'DocumentInfo',
     'TextStatistics',
-    
+
     # UI
     'WordProcessorPanel',
     'WordProcessorForm'

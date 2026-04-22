@@ -67,7 +67,13 @@ WinFormPy/
 │       └── word_processor/    # Rich text editor
 ├── examples/                  # Runnable demos for all features
 ├── guides/                    # Documentation (Dock, Anchor, AutoSize, etc.)
+├── tests/                     # Pytest test suite
+│   ├── test_core.py           # Core classes, enums, value types
+│   └── test_themes.py         # Theme configuration tests
 ├── pyproject.toml             # Project configuration
+├── CHANGELOG.md               # Release history
+├── CONTRIBUTING.md            # Contribution guidelines
+├── CODE_OF_CONDUCT.md         # Community standards
 └── README.md                  # Main documentation
 ```
 
@@ -79,7 +85,7 @@ WinFormPy/
 
 ```bash
 # Using uv (recommended)
-git clone https://github.com/DatamanEdge/WinFormPy.git
+git clone https://github.com/jrodriguezgar/WinFormPy.git
 cd WinFormPy
 uv sync
 
@@ -187,8 +193,12 @@ uv run examples/basic_controls_example.py
 # Run a template
 uv run winformpy/templates/studio_template.py
 
-# Run tests (if available)
-uv run pytest tests/
+# Run tests
+uv run pytest tests/ -v
+
+# Lint
+uvx ruff check winformpy/
+uvx ruff format winformpy/
 ```
 
 ---

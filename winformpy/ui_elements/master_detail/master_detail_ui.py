@@ -7,7 +7,7 @@ This module provides:
 
 Example usage:
     from master_detail_ui import MasterDetailForm
-    
+
     backend = MyBackend()
     form = MasterDetailForm(backend, title="My Data")
     form.refresh()
@@ -23,9 +23,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 from winformpy.winformpy import (
     Form, Panel, Label, Button, Application,
-    DockStyle, AnchorStyles, Font, FontStyle, DialogResult
+    DockStyle, AnchorStyles, Font
 )
-from typing import Any, List, Dict, Optional, Callable
+from typing import Dict, Callable
 
 # Handle imports for both module and direct execution
 try:
@@ -56,10 +56,10 @@ except ImportError:
 class MasterDetailForm(Form):
     """
     Standalone form containing a MasterDetailPanel with status bar.
-    
+
     Use this when you need a complete master-detail window with
     title bar and status bar showing selection info.
-    
+
     Example:
         backend = CustomerOrdersBackend()
         form = MasterDetailForm(backend, title="Customer Orders")
@@ -67,7 +67,7 @@ class MasterDetailForm(Form):
         form.refresh()
         Application.Run(form)
     """
-    
+
     def __init__(self, backend: MasterDetailBackend = None,
                  manager: MasterDetailManager = None,
                  title: str = "Master-Detail View",
@@ -77,7 +77,7 @@ class MasterDetailForm(Form):
                  master_size: int = None):
         """
         Initialize the MasterDetailForm.
-        
+
         Args:
             backend: Optional MasterDetailBackend for data source.
             manager: Optional pre-configured MasterDetailManager.
@@ -94,7 +94,7 @@ class MasterDetailForm(Form):
             'StartPosition': 'CenterScreen'
         })
         self.ApplyLayout()
-        
+
         # Setup manager
         if manager:
             self._manager = manager
@@ -102,10 +102,10 @@ class MasterDetailForm(Form):
             self._manager = MasterDetailManager(backend)
         else:
             raise ValueError("Either 'backend' or 'manager' must be provided")
-        
+
         self._orientation = orientation
         self._master_size = master_size
-        
+
         # External events (forwarded from panel)
         self.MasterSelectionChanged: Callable[[object, Dict], None] = lambda s, e: None
         self.MasterRowClick: Callable[[object, Dict], None] = lambda s, e: None
@@ -113,10 +113,10 @@ class MasterDetailForm(Form):
         self.DetailRowClick: Callable[[object, Dict], None] = lambda s, e: None
         self.DetailRowDoubleClick: Callable[[object, Dict], None] = lambda s, e: None
         self.DetailSelectionChanged: Callable[[object, Dict], None] = lambda s, e: None
-        
+
         # Build UI
         self._build_ui()
-    
+
     def _build_ui(self):
         """Build the form UI."""
         # Status bar at bottom
@@ -125,7 +125,7 @@ class MasterDetailForm(Form):
             'Height': 40,
             'BackColor': '#F0F0F0',
         })
-        
+
         self._status_label = Label(self._status_bar, {
             'Dock': DockStyle.Left,
             'Width': 400,
@@ -133,7 +133,7 @@ class MasterDetailForm(Form):
             'Font': Font('Segoe UI', 9),
             'Padding': (10, 10, 10, 10),
         })
-        
+
         self._close_btn = Button(self._status_bar, {
             'Text': 'Close',
             'Width': 80,
@@ -143,22 +143,22 @@ class MasterDetailForm(Form):
         self._close_btn.Left = self._status_bar.Width - 90
         self._close_btn.Top = 6
         self._close_btn.Click = lambda s, e: self.Close()
-        
+
         # Build panel props
         panel_props = {
             'Dock': DockStyle.Fill,
             'Orientation': self._orientation,
         }
-        
+
         if self._master_size:
             if self._orientation == 'horizontal':
                 panel_props['MasterWidth'] = self._master_size
             else:
                 panel_props['MasterHeight'] = self._master_size
-        
+
         # Main panel
         self._panel = MasterDetailPanel(self, props=panel_props, manager=self._manager)
-        
+
         # Forward events
         self._panel.MasterSelectionChanged = self._on_master_selection_changed
         self._panel.MasterRowClick = lambda s, e: self.MasterRowClick(s, e)
@@ -166,12 +166,12 @@ class MasterDetailForm(Form):
         self._panel.DetailRowClick = lambda s, e: self.DetailRowClick(s, e)
         self._panel.DetailRowDoubleClick = lambda s, e: self.DetailRowDoubleClick(s, e)
         self._panel.DetailSelectionChanged = lambda s, e: self.DetailSelectionChanged(s, e)
-    
+
     def _on_master_selection_changed(self, sender, event_args):
         """Handle master selection change."""
         master_id = event_args.get('master_id')
         record = event_args.get('master_record')
-        
+
         if master_id is not None:
             if record:
                 # Try to get a display name from record
@@ -188,30 +188,30 @@ class MasterDetailForm(Form):
                 self._status_label.Text = f"Selected ID: {master_id}"
         else:
             self._status_label.Text = "Ready"
-        
+
         # Forward event
         self.MasterSelectionChanged(sender, event_args)
-    
+
     @property
     def manager(self) -> MasterDetailManager:
         """Get the MasterDetailManager instance."""
         return self._manager
-    
+
     @property
     def panel(self) -> MasterDetailPanel:
         """Get the MasterDetailPanel."""
         return self._panel
-    
+
     @property
     def master_grid(self):
         """Get the master DataGridPanel (if using grid mode)."""
         return self._panel.master_grid
-    
+
     @property
     def detail_grid(self):
         """Get the detail DataGridPanel."""
         return self._panel.detail_grid
-    
+
     def refresh(self):
         """Refresh all data."""
         self._manager.refresh_master()
@@ -223,22 +223,22 @@ class MasterDetailForm(Form):
 
 class CustomerOrdersBackend(MasterDetailBackend):
     """Demo backend showing customers (master) and their orders (detail)."""
-    
+
     def __init__(self):
         """Generate sample customer and order data."""
         self._customers = self._generate_customers(15)
         self._orders = self._generate_orders()
-    
+
     def _generate_customers(self, count: int) -> list:
         """Generate sample customer data."""
-        first_names = ["John", "Jane", "Robert", "Emily", "Michael", "Sarah", 
+        first_names = ["John", "Jane", "Robert", "Emily", "Michael", "Sarah",
                       "David", "Lisa", "James", "Maria", "William", "Anna",
                       "Richard", "Jennifer", "Thomas"]
         last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia",
                      "Miller", "Davis", "Rodriguez", "Martinez", "Anderson", "Taylor"]
         cities = ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix",
                  "Philadelphia", "San Antonio", "San Diego", "Dallas", "Austin"]
-        
+
         customers = []
         for i in range(1, count + 1):
             first = random.choice(first_names)
@@ -252,24 +252,24 @@ class CustomerOrdersBackend(MasterDetailBackend):
                 'total_spent': 0.0,
             })
         return customers
-    
+
     def _generate_orders(self) -> list:
         """Generate sample orders for each customer."""
-        products = ["Widget Pro", "Gadget X", "Tool Kit", "Component A", 
+        products = ["Widget Pro", "Gadget X", "Tool Kit", "Component A",
                    "Module B", "System C", "Device D", "Unit E"]
         statuses = ["Completed", "Processing", "Shipped", "Pending", "Delivered"]
-        
+
         orders = []
         order_id = 1000
-        
+
         for customer in self._customers:
             num_orders = random.randint(2, 8)
             customer_total = 0.0
-            
+
             for _ in range(num_orders):
                 amount = round(random.uniform(25.0, 500.0), 2)
                 customer_total += amount
-                
+
                 orders.append({
                     'order_id': order_id,
                     'customer_id': customer['id'],
@@ -280,21 +280,21 @@ class CustomerOrdersBackend(MasterDetailBackend):
                     'status': random.choice(statuses),
                 })
                 order_id += 1
-            
+
             customer['total_orders'] = num_orders
             customer['total_spent'] = round(customer_total, 2)
-        
+
         return orders
-    
+
     def get_master_type(self) -> MasterType:
         return MasterType.DATA_GRID
-    
+
     def get_master_title(self) -> str:
         return "Customers"
-    
+
     def get_master_id_field(self) -> str:
         return 'id'
-    
+
     def get_master_columns(self) -> list:
         return [
             ColumnDefinition('id', 'ID', DataType.INTEGER, width=50, align='right'),
@@ -303,31 +303,31 @@ class CustomerOrdersBackend(MasterDetailBackend):
             ColumnDefinition('total_orders', 'Orders', DataType.INTEGER, width=70, align='right'),
             ColumnDefinition('total_spent', 'Total Spent', DataType.CURRENCY, width=100, align='right'),
         ]
-    
+
     def fetch_master_data(self, request: DataRequest) -> DataResponse:
         filtered = self._customers.copy()
-        
+
         if request.search_text:
             search = request.search_text.lower()
-            filtered = [c for c in filtered if 
-                       search in c['name'].lower() or 
+            filtered = [c for c in filtered if
+                       search in c['name'].lower() or
                        search in c['city'].lower() or
                        search in c['email'].lower()]
-        
+
         if request.sort_column:
             reverse = request.sort_order.value == 'desc'
             filtered.sort(
                 key=lambda x: (x.get(request.sort_column) is None, x.get(request.sort_column)),
                 reverse=reverse
             )
-        
+
         total = len(filtered)
         total_pages = max(1, (total + request.page_size - 1) // request.page_size)
         current_page = min(request.page, total_pages)
-        
+
         start = (current_page - 1) * request.page_size
         end = start + request.page_size
-        
+
         return DataResponse(
             records=filtered[start:end],
             page_info=PageInfo(
@@ -338,10 +338,10 @@ class CustomerOrdersBackend(MasterDetailBackend):
             ),
             columns=self.get_master_columns()
         )
-    
+
     def get_detail_title(self) -> str:
         return "Orders"
-    
+
     def get_detail_columns(self) -> list:
         return [
             ColumnDefinition('order_id', 'Order #', DataType.INTEGER, width=80, align='right'),
@@ -351,30 +351,30 @@ class CustomerOrdersBackend(MasterDetailBackend):
             ColumnDefinition('date', 'Date', DataType.DATE, width=100, align='center'),
             ColumnDefinition('status', 'Status', DataType.STRING, width=100),
         ]
-    
+
     def fetch_detail_data(self, master_id, request: DataRequest) -> DataResponse:
         filtered = [o for o in self._orders if o['customer_id'] == master_id]
-        
+
         if request.search_text:
             search = request.search_text.lower()
-            filtered = [o for o in filtered if 
+            filtered = [o for o in filtered if
                        search in o['product'].lower() or
                        search in o['status'].lower()]
-        
+
         if request.sort_column:
             reverse = request.sort_order.value == 'desc'
             filtered.sort(
                 key=lambda x: (x.get(request.sort_column) is None, x.get(request.sort_column)),
                 reverse=reverse
             )
-        
+
         total = len(filtered)
         total_pages = max(1, (total + request.page_size - 1) // request.page_size)
         current_page = min(request.page, total_pages)
-        
+
         start = (current_page - 1) * request.page_size
         end = start + request.page_size
-        
+
         return DataResponse(
             records=filtered[start:end],
             page_info=PageInfo(
@@ -389,7 +389,7 @@ class CustomerOrdersBackend(MasterDetailBackend):
 
 class CategoryProductsBackend(MasterDetailBackend):
     """Demo backend using ListView for master (categories) and Grid for detail (products)."""
-    
+
     def __init__(self):
         self._categories = [
             {'id': 1, 'name': 'Electronics', 'icon': '💻'},
@@ -399,7 +399,7 @@ class CategoryProductsBackend(MasterDetailBackend):
             {'id': 5, 'name': 'Sports', 'icon': '⚽'},
         ]
         self._products = self._generate_products()
-    
+
     def _generate_products(self) -> list:
         products_by_category = {
             1: [("Laptop Pro", 1299.99), ("Smartphone X", 899.99), ("Tablet Air", 649.99),
@@ -413,7 +413,7 @@ class CategoryProductsBackend(MasterDetailBackend):
             5: [("Football Pro", 39.99), ("Tennis Racket", 89.99), ("Yoga Mat", 29.99),
                 ("Running Shoes", 119.99), ("Weights Set", 199.99)],
         }
-        
+
         products = []
         prod_id = 1
         for cat_id, items in products_by_category.items():
@@ -428,13 +428,13 @@ class CategoryProductsBackend(MasterDetailBackend):
                 })
                 prod_id += 1
         return products
-    
+
     def get_master_type(self) -> MasterType:
         return MasterType.LIST_VIEW
-    
+
     def get_master_title(self) -> str:
         return "Categories"
-    
+
     def fetch_master_list(self) -> MasterListResponse:
         items = [
             MasterItem(
@@ -445,10 +445,10 @@ class CategoryProductsBackend(MasterDetailBackend):
             for cat in self._categories
         ]
         return MasterListResponse(items=items)
-    
+
     def get_detail_title(self) -> str:
         return "Products"
-    
+
     def get_detail_columns(self) -> list:
         return [
             ColumnDefinition('id', 'ID', DataType.INTEGER, width=50, align='right'),
@@ -457,21 +457,21 @@ class CategoryProductsBackend(MasterDetailBackend):
             ColumnDefinition('stock', 'In Stock', DataType.INTEGER, width=80, align='right'),
             ColumnDefinition('rating', 'Rating', DataType.FLOAT, width=70, align='center'),
         ]
-    
+
     def fetch_detail_data(self, master_id, request: DataRequest) -> DataResponse:
         filtered = [p for p in self._products if p['category_id'] == master_id]
-        
+
         if request.search_text:
             search = request.search_text.lower()
             filtered = [p for p in filtered if search in p['name'].lower()]
-        
+
         if request.sort_column:
             reverse = request.sort_order.value == 'desc'
             filtered.sort(
                 key=lambda x: (x.get(request.sort_column) is None, x.get(request.sort_column)),
                 reverse=reverse
             )
-        
+
         return DataResponse(
             records=filtered,
             page_info=PageInfo(

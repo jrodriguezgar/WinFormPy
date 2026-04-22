@@ -45,13 +45,12 @@ Example backend implementation:
             )
             self._connected = True
             return True
-        
+
         def get_message_list(self, folder="INBOX", start=0, limit=50):
             self._imap.select(folder)
             # ... implementation
 """
 
-import os
 import re
 from datetime import datetime
 from enum import Enum, Flag, auto
@@ -122,12 +121,12 @@ class EmailAddress:
     """Represents an email address with optional display name."""
     address: str
     display_name: str = ""
-    
+
     def __str__(self):
         if self.display_name:
             return f'"{self.display_name}" <{self.address}>'
         return self.address
-    
+
     @staticmethod
     def parse(address_string: str) -> 'EmailAddress':
         """Parse an email address string like 'Name <email@domain.com>'."""
@@ -147,7 +146,7 @@ class EmailAttachment:
     size: int
     data: bytes = field(default=b"", repr=False)
     content_id: str = ""  # For inline attachments
-    
+
     @property
     def attachment_type(self) -> AttachmentType:
         """Determine the type based on content_type."""
@@ -160,11 +159,11 @@ class EmailAttachment:
             return AttachmentType.VIDEO
         elif ct in ["application/zip", "application/x-rar", "application/x-7z"]:
             return AttachmentType.ARCHIVE
-        elif ct in ["application/pdf", "application/msword", 
+        elif ct in ["application/pdf", "application/msword",
                     "application/vnd.openxmlformats-officedocument"]:
             return AttachmentType.DOCUMENT
         return AttachmentType.OTHER
-    
+
     @property
     def size_formatted(self) -> str:
         """Return human-readable size."""
@@ -182,7 +181,7 @@ class EmailMessage:
     # Identifiers
     message_id: str = ""
     uid: int = 0
-    
+
     # Headers
     subject: str = ""
     from_address: Optional[EmailAddress] = None
@@ -190,44 +189,44 @@ class EmailMessage:
     cc_addresses: List[EmailAddress] = field(default_factory=list)
     bcc_addresses: List[EmailAddress] = field(default_factory=list)
     reply_to: Optional[EmailAddress] = None
-    
+
     # Dates
     date: Optional[datetime] = None
     received_date: Optional[datetime] = None
-    
+
     # Content
     body_text: str = ""
     body_html: str = ""
-    
+
     # Attachments
     attachments: List[EmailAttachment] = field(default_factory=list)
-    
+
     # Flags and metadata
     flags: EmailFlags = EmailFlags.NONE
     priority: EmailPriority = EmailPriority.Normal
     folder: str = "INBOX"
-    
+
     # Threading
     in_reply_to: str = ""
     references: List[str] = field(default_factory=list)
     thread_id: str = ""
-    
+
     @property
     def is_read(self) -> bool:
         return EmailFlags.SEEN in self.flags
-    
+
     @property
     def is_starred(self) -> bool:
         return EmailFlags.FLAGGED in self.flags
-    
+
     @property
     def is_draft(self) -> bool:
         return EmailFlags.DRAFT in self.flags
-    
+
     @property
     def has_attachments(self) -> bool:
         return len(self.attachments) > 0
-    
+
     @property
     def preview(self) -> str:
         """Get a preview of the message body (first 100 chars)."""
@@ -236,7 +235,7 @@ class EmailMessage:
         text = re.sub(r'<[^>]+>', '', text)
         text = ' '.join(text.split())[:100]
         return text + "..." if len(text) >= 100 else text
-    
+
     @property
     def date_formatted(self) -> str:
         """Format date for display."""
@@ -260,7 +259,7 @@ class EmailFolder:
     unread_count: int = 0
     has_children: bool = False
     children: List['EmailFolder'] = field(default_factory=list)
-    
+
     @property
     def display_name(self) -> str:
         """Get display name with unread count."""
@@ -275,26 +274,26 @@ class EmailAccount:
     # Account info
     email: str
     display_name: str = ""
-    
+
     # Incoming server (IMAP/POP3)
     incoming_server: str = ""
     incoming_port: int = 993
     incoming_protocol: EmailProtocol = EmailProtocol.IMAP_SSL
     incoming_username: str = ""
     incoming_password: str = ""
-    
+
     # Outgoing server (SMTP)
     outgoing_server: str = ""
     outgoing_port: int = 587
     outgoing_protocol: EmailProtocol = EmailProtocol.SMTP_TLS
     outgoing_username: str = ""
     outgoing_password: str = ""
-    
+
     # Settings
     use_same_credentials: bool = True
     check_interval_minutes: int = 5
     leave_on_server: bool = True
-    
+
     def __post_init__(self):
         if not self.incoming_username:
             self.incoming_username = self.email
@@ -311,19 +310,19 @@ class EmailAccount:
 class EmailBackend:
     """
     Base class for email operations - to be implemented by external backend.
-    
+
     This class provides default stub implementations for all email operations.
     Subclass and override methods to connect to actual email services.
-    
+
     ⚠️ IMPORTANT: This is an abstraction layer. The actual implementation
     that connects to IMAP/SMTP servers is NOT part of this project and must
     be provided externally.
-    
+
     Required backend implementations:
     - IMAP backend: For reading emails (imaplib, imapclient, etc.)
     - SMTP backend: For sending emails (smtplib, etc.)
     - Or API-based: Gmail API, Microsoft Graph, etc.
-    
+
     Example:
         class MyIMAPBackend(EmailBackend):
             def connect(self) -> bool:
@@ -331,20 +330,20 @@ class EmailBackend:
                 self._imap = imaplib.IMAP4_SSL(...)
                 self._connected = True
                 return True
-            
+
             def get_message_list(self, folder="INBOX", start=0, limit=50):
                 # Actual IMAP implementation
                 pass
-        
+
         # Usage
         backend = MyIMAPBackend(account)
         manager = EmailManager(primitives=backend)
     """
-    
+
     def __init__(self, account: EmailAccount = None):
         """
         Initialize with optional account configuration.
-        
+
         Args:
             account: EmailAccount configuration. Required for most operations.
         """
@@ -352,61 +351,61 @@ class EmailBackend:
         self._connected = False
         self._imap_connection = None
         self._smtp_connection = None
-    
+
     @property
     def is_connected(self) -> bool:
         """Check if connected to server."""
         return self._connected
-    
+
     # =========================================================================
     # Connection Methods
     # =========================================================================
-    
+
     def connect(self) -> bool:
         """
         Connect to the email server.
-        
+
         Returns:
             bool: True if connection successful
-            
+
         Raises:
             ConnectionError: If connection fails
         """
         if not self._account:
             raise ValueError("No account configured")
-        
+
         # Placeholder - actual implementation would use imaplib/smtplib
         self._connected = True
         return True
-    
+
     def disconnect(self) -> None:
         """Disconnect from the email server."""
         self._connected = False
         self._imap_connection = None
         self._smtp_connection = None
-    
+
     def authenticate(self, username: str, password: str) -> bool:
         """
         Authenticate with the server.
-        
+
         Args:
             username: Account username
             password: Account password
-            
+
         Returns:
             bool: True if authentication successful
         """
         # Placeholder
         return True
-    
+
     # =========================================================================
     # Folder Operations
     # =========================================================================
-    
+
     def get_folders(self) -> List[EmailFolder]:
         """
         Get list of all folders.
-        
+
         Returns:
             List of EmailFolder objects
         """
@@ -418,95 +417,95 @@ class EmailBackend:
             EmailFolder("Trash", "Trash", FolderType.TRASH),
             EmailFolder("Spam", "Spam", FolderType.SPAM),
         ]
-    
+
     def create_folder(self, name: str, parent: str = None) -> EmailFolder:
         """
         Create a new folder.
-        
+
         Args:
             name: Folder name
             parent: Parent folder path (optional)
-            
+
         Returns:
             Created EmailFolder
         """
         path = f"{parent}/{name}" if parent else name
         return EmailFolder(name, path, FolderType.CUSTOM)
-    
+
     def delete_folder(self, folder_path: str) -> bool:
         """
         Delete a folder.
-        
+
         Args:
             folder_path: Path of folder to delete
-            
+
         Returns:
             bool: True if successful
         """
         return True
-    
+
     def rename_folder(self, old_path: str, new_name: str) -> bool:
         """
         Rename a folder.
-        
+
         Args:
             old_path: Current folder path
             new_name: New folder name
-            
+
         Returns:
             bool: True if successful
         """
         return True
-    
+
     # =========================================================================
     # Message Retrieval
     # =========================================================================
-    
+
     def get_message_count(self, folder: str = "INBOX") -> Tuple[int, int]:
         """
         Get message count for a folder.
-        
+
         Args:
             folder: Folder path
-            
+
         Returns:
             Tuple of (total_count, unread_count)
         """
         return (0, 0)
-    
-    def get_message_list(self, folder: str = "INBOX", 
+
+    def get_message_list(self, folder: str = "INBOX",
                          start: int = 0, limit: int = 50) -> List[EmailMessage]:
         """
         Get list of messages (headers only).
-        
+
         Args:
             folder: Folder path
             start: Starting index
             limit: Maximum messages to return
-            
+
         Returns:
             List of EmailMessage with headers only
         """
         return []
-    
+
     def get_message(self, uid: int, folder: str = "INBOX") -> Optional[EmailMessage]:
         """
         Get full message including body and attachments.
-        
+
         Args:
             uid: Message UID
             folder: Folder path
-            
+
         Returns:
             EmailMessage or None if not found
         """
         return None
-    
-    def search_messages(self, criteria: Dict[str, Any], 
+
+    def search_messages(self, criteria: Dict[str, Any],
                        folder: str = "INBOX") -> List[int]:
         """
         Search for messages matching criteria.
-        
+
         Args:
             criteria: Search criteria dict:
                 - subject: Subject contains
@@ -518,162 +517,162 @@ class EmailBackend:
                 - flagged: Is starred
                 - unseen: Is unread
             folder: Folder to search
-            
+
         Returns:
             List of matching message UIDs
         """
         return []
-    
+
     # =========================================================================
     # Message Operations
     # =========================================================================
-    
+
     def move_message(self, uid: int, from_folder: str, to_folder: str) -> bool:
         """
         Move a message to another folder.
-        
+
         Args:
             uid: Message UID
             from_folder: Source folder
             to_folder: Destination folder
-            
+
         Returns:
             bool: True if successful
         """
         return True
-    
+
     def copy_message(self, uid: int, from_folder: str, to_folder: str) -> bool:
         """
         Copy a message to another folder.
-        
+
         Args:
             uid: Message UID
             from_folder: Source folder
             to_folder: Destination folder
-            
+
         Returns:
             bool: True if successful
         """
         return True
-    
-    def delete_message(self, uid: int, folder: str = "INBOX", 
+
+    def delete_message(self, uid: int, folder: str = "INBOX",
                        permanent: bool = False) -> bool:
         """
         Delete a message.
-        
+
         Args:
             uid: Message UID
             folder: Folder containing message
             permanent: If True, permanently delete. If False, move to Trash.
-            
+
         Returns:
             bool: True if successful
         """
         return True
-    
+
     def set_flags(self, uid: int, flags: EmailFlags, folder: str = "INBOX") -> bool:
         """
         Set message flags.
-        
+
         Args:
             uid: Message UID
             flags: Flags to set
             folder: Folder containing message
-            
+
         Returns:
             bool: True if successful
         """
         return True
-    
+
     def remove_flags(self, uid: int, flags: EmailFlags, folder: str = "INBOX") -> bool:
         """
         Remove message flags.
-        
+
         Args:
             uid: Message UID
             flags: Flags to remove
             folder: Folder containing message
-            
+
         Returns:
             bool: True if successful
         """
         return True
-    
+
     def mark_as_read(self, uid: int, folder: str = "INBOX") -> bool:
         """Mark a message as read."""
         return self.set_flags(uid, EmailFlags.SEEN, folder)
-    
+
     def mark_as_unread(self, uid: int, folder: str = "INBOX") -> bool:
         """Mark a message as unread."""
         return self.remove_flags(uid, EmailFlags.SEEN, folder)
-    
+
     def toggle_star(self, uid: int, folder: str = "INBOX") -> bool:
         """Toggle the starred/flagged status of a message."""
         return True
-    
+
     # =========================================================================
     # Sending Messages
     # =========================================================================
-    
+
     def send_message(self, message: EmailMessage) -> bool:
         """
         Send an email message.
-        
+
         Args:
             message: EmailMessage to send
-            
+
         Returns:
             bool: True if sent successfully
         """
         if not message.from_address:
             if self._account:
                 message.from_address = EmailAddress(
-                    self._account.email, 
+                    self._account.email,
                     self._account.display_name
                 )
         return True
-    
+
     def save_draft(self, message: EmailMessage) -> int:
         """
         Save a message as draft.
-        
+
         Args:
             message: EmailMessage to save
-            
+
         Returns:
             int: UID of saved draft
         """
         message.flags = EmailFlags.DRAFT
         return 0
-    
+
     # =========================================================================
     # Attachment Operations
     # =========================================================================
-    
+
     def get_attachment(self, message_uid: int, attachment_index: int,
                        folder: str = "INBOX") -> Optional[EmailAttachment]:
         """
         Download a specific attachment.
-        
+
         Args:
             message_uid: Message UID
             attachment_index: Index of attachment
             folder: Folder containing message
-            
+
         Returns:
             EmailAttachment with data, or None
         """
         return None
-    
-    def save_attachment(self, attachment: EmailAttachment, 
+
+    def save_attachment(self, attachment: EmailAttachment,
                         filepath: str) -> bool:
         """
         Save an attachment to disk.
-        
+
         Args:
             attachment: Attachment to save
             filepath: Path to save to
-            
+
         Returns:
             bool: True if saved successfully
         """
@@ -683,27 +682,27 @@ class EmailBackend:
             return True
         except Exception:
             return False
-    
+
     # =========================================================================
     # Utility Methods
     # =========================================================================
-    
+
     def idle(self, timeout: int = 30) -> List[int]:
         """
         Wait for new messages using IMAP IDLE.
-        
+
         Args:
             timeout: Timeout in seconds
-            
+
         Returns:
             List of new message UIDs
         """
         return []
-    
+
     def noop(self) -> bool:
         """
         Send NOOP to keep connection alive.
-        
+
         Returns:
             bool: True if connection is still alive
         """

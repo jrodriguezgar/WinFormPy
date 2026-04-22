@@ -28,17 +28,17 @@ from .console_ui import ConsoleForm
 from .console_io import (
     # Base classes
     ConsoleIOBackend,
-    
+
     # Implementations
     LocalConsoleIO,
     SubprocessConsoleIO,
     CallbackConsoleIO,
-    
+
     # Data classes
     OutputMessage,
     InputCommand,
     OutputType,
-    
+
     # Factory
     create_console_io
 )
@@ -47,18 +47,18 @@ __all__ = [
     # UI Components
     'ConsolePanel',
     'ConsoleForm',
-    
+
     # I/O Layer
     'ConsoleIOBackend',
     'LocalConsoleIO',
     'SubprocessConsoleIO',
     'CallbackConsoleIO',
-    
+
     # Data types
     'OutputMessage',
     'InputCommand',
     'OutputType',
-    
+
     # Factory
     'create_console_io'
 ]

@@ -35,15 +35,15 @@ Example:
     >>> from winformpy.ui_elements.db_connection import (
     ...     DBConnectionManager, DBConnectionUI
     ... )
-    >>> 
+    >>>
     >>> # Backend provided externally
     >>> backend = MyExternalBackend()
     >>> manager = DBConnectionManager(backend)
-    >>> 
+    >>>
     >>> # Option 1: Standalone Form window
     >>> ui = DBConnectionUI(manager)
     >>> ui.show_dialog()
-    >>> 
+    >>>
     >>> # Option 2: Embeddable Panel
     >>> panel = DBConnectionPanel(parent_window, manager)
 """

@@ -2,7 +2,7 @@
 
 **A comprehensive Python library that maps Windows Forms/VB syntax and objects to Tkinter**
 
-[![Python Version](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ---
@@ -53,7 +53,7 @@ WinFormPy is organized into several modules, each with its own detailed document
 
 - 🏛️ **[WinFormPy Core](winformpy/README.md)**: Standard Windows Forms API (Buttons, Forms, Dialogs).
 - 🎨 **[WinUI 3 Module](winformpy/WINUI3_README.md)**: Modern Fluent Design controls for Windows 11.
-- 🔧 **[WinFormPy Tools](winformpy/TOOLS_REAMDE.md)**: Font, Color, CSS, and Layout utilities.
+- 🔧 **[WinFormPy Tools](winformpy/TOOLS_README.md)**: Font, Color, CSS, and Layout utilities.
 - 🏗️ **[WinFormPy Extended](winformpy/EXTENDED_README.md)**: Complex controls like `ConsoleTextBox` and `ExtendedLabel`.
 - 🧩 **[UI Elements](winformpy/ui_elements/README.md)**: Pre-built components (Chat, DataGrid, DB Manager).
 - 📋 **[Templates](winformpy/templates/README.md)**: Full application boilerplates (Explorer, Studio, Browser).
@@ -68,7 +68,7 @@ WinFormPy is organized into several modules, each with its own detailed document
 Ensure you have [UV](https://github.com/astral-sh/uv) installed. Then:
 
 ```bash
-git clone https://github.com/DatamanEdge/WinFormPy.git
+git clone https://github.com/jrodriguezgar/WinFormPy.git
 cd WinFormPy
 uv sync
 ```
@@ -76,7 +76,7 @@ uv sync
 ### From Source (Manual)
 
 ```bash
-git clone https://github.com/DatamanEdge/WinFormPy.git
+git clone https://github.com/jrodriguezgar/WinFormPy.git
 cd WinFormPy
 pip install -e .
 ```
@@ -97,8 +97,6 @@ pip install tkcalendar
 ```
 
 **Note:** All examples and library code use lazy import, so they will run with degraded functionality if optional packages are missing, showing helpful status messages instead of crashing.
-
-See [Lazy Import Guide](guides/README_Lazy_Import.md) for implementation details.
 
 ---
 
@@ -190,12 +188,6 @@ def on_form_click(self, sender, e):
 
 ---
 
-## Quick Start
-
-Here's a simple example showing how to create a form with a button:
-
----
-
 ## Project Structure
 
 ```
@@ -203,36 +195,43 @@ WinFormPy/
 ├── winformpy/
 │   ├── __init__.py                  # Package initialization
 │   ├── winformpy.py                 # Core library (controls, dialogs, enums)
-│   ├── winformpy_extended.py        # Extended controls (ExtendedLabel)
+│   ├── winformpy_extended.py        # Extended controls (ConsoleTextBox, ExtendedLabel, DatePickerBox)
 │   ├── winformpy_tools.py           # Utilities (FontManager, ColorManager, CSSManager, LayoutManager)
+│   ├── winui3.py                    # WinUI 3 Fluent Design controls
 │   ├── mauipy.py                    # MAUI-style components (Shell, Pages, Layouts)
 │   ├── mdipy.py                     # MDI components (MDIParent, MDIChild)
 │   ├── templates/                   # Application boilerplates
-│   │   ├── winui3_template.py       # Fluent Design / WinUI 3 style
-│   │   └── dashboard_template.py    # Enterprise dashboard style
-│   └── ui_elements/                 # Reusable UI components
-│       ├── db_connection/           # Database connection management
-│       │   ├── __init__.py          # Module exports
-│       │   ├── db_connection_manager.py  # Service layer (CRUD, validation)
-│       │   ├── db_connection_panel.py    # Embeddable Panel component
-│       │   ├── db_connection_ui.py       # Standalone Form with ListView
-│       │   └── README.md            # Component documentation
-│       └── web_browser/             # Web browser suite
-│           ├── __init__.py          # Module exports
-│           ├── web_browser.py       # Basic WebBrowser control
-│           ├── web_browser_panel.py # Panel with navigation bar
-│           ├── web_browser_ui.py    # Multi-tab browser application
-│           └── README.md            # Component documentation
-├── examples/                        # Example applications
-│   └── ui_elements/                 # UI elements examples
-│       ├── db_connection_example.py # Database connection demo
-│       └── web_browser_example.py   # Web browser demo
+│   │   ├── studio_template.py       # IDE-style (VS Code pattern)
+│   │   ├── explorer_template.py     # Windows 11 File Explorer
+│   │   ├── browser_template.py      # Tabbed web browser
+│   │   ├── winui3_template.py       # WinUI 3 gallery
+│   │   ├── navigation_pane_template.py
+│   │   ├── navigation_rail_template.py
+│   │   ├── maui_template.py
+│   │   └── mdi_template.py
+│   ├── themes/                      # Theme files
+│   │   ├── winforms_theme.py        # Classic WinForms colors/fonts
+│   │   └── winui3_theme.py          # WinUI 3 Fluent Design colors/fonts
+│   └── ui_elements/                 # Pre-built components
+│       ├── chat/                    # Messenger-style chat interface
+│       ├── console/                 # Terminal emulator
+│       ├── data_grid/               # Tabular data with pagination
+│       ├── db_connection/           # Database connection manager
+│       ├── document_viewer/         # PDF/Word/Image viewer
+│       ├── email_client/            # Complete email client
+│       ├── login/                   # Authentication forms
+│       ├── master_detail/           # Master-detail layouts
+│       ├── record_form/             # Auto-generated edit forms
+│       ├── web_browser/             # Embedded browser
+│       └── word_processor/          # Rich text editor
+├── examples/                        # 40+ example applications
 ├── guides/                          # Documentation guides
 ├── tests/                           # Unit tests
 ├── pyproject.toml                   # Project configuration
+├── CHANGELOG.md                     # Release history
 ├── LICENSE                          # MIT License
-├── LLMs.txt                     # LLM context file
-└── README.md                    # This file
+├── llms.txt                         # LLM context file
+└── README.md                        # This file
 ```
 
 ---
@@ -248,7 +247,6 @@ Detailed documentation guides covering specific aspects of the library:
 | [**Dock and Anchor** ⚠️](guides/README_Dock_Anchor.md)               | **Layout anchoring and docking (includes CRITICAL initialization rules)** |
 | [GroupBox usage](guides/README_GroupBox.md)                          | GroupBox container guide     |
 | [Labelframe container](guides/README_Labelframe_Container.md)        | Labelframe patterns          |
-| [**Lazy Import Pattern**](guides/README_Lazy_Import.md)              | **Optional dependencies lazy loading (PIL, tkinterweb, etc.)** |
 | [MaskedTextBox](guides/README_MaskedTextBox.md)                      | Input masking guide          |
 | [MAUI concepts](guides/README_MAUI.md)                               | MAUI-style architecture      |
 | [MDI patterns](guides/README_MDI.md)                                 | Multiple Document Interface  |
@@ -279,7 +277,7 @@ The `examples/` directory contains demonstration scripts for different library f
 | [email_example.py](examples/email_example.py)                                                         | Email client with folders and composition         |
 | [groupbox_autosizemode_radiobutton_example.py](examples/groupbox_autosizemode_radiobutton_example.py) | GroupBox with AutoSizeMode and RadioButtons       |
 | [hierarchical_visibility_example.py](examples/hierarchical_visibility_example.py)                     | Parent-child visibility rules                     |
-| [imagelist_example.py](examples/imagelist_example.py)                                                 | ImageList with ListView, TreeView, and Buttons    |
+| [imagelist_comprehensive_example.py](examples/imagelist_comprehensive_example.py) | ImageList with ListView, TreeView, and Buttons    |
 | [layouts_example.py](examples/layouts_example.py)                                                     | FlowLayoutPanel and TableLayoutPanel              |
 | [layout_manager_example.py](examples/layout_manager_example.py)                                       | Layout manager usage                              |
 | [listbox_checkedlistbox_example.py](examples/listbox_checkedlistbox_example.py)                       | ListBox and CheckedListBox controls               |
@@ -287,7 +285,7 @@ The `examples/` directory contains demonstration scripts for different library f
 | [login_example.py](examples/login_example.py)                                                         | Login form with multiple users                    |
 | [maskedtextbox_example.py](examples/maskedtextbox_example.py)                                         | MaskedTextBox control                             |
 | [master_detail_example.py](examples/master_detail_example.py)                                         | Master-detail layouts (vertical/horizontal)       |
-| [menustrip_example.py](examples/menustrip_example.py)                                                 | MenuStrip with hierarchical menus                 |
+| [contextmenu_example.py](examples/contextmenu_example.py)                                             | ContextMenuStrip and MenuStrip usage              |
 | [more_controls_example.py](examples/more_controls_example.py)                                         | Additional controls showcase                      |
 | [printersettings_example.py](examples/printersettings_example.py)                                     | PrinterSettings object usage and dialogs          |
 | [record_form_example.py](examples/record_form_example.py)                                             | RecordForm in different modes                     |
@@ -353,7 +351,7 @@ For major changes, please open an issue first to discuss what you would like to 
 - [X] Implement basic WinForms controls
 - [X] Add MAUI-style architecture support
 - [X] Add MDI support
-- [X] Unit tests
+- [ ] Unit tests
 - [ ] Add more examples and tutorials
 - [ ] Enhanced styling and theming support
 - [ ] PyPI package distribution
@@ -383,7 +381,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ## Support
 
-For issues, questions, or suggestions, please [open an issue](https://github.com/DatamanEdge/WinFormPy/issues) on GitHub.
+For issues, questions, or suggestions, please [open an issue](https://github.com/jrodriguezgar/WinFormPy/issues) on GitHub.
 
 ---
 

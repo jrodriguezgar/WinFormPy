@@ -23,14 +23,14 @@ Usage:
         MasterDetailPanel, MasterDetailForm, MasterDetailBackend,
         MasterDetailManager, MasterType
     )
-    
+
     # Horizontal layout with DataGrid master
     panel = MasterDetailPanel(form, props={
         'Orientation': 'horizontal',
         'MasterType': MasterType.DATA_GRID,
         'MasterWidth': 350,
     }, manager=manager)
-    
+
     # Vertical layout with ListView master
     panel = MasterDetailPanel(form, props={
         'Orientation': 'vertical',

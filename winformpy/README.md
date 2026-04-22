@@ -122,6 +122,8 @@ Native.Update(widget)                  # Safe update_idletasks()
 | **TabControl** / **TabPage** | Tabbed container and pages |
 | **SplitContainer** | Resizable split panels |
 | **FlowLayoutPanel** | Auto-flowing layout |
+| **StackPane** | Single-direction stacking layout (vertical/horizontal) |
+| **ItemsControl** | Data-driven container with item templates |
 | **TableLayoutPanel** | Grid-based layout |
 | **UserControl** | Custom composite control |
 
@@ -298,6 +300,40 @@ rtb = RichTextBox(form)
 rtb.WriteLine("Success!", color="green")
 rtb.SelectionBold = True
 rtb.Write("Bold text")
+```
+
+### StackPane
+```python
+from winformpy import StackPane, Button
+
+stack = StackPane(form, {
+    'Left': 10, 'Top': 10, 'Width': 200, 'Height': 300,
+    'Orientation': 'Vertical', 'Spacing': 8
+})
+Button(stack, {'Text': 'First',  'Width': 180, 'Height': 30})
+Button(stack, {'Text': 'Second', 'Width': 180, 'Height': 30})
+Button(stack, {'Text': 'Third',  'Width': 180, 'Height': 30})
+
+# Change direction at runtime
+stack.Orientation = 'Horizontal'
+```
+
+### ItemsControl
+```python
+from winformpy import ItemsControl, Label
+
+def my_template(parent, item):
+    return Label(parent, {'Text': item, 'Width': 200, 'Height': 30})
+
+ic = ItemsControl(form, {
+    'Left': 10, 'Top': 10, 'Width': 220, 'Height': 300,
+    'ItemsSource': ['Apple', 'Banana', 'Cherry'],
+    'ItemTemplate': my_template,
+    'Spacing': 4
+})
+
+# Update items dynamically
+ic.ItemsSource = ['One', 'Two', 'Three', 'Four']
 ```
 
 ### Panel with Dock Layout

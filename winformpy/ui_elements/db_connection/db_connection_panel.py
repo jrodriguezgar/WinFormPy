@@ -30,31 +30,31 @@ from winformpy.winformpy import (
 class DBConnectionPanel(Panel):
     """
     Embeddable Panel for database connection management.
-    
+
     This is a visual interface at the same level as DBConnectionUI.
     Both use DBConnectionManager for CRUD operations.
-    
+
     Attributes:
         connection_service: DBConnectionManager instance for CRUD operations.
         connections: Cache for loaded connections.
         on_test_connection: Optional callback for custom connection testing.
-    
+
     Example:
         >>> from winformpy import Form
         >>> from winformpy.ui_elements.db_connection import (
         ...     DBConnectionManager, DBConnectionPanel
         ... )
-        >>> 
+        >>>
         >>> app = Form({'Text': 'My App', 'Width': 900, 'Height': 700})
         >>> manager = DBConnectionManager(backend)
         >>> panel = DBConnectionPanel(app, manager, {'Left': 10, 'Top': 10})
         >>> app.ShowDialog()
     """
-    
+
     def __init__(self, parent, connection_service, props: Optional[Dict[str, Any]] = None):
         """
         Initialize the connection panel.
-        
+
         Args:
             parent: Parent form or panel to embed this component.
             connection_service: DBConnectionManager instance providing CRUD operations.
@@ -69,28 +69,28 @@ class DBConnectionPanel(Panel):
         }
         if props:
             default_props.update(props)
-            
+
         super().__init__(parent, default_props)
-        
+
         self.connection_service = connection_service
         self.connections = {} # Cache for loaded connections
         self._is_loading = False # Flag to prevent recursion in events
-        
+
         # External callbacks (optional)
         self.on_test_connection = None
-        
+
         # Control references
         self.cmb_connections = None
         self.txt_conn_name = None
         self.cmb_db_type = None
-        
+
         self.txt_host = None
         self.txt_port = None
         self.txt_name = None
         self.txt_user = None
         self.txt_password = None
         self.txt_schema = None
-        
+
         self._create_ui()
         self._load_connections_from_service()
 
@@ -103,26 +103,26 @@ class DBConnectionPanel(Panel):
         ROW_HEIGHT = 28
         GAP_Y = 8
         STEP_Y = ROW_HEIGHT + GAP_Y
-        
+
         current_y = MARGIN_Y
         field_x = MARGIN_X + LBL_WIDTH + 10
-        
+
         # --- Connection Selector ---
         Label(self, {'Text': "Saved Connection:", 'Left': MARGIN_X, 'Top': current_y, 'Width': LBL_WIDTH, 'Height': ROW_HEIGHT})
         self.cmb_connections = ComboBox(self, {'Left': field_x, 'Top': current_y, 'Width': FIELD_WIDTH - 60, 'DropDownStyle': 'DropDownList'})
         self.cmb_connections.SelectedIndexChanged = self._on_connection_selected
-        
+
         btn_refresh = Button(self, {'Text': "🔄", 'Left': field_x + (FIELD_WIDTH - 60) + 5, 'Top': current_y - 2, 'Width': 45, 'Height': 30})
         btn_refresh.Click = lambda s, e: self._load_connections_from_service()
-        
+
         current_y += STEP_Y
-        
+
         # --- Separator ---
         Panel(self, {
-            'Left': MARGIN_X, 
-            'Top': current_y + 2, 
-            'Height': 2, 
-            'BackColor': 'Silver', 
+            'Left': MARGIN_X,
+            'Top': current_y + 2,
+            'Height': 2,
+            'BackColor': 'Silver',
             'Width': LBL_WIDTH + FIELD_WIDTH + 10
         })
         current_y += 12
@@ -130,69 +130,69 @@ class DBConnectionPanel(Panel):
         # --- Row 1: Name and Type ---
         Label(self, {'Text': "Connection Name:", 'Left': MARGIN_X, 'Top': current_y, 'Width': LBL_WIDTH, 'Height': ROW_HEIGHT})
         self.txt_conn_name = TextBox(self, {'Left': field_x, 'Top': current_y, 'Width': FIELD_WIDTH - 150})
-        
+
         Label(self, {'Text': "DB Type:", 'Left': field_x + (FIELD_WIDTH - 150) + 5, 'Top': current_y, 'Width': 60, 'Height': ROW_HEIGHT, 'TextAlign': 'MiddleLeft'})
         self.cmb_db_type = ComboBox(self, {
-            'Left': field_x + (FIELD_WIDTH - 150) + 70, 
-            'Top': current_y, 
-            'Width': 80, 
-            'DropDownStyle': 'DropDownList', 
+            'Left': field_x + (FIELD_WIDTH - 150) + 70,
+            'Top': current_y,
+            'Width': 80,
+            'DropDownStyle': 'DropDownList',
             'Items': ['oracle', 'mysql', 'postgresql', 'sqlite', 'mssql']
         })
-        
+
         current_y += STEP_Y
-        
+
         # --- Row 2: Host and Port ---
         Label(self, {'Text': "Host:", 'Left': MARGIN_X, 'Top': current_y, 'Width': LBL_WIDTH, 'Height': ROW_HEIGHT})
         self.txt_host = TextBox(self, {'Text': "localhost", 'Left': field_x, 'Top': current_y, 'Width': FIELD_WIDTH - 150})
-        
+
         Label(self, {'Text': "Port:", 'Left': field_x + (FIELD_WIDTH - 150) + 5, 'Top': current_y, 'Width': 60, 'Height': ROW_HEIGHT, 'TextAlign': 'MiddleLeft'})
         self.txt_port = TextBox(self, {'Text': "1521", 'Left': field_x + (FIELD_WIDTH - 150) + 70, 'Top': current_y, 'Width': 80})
-        
+
         current_y += STEP_Y
-        
+
         # --- Row 3: Database / SID ---
         Label(self, {'Text': "Database / SID:", 'Left': MARGIN_X, 'Top': current_y, 'Width': LBL_WIDTH, 'Height': ROW_HEIGHT})
         self.txt_name = TextBox(self, {'Text': "", 'Left': field_x, 'Top': current_y, 'Width': FIELD_WIDTH})
-        
+
         current_y += STEP_Y
-        
+
         # --- Row 4: User ---
         Label(self, {'Text': "User:", 'Left': MARGIN_X, 'Top': current_y, 'Width': LBL_WIDTH, 'Height': ROW_HEIGHT})
         self.txt_user = TextBox(self, {'Text': "", 'Left': field_x, 'Top': current_y, 'Width': FIELD_WIDTH})
-        
+
         current_y += STEP_Y
-        
+
         # --- Row 5: Password ---
         Label(self, {'Text': "Password:", 'Left': MARGIN_X, 'Top': current_y, 'Width': LBL_WIDTH, 'Height': ROW_HEIGHT})
         self.txt_password = TextBox(self, {'Text': "", 'Left': field_x, 'Top': current_y, 'Width': FIELD_WIDTH, 'PasswordChar': '*'})
-        
+
         current_y += STEP_Y
-        
+
         # --- Row 6: Schema (Optional) ---
         Label(self, {'Text': "Schema (optional):", 'Left': MARGIN_X, 'Top': current_y, 'Width': LBL_WIDTH, 'Height': ROW_HEIGHT})
         self.txt_schema = TextBox(self, {'Text': "", 'Left': field_x, 'Top': current_y, 'Width': FIELD_WIDTH})
-        
+
         current_y += STEP_Y + 15
-        
+
         # --- Action Buttons (Centered) ---
         btn_w = 110
         btn_gap = 8
         total_btns_w = (btn_w * 4) + (btn_gap * 3)
         btns_x = MARGIN_X + ( (LBL_WIDTH + FIELD_WIDTH + 10) - total_btns_w ) // 2
-        
+
         self.btn_save = Button(self, {'Text': "💾 Save", 'Left': btns_x, 'Top': current_y, 'Width': btn_w, 'Height': 32})
         self.btn_save.Click = lambda s, e: self._save_connection()
-        
+
         self.btn_delete = Button(self, {'Text': "🗑️ Delete", 'Left': btns_x + (btn_w + btn_gap), 'Top': current_y, 'Width': btn_w, 'Height': 32})
         self.btn_delete.Click = lambda s, e: self._delete_connection()
-        
+
         btn_clear = Button(self, {'Text': "🧹 Clear", 'Left': btns_x + (btn_w + btn_gap) * 2, 'Top': current_y, 'Width': btn_w, 'Height': 32})
         btn_clear.Click = lambda s, e: self._clear_fields()
-        
+
         btn_test = Button(self, {'Text': "🔌 Test", 'Left': btns_x + (btn_w + btn_gap) * 3, 'Top': current_y, 'Width': btn_w, 'Height': 32})
         btn_test.Click = lambda s, e: self._test_connection()
-        
+
         # Adjusting final panel height
         self.Height = current_y + 50
 
@@ -200,23 +200,23 @@ class DBConnectionPanel(Panel):
         """Loads connections from the service."""
         if self._is_loading: return
         self._is_loading = True
-        
+
         try:
             names = self.connection_service.list_names()
-                
+
             # Update ComboBox
             self.cmb_connections.Items.clear()
             self.cmb_connections.Items.append("-- New Connection --")
             for name in names:
                 self.cmb_connections.Items.append(name)
-            
+
             # Select the first one without triggering redundant events if already 0
             if self.cmb_connections.SelectedIndex != 0:
                 self.cmb_connections.SelectedIndex = 0
             else:
                 # If already 0, ensure fields are cleared (New Connection)
                 self._clear_fields()
-                
+
         except Exception as e:
             MessageBox.Show(f"Error loading settings: {e}", "Error")
         finally:
@@ -225,18 +225,18 @@ class DBConnectionPanel(Panel):
     def _on_connection_selected(self, sender, e):
         """Handles connection selection from ComboBox."""
         if self._is_loading: return
-        
+
         selected = self.cmb_connections.Text
         if not selected or selected == "-- New Connection --":
             self._clear_fields()
             self._set_read_only(False)
             return
-            
+
         config = self.connection_service.read(selected)
         if config:
             self.txt_conn_name.Text = selected
             self.set_config(config)
-            
+
             # If it's a GLOBAL connection, disable editing
             is_readonly = selected.startswith("GLOBAL:") or config.get('is_global', False)
             self._set_read_only(is_readonly)
@@ -260,14 +260,14 @@ class DBConnectionPanel(Panel):
         if not name:
             MessageBox.Show("Specify a connection name.", "Error")
             return
-            
+
         db_type = self.cmb_db_type.Text
         if not db_type:
             MessageBox.Show("Select a database type.", "Error")
             return
 
         config = self.get_config()
-        
+
         try:
             self.connection_service.save(name, config)
             # Reload list
@@ -284,7 +284,7 @@ class DBConnectionPanel(Panel):
         if not name:
             MessageBox.Show("Select an existing connection to delete.", "Error")
             return
-            
+
         if name.startswith("GLOBAL:"):
             MessageBox.Show("Global connections cannot be deleted.", "Error")
             return
@@ -321,19 +321,19 @@ class DBConnectionPanel(Panel):
         """Executes connection test via service."""
         name = self.txt_conn_name.Text.strip()
         config = self.get_config()
-        
+
         try:
             # Use service test_connection if supported
             success, message = self.connection_service.test_connection(
-                name if name else None, 
+                name if name else None,
                 config
             )
-            
+
             if success:
                 MessageBox.Show(message, "Success")
             else:
                 MessageBox.Show(f"Test failed:\n{message}", "Error")
-                
+
         except Exception as e:
             # Fallback to external callback if exists
             if self.on_test_connection:
@@ -344,7 +344,7 @@ class DBConnectionPanel(Panel):
     def get_config(self) -> Dict[str, Any]:
         """
         Get current connection configuration from UI fields.
-        
+
         Returns:
             dict: Connection parameters with keys:
                 - type: Database type (mysql, postgresql, etc.)
@@ -370,7 +370,7 @@ class DBConnectionPanel(Panel):
     def set_config(self, config: Dict[str, Any]) -> None:
         """
         Set UI fields from a connection configuration dictionary.
-        
+
         Args:
             config: Connection parameters dictionary.
         """
@@ -379,11 +379,11 @@ class DBConnectionPanel(Panel):
             self.cmb_db_type.Text = config.get('type', config.get('db_type', ''))
             self.txt_host.Text = config.get('host', 'localhost')
             self.txt_port.Text = str(config.get('port', ''))
-            
+
             # Map name/database fields
             dbname = config.get('database', config.get('service_name', ''))
             self.txt_name.Text = dbname
-            
+
             self.txt_user.Text = config.get('user', '')
             self.txt_password.Text = config.get('password', config.get('pwd', ''))
             self.txt_schema.Text = config.get('schema', '')
@@ -395,20 +395,20 @@ class DBConnectionPanel(Panel):
 if __name__ == "__main__":
     from winformpy.ui_elements.db_connection.db_connection_manager import DBConnectionManager
     from winformpy.winformpy import Form
-    
+
     # --- Demo Storage Backend (simulates external backend) ---
     class DemoStorageBackend:
         """
         Demo backend for testing purposes.
         In production, the backend is provided externally.
-        
+
         Required methods (CRUD for connection parameters file):
         - save(name, data) -> str
         - read(name) -> dict | None
         - read_all() -> dict
         - delete(name) -> bool
         - list_names() -> list
-        
+
         Optional method (for connectivity testing):
         - test_connection(conn_data) -> tuple[bool, str]
         """
@@ -433,53 +433,53 @@ if __name__ == "__main__":
                     'schema': 'public'
                 }
             }
-        
+
         # === Required CRUD methods ===
-        
+
         def save(self, name: str, data: dict) -> str:
             action = 'updated' if name in self._data else 'created'
             self._data[name] = data
             return action
-        
+
         def read(self, name: str) -> dict:
             return self._data.get(name)
-        
+
         def read_all(self) -> dict:
             return dict(self._data)
-        
+
         def delete(self, name: str) -> bool:
             if name in self._data:
                 del self._data[name]
                 return True
             return False
-        
+
         def list_names(self) -> list:
             return list(self._data.keys())
-        
+
         # === Optional: Connectivity testing ===
-        
+
         def test_connection(self, conn_data: dict) -> tuple:
             """
             Tests database connectivity.
-            This method is OPTIONAL. If not implemented, 
+            This method is OPTIONAL. If not implemented,
             the UI will show 'test not available'.
             """
             db_type = conn_data.get('type', '').lower()
             host = conn_data.get('host', '')
-            
+
             # Demo: simulate connection test
             if db_type == 'sqlite':
-                return True, f"SQLite: Database file configured (demo)."
+                return True, "SQLite: Database file configured (demo)."
             elif host == 'localhost' or host.startswith('192.168.'):
                 return True, f"Connection to {db_type} at {host} successful (demo)."
             else:
                 return False, f"Cannot reach {host} (demo simulation)."
-    
+
     # --- Create demo window with panel ---
     print("=" * 50)
     print("DBConnectionPanel Demo")
     print("=" * 50)
-    
+
     # Create main form
     app = Form({
         'Text': "DBConnectionPanel Demo",
@@ -487,11 +487,11 @@ if __name__ == "__main__":
         'Height': 500,
         'StartPosition': 'CenterScreen'
     })
-    
+
     # Create backend and manager
     backend = DemoStorageBackend()
     manager = DBConnectionManager(backend)
-    
+
     # Create panel embedded in form
     panel = DBConnectionPanel(app, manager, {
         'Left': 10,
@@ -499,10 +499,10 @@ if __name__ == "__main__":
         'Width': 660,
         'Height': 450
     })
-    
+
     print("Demo panel created with sample connections:")
     for name in backend.list_names():
         print(f"  - {name}")
     print("\nShowing panel window...")
-    
+
     app.ShowDialog()

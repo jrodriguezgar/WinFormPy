@@ -16,7 +16,7 @@ Architecture:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from enum import Enum
 
 import sys
@@ -47,9 +47,9 @@ class MasterType(Enum):
 class MasterItem:
     """
     Represents a single item in the master list.
-    
+
     Used when MasterType is LIST_VIEW.
-    
+
     Attributes:
         id: Unique identifier for the item
         text: Display text for the item
@@ -66,12 +66,12 @@ class MasterItem:
 class MasterListResponse:
     """
     Response containing master list items.
-    
+
     Used when MasterType is LIST_VIEW.
     """
     items: List[MasterItem]
     total_count: int = 0
-    
+
     def __post_init__(self):
         if self.total_count == 0:
             self.total_count = len(self.items)
@@ -80,190 +80,190 @@ class MasterListResponse:
 class MasterDetailBackend(ABC):
     """
     Abstract base class for Master-Detail data backends.
-    
+
     Implement this class to connect the Master-Detail panel to your data source.
     The backend must provide both master and detail data.
-    
+
     Example:
         class CustomerOrdersBackend(MasterDetailBackend):
             def get_master_type(self):
                 return MasterType.DATA_GRID
-            
+
             def get_master_columns(self):
                 return [
                     ColumnDefinition('id', 'ID', DataType.INTEGER, width=60),
                     ColumnDefinition('name', 'Customer Name', DataType.STRING, width=200),
                 ]
-            
+
             def fetch_master_data(self, request):
                 # Fetch customers from database
                 ...
-            
+
             def get_detail_columns(self):
                 return [
                     ColumnDefinition('order_id', 'Order #', DataType.INTEGER, width=80),
                     ColumnDefinition('date', 'Date', DataType.DATE, width=100),
                     ColumnDefinition('total', 'Total', DataType.CURRENCY, width=100),
                 ]
-            
+
             def fetch_detail_data(self, master_id, request):
                 # Fetch orders for the selected customer
                 ...
     """
-    
+
     # =========================================================================
     # Master Configuration
     # =========================================================================
-    
+
     @abstractmethod
     def get_master_type(self) -> MasterType:
         """
         Return the type of control to use for the master view.
-        
+
         Returns:
             MasterType.DATA_GRID or MasterType.LIST_VIEW
         """
         pass
-    
+
     def get_master_columns(self) -> List[ColumnDefinition]:
         """
         Return column definitions for the master grid.
-        
+
         Only required when get_master_type() returns MasterType.DATA_GRID.
-        
+
         Returns:
             List of ColumnDefinition objects
         """
         return []
-    
+
     def fetch_master_data(self, request: DataRequest) -> DataResponse:
         """
         Fetch data for the master grid.
-        
+
         Only required when get_master_type() returns MasterType.DATA_GRID.
-        
+
         Args:
             request: DataRequest with pagination, sorting, filtering
-            
+
         Returns:
             DataResponse with records and page info
         """
         return DataResponse(records=[], page_info=PageInfo())
-    
+
     def fetch_master_list(self) -> MasterListResponse:
         """
         Fetch items for the master list view.
-        
+
         Only required when get_master_type() returns MasterType.LIST_VIEW.
-        
+
         Returns:
             MasterListResponse with list items
         """
         return MasterListResponse(items=[])
-    
+
     def get_master_id_field(self) -> str:
         """
         Return the field name that contains the master record ID.
-        
+
         Used to link master selection to detail data.
         Default is 'id'.
-        
+
         Returns:
             Field name string
         """
         return 'id'
-    
+
     def get_master_title(self) -> str:
         """
         Return the title for the master panel.
-        
+
         Returns:
             Title string (default: 'Master')
         """
         return 'Master'
-    
+
     # =========================================================================
     # Detail Configuration
     # =========================================================================
-    
+
     @abstractmethod
     def get_detail_columns(self) -> List[ColumnDefinition]:
         """
         Return column definitions for the detail grid.
-        
+
         Returns:
             List of ColumnDefinition objects
         """
         pass
-    
+
     @abstractmethod
     def fetch_detail_data(self, master_id: Any, request: DataRequest) -> DataResponse:
         """
         Fetch detail data for the selected master record.
-        
+
         Args:
             master_id: The ID of the selected master record
             request: DataRequest with pagination, sorting, filtering
-            
+
         Returns:
             DataResponse with detail records and page info
         """
         pass
-    
+
     def get_detail_title(self) -> str:
         """
         Return the title for the detail panel.
-        
+
         Returns:
             Title string (default: 'Details')
         """
         return 'Details'
-    
+
     # =========================================================================
     # Formatting
     # =========================================================================
-    
+
     def format_master_value(self, value: Any, column: ColumnDefinition) -> str:
         """
         Format a value for display in the master grid.
-        
+
         Override this method for custom formatting.
-        
+
         Args:
             value: The raw value
             column: The column definition
-            
+
         Returns:
             Formatted string
         """
         return self._default_format(value, column)
-    
+
     def format_detail_value(self, value: Any, column: ColumnDefinition) -> str:
         """
         Format a value for display in the detail grid.
-        
+
         Override this method for custom formatting.
-        
+
         Args:
             value: The raw value
             column: The column definition
-            
+
         Returns:
             Formatted string
         """
         return self._default_format(value, column)
-    
+
     def _default_format(self, value: Any, column: ColumnDefinition) -> str:
         """Default formatting based on data type."""
         if value is None:
             return ''
-        
+
         if column.format_string:
             try:
                 return column.format_string.format(value)
             except (ValueError, KeyError):
                 pass
-        
+
         if column.data_type == DataType.CURRENCY:
             try:
                 return f"${float(value):,.2f}"
@@ -286,7 +286,7 @@ class MasterDetailBackend(ABC):
                 return str(value)
         elif column.data_type == DataType.BOOLEAN:
             return 'Yes' if value else 'No'
-        
+
         return str(value)
 
 
@@ -297,10 +297,10 @@ class MasterDetailBackend(ABC):
 class DemoMasterDetailBackend(MasterDetailBackend):
     """
     Demo backend with sample customer/orders data.
-    
+
     Useful for testing and demonstration.
     """
-    
+
     def __init__(self):
         # Sample customers
         self._customers = [
@@ -310,7 +310,7 @@ class DemoMasterDetailBackend(MasterDetailBackend):
             {'id': 4, 'name': 'Euro Partners', 'city': 'Berlin', 'country': 'Germany'},
             {'id': 5, 'name': 'Asian Traders', 'city': 'Tokyo', 'country': 'Japan'},
         ]
-        
+
         # Sample orders (keyed by customer_id)
         self._orders = {
             1: [
@@ -333,13 +333,13 @@ class DemoMasterDetailBackend(MasterDetailBackend):
             ],
             5: [],  # No orders yet
         }
-    
+
     def get_master_type(self) -> MasterType:
         return MasterType.DATA_GRID
-    
+
     def get_master_title(self) -> str:
         return 'Customers'
-    
+
     def get_master_columns(self) -> List[ColumnDefinition]:
         return [
             ColumnDefinition('id', 'ID', DataType.INTEGER, width=60),
@@ -347,30 +347,30 @@ class DemoMasterDetailBackend(MasterDetailBackend):
             ColumnDefinition('city', 'City', DataType.STRING, width=120),
             ColumnDefinition('country', 'Country', DataType.STRING, width=100),
         ]
-    
+
     def fetch_master_data(self, request: DataRequest) -> DataResponse:
         records = self._customers.copy()
-        
+
         # Apply search
         if request.search_text:
             search = request.search_text.lower()
-            records = [r for r in records if 
+            records = [r for r in records if
                       search in r['name'].lower() or
                       search in r['city'].lower() or
                       search in r['country'].lower()]
-        
+
         # Apply sorting
         if request.sort_column:
             reverse = (hasattr(request.sort_order, 'value') and request.sort_order.value == 'desc') or request.sort_order == 'desc'
             records.sort(key=lambda x: x.get(request.sort_column, ''), reverse=reverse)
-        
+
         total = len(records)
-        
+
         # Apply pagination
         start = (request.page - 1) * request.page_size
         end = start + request.page_size
         records = records[start:end]
-        
+
         return DataResponse(
             records=records,
             page_info=PageInfo(
@@ -380,10 +380,10 @@ class DemoMasterDetailBackend(MasterDetailBackend):
                 total_pages=(total + request.page_size - 1) // request.page_size
             )
         )
-    
+
     def get_detail_title(self) -> str:
         return 'Orders'
-    
+
     def get_detail_columns(self) -> List[ColumnDefinition]:
         return [
             ColumnDefinition('order_id', 'Order #', DataType.INTEGER, width=80),
@@ -392,32 +392,32 @@ class DemoMasterDetailBackend(MasterDetailBackend):
             ColumnDefinition('quantity', 'Qty', DataType.INTEGER, width=60, align='right'),
             ColumnDefinition('total', 'Total', DataType.CURRENCY, width=100, align='right'),
         ]
-    
+
     def fetch_detail_data(self, master_id: Any, request: DataRequest) -> DataResponse:
         if master_id is None:
             return DataResponse(records=[], page_info=PageInfo())
-        
+
         records = self._orders.get(master_id, []).copy()
-        
+
         # Apply search
         if request.search_text:
             search = request.search_text.lower()
-            records = [r for r in records if 
+            records = [r for r in records if
                       search in r['product'].lower() or
                       search in str(r['order_id'])]
-        
+
         # Apply sorting
         if request.sort_column:
             reverse = (hasattr(request.sort_order, 'value') and request.sort_order.value == 'desc') or request.sort_order == 'desc'
             records.sort(key=lambda x: x.get(request.sort_column, ''), reverse=reverse)
-        
+
         total = len(records)
-        
+
         # Apply pagination
         start = (request.page - 1) * request.page_size
         end = start + request.page_size
         records = records[start:end]
-        
+
         return DataResponse(
             records=records,
             page_info=PageInfo(
@@ -432,10 +432,10 @@ class DemoMasterDetailBackend(MasterDetailBackend):
 class DemoListViewBackend(MasterDetailBackend):
     """
     Demo backend using ListView for master.
-    
+
     Shows categories with products as details.
     """
-    
+
     def __init__(self):
         self._categories = [
             MasterItem(id=1, text='Electronics', icon='📱'),
@@ -444,7 +444,7 @@ class DemoListViewBackend(MasterDetailBackend):
             MasterItem(id=4, text='Home & Garden', icon='🏠'),
             MasterItem(id=5, text='Sports', icon='⚽'),
         ]
-        
+
         self._products = {
             1: [
                 {'id': 101, 'name': 'Smartphone', 'price': 699.99, 'stock': 50},
@@ -473,19 +473,19 @@ class DemoListViewBackend(MasterDetailBackend):
                 {'id': 504, 'name': 'Yoga Mat', 'price': 34.99, 'stock': 75},
             ],
         }
-    
+
     def get_master_type(self) -> MasterType:
         return MasterType.LIST_VIEW
-    
+
     def get_master_title(self) -> str:
         return 'Categories'
-    
+
     def fetch_master_list(self) -> MasterListResponse:
         return MasterListResponse(items=self._categories)
-    
+
     def get_detail_title(self) -> str:
         return 'Products'
-    
+
     def get_detail_columns(self) -> List[ColumnDefinition]:
         return [
             ColumnDefinition('id', 'ID', DataType.INTEGER, width=60),
@@ -493,20 +493,20 @@ class DemoListViewBackend(MasterDetailBackend):
             ColumnDefinition('price', 'Price', DataType.CURRENCY, width=100, align='right'),
             ColumnDefinition('stock', 'In Stock', DataType.INTEGER, width=80, align='right'),
         ]
-    
+
     def fetch_detail_data(self, master_id: Any, request: DataRequest) -> DataResponse:
         if master_id is None:
             return DataResponse(records=[], page_info=PageInfo())
-        
+
         records = self._products.get(master_id, []).copy()
-        
+
         # Apply search
         if request.search_text:
             search = request.search_text.lower()
             records = [r for r in records if search in r['name'].lower()]
-        
+
         total = len(records)
-        
+
         return DataResponse(
             records=records,
             page_info=PageInfo(

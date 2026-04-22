@@ -4,13 +4,70 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "winformpy"
-version = "1.0.4"
-description = "Extended Layout Controls (FlowLayoutPanel, TableLayoutPanel), advanced tools and styling (CSSManager, FontManager, ColorManager, AutoLayoutManager), and enhanced layout capabilities for complex, responsive designs."
+version = "1.1.0"
+description = "Python library mapping Windows Forms (VB.NET/VB6) controls, properties, and events to Tkinter for cross-platform GUI development with Dock/Anchor layout, WinUI 3 Fluent Design controls, MAUI Shell navigation, MDI, pre-built UI components, and application templates."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.10"
+authors = [
+    { name = "DatamanEdge" },
+]
+keywords = ["winforms", "tkinter", "gui", "windows-forms", "vb", "dotnet", "desktop", "winui3", "maui"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: User Interfaces",
+]
 dependencies = [
     "tkcalendar>=1.6.1",
 ]
 
-[tool.setuptools]
-packages = ["winformpy"]
+[project.optional-dependencies]
+images = ["Pillow"]
+web = ["tkinterweb"]
+
+[project.urls]
+Homepage = "https://github.com/jrodriguezgar/WinFormPy"
+Repository = "https://github.com/jrodriguezgar/WinFormPy"
+Issues = "https://github.com/jrodriguezgar/WinFormPy/issues"
+Changelog = "https://github.com/jrodriguezgar/WinFormPy/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["winformpy*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "W", "F"]
+ignore = [
+    "E501",   # line-too-long (handled by formatter)
+    "E701",   # multiple statements on one line
+    "E731",   # lambda assignment
+    "W293",   # whitespace before ':'
+    "W291",   # trailing whitespace
+    "E402",   # module-import-not-at-top (lazy imports by design)
+    "F811",   # redefined-while-unused (try/except fallback imports)
+    "F403",   # undefined-local-with-import-star (__init__.py re-exports)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # re-exports
+"winformpy/winformpy_extended.py" = ["F401"]  # try/except fallback imports
+"winformpy/mauipy.py" = ["F401"]  # try/except fallback imports
+"winformpy/mdipy.py" = ["F401"]  # try/except fallback imports
+"winformpy/winui3.py" = ["F401"]  # try/except fallback imports
+"winformpy/ui_elements/*" = ["F401"]  # try/except fallback imports
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
